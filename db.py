@@ -66,11 +66,13 @@ def _translate_sql(sql):
         vals_str = or_replace_match.group(3)
         cols = [c.strip() for c in cols_str.split(',')]
 
-        # For settings table, the PK is (user_id, key)
-        if table.lower() == 'settings':
-            pk_cols = ['user_id', 'key']
-        else:
-            pk_cols = [cols[0]]  # assume first column is PK
+        # Map tables to their composite primary keys
+        pk_map = {
+            'settings': ['user_id', 'key'],
+            'portfolio_snapshots': ['user_id', 'portfolio_id', 'date'],
+            'watchlist': ['user_id', 'symbol'],
+        }
+        pk_cols = pk_map.get(table.lower(), [cols[0]])
 
         non_pk = [c for c in cols if c not in pk_cols]
         update_clause = ', '.join(f'{c} = EXCLUDED.{c}' for c in non_pk)
