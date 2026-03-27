@@ -1581,10 +1581,13 @@ def trade():
         else:
             conn.execute('UPDATE holdings SET shares = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (new_shares, uid, symbol, pid))
 
+    trade_date = data.get('date', '').strip() or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     conn.execute('INSERT INTO transactions (user_id, symbol, name, action, shares, price, total, pnl, commission, timestamp, portfolio_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                (uid, symbol, name, action, shares, price, total, txn_pnl, commission, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), pid))
+                (uid, symbol, name, action, shares, price, total, txn_pnl, commission, trade_date, pid))
     conn.commit()
     conn.close()
+    # Rebuild snapshots so performance chart reflects the trade date accurately
+    _backfill_snapshots_internal(uid, pid)
     return jsonify({'success': True, 'cash': round(cash, 2), 'commission': commission})
 
 @app.route('/api/settings', methods=['GET'])
@@ -2187,11 +2190,11 @@ def _backfill_snapshots_internal(uid, pid):
         cash = starting_fund
         net_deposits = starting_fund
         seeded_early = True
-        # Remove the migrated initial deposit to avoid double-counting
+        # Remove the initial deposit to avoid double-counting (handles both "migrated" and "Initial deposit" notes)
         for d_key in list(fund_by_date.keys()):
             fund_by_date[d_key] = [ft for ft in fund_by_date[d_key]
                                    if not (ft['type'] == 'deposit' and ft['amount'] == starting_fund
-                                           and 'migrated' in (ft['note'] or '').lower())]
+                                           and ('migrated' in (ft['note'] or '').lower() or 'initial' in (ft['note'] or '').lower()))]
             if not fund_by_date[d_key]:
                 del fund_by_date[d_key]
     else:
