@@ -1933,6 +1933,7 @@ def delete_portfolio(pid):
     conn.execute('DELETE FROM holdings WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
     conn.execute('DELETE FROM transactions WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
     conn.execute('DELETE FROM fund_transactions WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
+    conn.execute('DELETE FROM portfolio_snapshots WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
     conn.execute('DELETE FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid))
     conn.commit()
     conn.close()
