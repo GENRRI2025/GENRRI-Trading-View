@@ -242,10 +242,23 @@ def _init_db_pg():
     conn = psycopg2.connect(DATABASE_URL)
     c = conn.cursor()
 
-    c.execute("""CREATE TABLE IF NOT EXISTS stocks (
-        symbol TEXT PRIMARY KEY, name TEXT NOT NULL, name_jp TEXT NOT NULL,
-        sector TEXT NOT NULL, market TEXT NOT NULL, code TEXT NOT NULL
-    )""")
+    # Fix: drop sessions table if it's missing the 'id' column (from earlier schema bug)
+    c.execute("""DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sessions')
+           AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sessions' AND column_name = 'id') THEN
+            DROP TABLE sessions;
+        END IF;
+    END $$""")
+    conn.commit()
+
+    # Use DO block to avoid "duplicate key" error when multiple workers start simultaneously
+    c.execute("""DO $$ BEGIN
+        CREATE TABLE IF NOT EXISTS stocks (
+            symbol TEXT PRIMARY KEY, name TEXT NOT NULL, name_jp TEXT NOT NULL,
+            sector TEXT NOT NULL, market TEXT NOT NULL, code TEXT NOT NULL
+        );
+    EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
+    END $$""")
 
     c.execute('''CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -294,7 +307,8 @@ def _init_db_pg():
     )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS sessions (
-        token TEXT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
+        token TEXT NOT NULL UNIQUE,
         user_id TEXT NOT NULL,
         expires_at TEXT NOT NULL
     )''')
