@@ -286,9 +286,9 @@ def get_portfolio_id(user_id, requested_id=None):
 def get_fund_amount(conn, user_id, portfolio_id):
     """Compute fund amount from fund_transactions (deposits - withdrawals)."""
     row = conn.execute(
-        'SELECT COALESCE(SUM(CASE WHEN type="deposit" THEN amount ELSE 0 END), 0) as deposits, '
-        'COALESCE(SUM(CASE WHEN type="withdrawal" THEN amount ELSE 0 END), 0) as withdrawals '
-        'FROM fund_transactions WHERE user_id = ? AND portfolio_id = ?',
+        "SELECT COALESCE(SUM(CASE WHEN type='deposit' THEN amount ELSE 0 END), 0) as deposits, "
+        "COALESCE(SUM(CASE WHEN type='withdrawal' THEN amount ELSE 0 END), 0) as withdrawals "
+        "FROM fund_transactions WHERE user_id = ? AND portfolio_id = ?",
         (user_id, portfolio_id)
     ).fetchone()
     return row['deposits'] - row['withdrawals']
@@ -297,9 +297,9 @@ def get_fund_amount(conn, user_id, portfolio_id):
 def get_fund_totals(conn, user_id, portfolio_id):
     """Return (total_deposits, total_withdrawals) from fund_transactions."""
     row = conn.execute(
-        'SELECT COALESCE(SUM(CASE WHEN type="deposit" THEN amount ELSE 0 END), 0) as deposits, '
-        'COALESCE(SUM(CASE WHEN type="withdrawal" THEN amount ELSE 0 END), 0) as withdrawals '
-        'FROM fund_transactions WHERE user_id = ? AND portfolio_id = ?',
+        "SELECT COALESCE(SUM(CASE WHEN type='deposit' THEN amount ELSE 0 END), 0) as deposits, "
+        "COALESCE(SUM(CASE WHEN type='withdrawal' THEN amount ELSE 0 END), 0) as withdrawals "
+        "FROM fund_transactions WHERE user_id = ? AND portfolio_id = ?",
         (user_id, portfolio_id)
     ).fetchone()
     return row['deposits'], row['withdrawals']
@@ -438,13 +438,13 @@ def get_stocks():
     # Sort algorithm: Prime Market first, then Standard, then Growth, then others, then by numeric code
     sort_param = request.args.get('sort', 'default')
     if sort_param == 'code':
-        order_by = "CAST(code AS INTEGER)"
+        order_by = "code"
     else:
         order_by = ("CASE "
                     "WHEN market='プライム（内国株式）' THEN 1 "
                     "WHEN market='スタンダード（内国株式）' THEN 2 "
                     "WHEN market='グロース（内国株式）' THEN 3 "
-                    "ELSE 4 END, CAST(code AS INTEGER)")
+                    "ELSE 4 END, code")
 
     rows = conn.execute(
         f"SELECT symbol, name_jp, sector, market, code FROM stocks {clause} ORDER BY {order_by} LIMIT ? OFFSET ?",
