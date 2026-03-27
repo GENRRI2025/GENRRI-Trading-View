@@ -1958,6 +1958,10 @@ async function renderPortfolio() {
   });
   _renderPortfolioUI(cachedMap);
 
+  // Always load performance chart (even with no holdings)
+  savePortfolioSnapshot();
+  loadPerfChart();
+
   // 2. If no holdings, we're done
   if (!portfolio.holdings.length) return;
 
@@ -1967,9 +1971,6 @@ async function renderPortfolio() {
   const merged = { ...cachedMap, ...freshPrices };
   _renderPortfolioUI(merged);
   checkAlerts();
-  // Save daily snapshot & load performance chart
-  savePortfolioSnapshot();
-  loadPerfChart();
 }
 
 // ——— MARKET ———————————————————————————————
