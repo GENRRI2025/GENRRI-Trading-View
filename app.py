@@ -1499,6 +1499,8 @@ def edit_transaction(txn_id):
     pid = tx['portfolio_id']
     _recalculate_portfolio(conn, uid, pid)
     conn.close()
+    # Rebuild snapshots so performance chart reflects the change
+    _backfill_snapshots_internal(uid, pid)
     return jsonify({'success': True})
 
 
@@ -1517,6 +1519,8 @@ def delete_transaction(txn_id):
     # Recalculate entire portfolio from scratch
     _recalculate_portfolio(conn, uid, pid)
     conn.close()
+    # Rebuild snapshots so performance chart reflects the change
+    _backfill_snapshots_internal(uid, pid)
     return jsonify({'success': True})
 
 
@@ -1791,6 +1795,8 @@ def edit_fund_transaction(fid):
     pid = ft['portfolio_id']
     _recalculate_portfolio(conn, uid, pid)
     conn.close()
+    # Rebuild snapshots so performance chart reflects the change
+    _backfill_snapshots_internal(uid, pid)
     return jsonify({'success': True})
 
 
@@ -1808,6 +1814,8 @@ def delete_fund_transaction(fid):
     conn.execute('DELETE FROM fund_transactions WHERE id = ?', (fid,))
     _recalculate_portfolio(conn, uid, pid)
     conn.close()
+    # Rebuild snapshots so performance chart reflects the change
+    _backfill_snapshots_internal(uid, pid)
     return jsonify({'success': True})
 
 
@@ -1999,6 +2007,8 @@ def import_transaction():
                 (uid, symbol, name, action, shares, price, total, txn_pnl, commission, date, pid))
     conn.commit()
     conn.close()
+    # Rebuild snapshots so performance chart reflects the import
+    _backfill_snapshots_internal(uid, pid)
     return jsonify({'success': True, 'cash': round(cash, 2), 'commission': commission})
 
 
