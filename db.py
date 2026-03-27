@@ -147,11 +147,33 @@ class PgCursorWrapper:
 
     def executemany(self, sql, params_list):
         translated = _translate_sql(sql)
+        # Create initial savepoint for PostgreSQL error recovery
+        try:
+            self._cursor.execute("SAVEPOINT executemany_sp")
+        except Exception:
+            pass
+        error_count = 0
+        last_error = None
         for params in params_list:
             try:
                 self._cursor.execute(translated, params)
-            except Exception:
-                pass
+            except Exception as e:
+                error_count += 1
+                last_error = e
+                # In PostgreSQL, a failed query aborts the transaction.
+                # Use SAVEPOINT to recover and continue the batch.
+                try:
+                    self._cursor.execute("ROLLBACK TO SAVEPOINT executemany_sp")
+                except Exception:
+                    pass
+            else:
+                try:
+                    self._cursor.execute("RELEASE SAVEPOINT executemany_sp")
+                    self._cursor.execute("SAVEPOINT executemany_sp")
+                except Exception:
+                    pass
+        if error_count > 0:
+            print(f"[db] executemany: {error_count} errors, last: {last_error}", flush=True)
         return self
 
     def fetchone(self):
