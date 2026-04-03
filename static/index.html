@@ -394,7 +394,7 @@ select.s-input { appearance: none; }
       <div class="portfolio-change" id="port-change">+¥0 (0.00%) All Time</div>
     </div>
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-label" data-i18n="avail_cash">Available Cash</div><div class="stat-value" id="port-cash">¥1,000,000</div></div>
+      <div class="stat-card"><div class="stat-label" data-i18n="avail_cash">Available Cash</div><div class="stat-value" id="port-cash">¥1,000,000</div><div style="font-size:12px;color:var(--text2);margin-top:2px" id="port-cash-usd">$0.00</div></div>
       <div class="stat-card"><div class="stat-label" data-i18n="invested">Invested</div><div class="stat-value" id="port-invested">¥0</div></div>
       <div class="stat-card"><div class="stat-label" data-i18n="unrealized_pnl">Unrealized P&L</div><div class="stat-value" id="port-pnl">¥0</div></div>
       <div class="stat-card"><div class="stat-label" data-i18n="realized_pnl">Realized P&L</div><div class="stat-value" id="port-realized-pnl">¥0</div></div>
@@ -545,6 +545,32 @@ select.s-input { appearance: none; }
             <button class="s-btn" style="background:var(--green);color:#fff;flex:1" onclick="doDeposit()">+ Deposit</button>
             <button class="s-btn" style="background:var(--red);color:#fff;flex:1" onclick="doWithdraw()">− Withdraw</button>
           </div>
+          <div style="border-top:1px solid var(--border);margin:16px 0"></div>
+          <!-- Currency Exchange (SBI-style) -->
+          <div class="stat-label" style="margin-bottom:8px">💱 Currency Exchange (JPY ↔ USD)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">JPY Balance</div>
+              <div style="font-size:15px;font-weight:600;margin-top:4px" id="fx-jpy-bal">¥0</div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">USD Balance</div>
+              <div style="font-size:15px;font-weight:600;margin-top:4px" id="fx-usd-bal">$0.00</div>
+            </div>
+          </div>
+          <div style="text-align:center;font-size:11px;color:var(--text2);margin-bottom:8px">
+            Rate: <strong id="fx-rate">-</strong> (spread: ±¥0.25)
+          </div>
+          <div class="s-row" style="gap:8px;margin-bottom:8px">
+            <input class="s-input" type="number" id="fx-amount" placeholder="USD amount" min="0.01" step="0.01" style="flex:2" oninput="updateFxPreview()"/>
+            <select class="s-input" id="fx-direction" style="flex:1" onchange="updateFxPreview()">
+              <option value="buy_usd">Buy USD</option>
+              <option value="sell_usd">Sell USD</option>
+            </select>
+          </div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px;text-align:center" id="fx-preview"></div>
+          <button class="s-btn" style="background:var(--accent);color:#fff;width:100%;margin-bottom:4px" onclick="doFxConvert()">Convert</button>
+
           <div style="border-top:1px solid var(--border);margin:16px 0"></div>
           <!-- Starting Fund (hidden by default, collapsible) -->
           <details style="margin-bottom:0">
@@ -1883,8 +1909,19 @@ async function fetchQuotesBatch(symbols) {
 }
 
 function _renderPortfolioUI(priceMap) {
-  document.getElementById('nav-balance').innerHTML = `<span data-i18n="nav_cash">${t('nav_cash')}</span>: <strong>${fmt(portfolio.cash)}</strong>`;
+  const cashUsd = portfolio.cash_usd || 0;
+  const usdjpyRate = portfolio.usdjpy_rate || stockPrices['USDJPY=X']?.price || 150;
+  document.getElementById('nav-balance').innerHTML = `<span data-i18n="nav_cash">${t('nav_cash')}</span>: <strong>${fmt(portfolio.cash)}</strong>${cashUsd > 0 ? ` / <strong>$${cashUsd.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>` : ''}`;
   document.getElementById('port-cash').textContent = fmt(portfolio.cash);
+  const cashUsdEl = document.getElementById('port-cash-usd');
+  if (cashUsdEl) cashUsdEl.textContent = `$${cashUsd.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+  // Update FX section balances
+  const fxJpy = document.getElementById('fx-jpy-bal');
+  const fxUsd = document.getElementById('fx-usd-bal');
+  const fxRate = document.getElementById('fx-rate');
+  if (fxJpy) fxJpy.textContent = fmt(portfolio.cash);
+  if (fxUsd) fxUsd.textContent = `$${cashUsd.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+  if (fxRate) fxRate.textContent = `¥${usdjpyRate.toFixed(2)}`;
   const list = document.getElementById('holdings-list');
 
   if (!portfolio.holdings.length) {
@@ -1893,9 +1930,10 @@ function _renderPortfolioUI(priceMap) {
     document.getElementById('port-pnl').textContent = '¥0';
     const rPnl = portfolio.realized_pnl || 0;
     document.getElementById('port-realized-pnl').innerHTML = `<span class="${rPnl >= 0 ? 'pos' : 'neg'}">${sign(rPnl)}${fmt(Math.abs(rPnl))}</span>`;
-    document.getElementById('port-total').textContent = fmt(portfolio.cash);
+    const totalWithUsd = portfolio.cash + (cashUsd * usdjpyRate);
+    document.getElementById('port-total').textContent = fmt(totalWithUsd);
     const netDep = parseFloat(portfolio.net_deposits) || parseFloat(portfolio.fund_amount) || 1000000;
-    const diff = portfolio.cash - netDep;
+    const diff = totalWithUsd - netDep;
     const pct = netDep ? (diff / netDep * 100) : 0;
     const changeEl = document.getElementById('port-change');
     changeEl.textContent = `${sign(diff)}${fmt(Math.abs(diff))} (${sign(pct)}${Math.abs(pct).toFixed(2)}%) ${t('all_time')}`;
@@ -1939,7 +1977,8 @@ function _renderPortfolioUI(priceMap) {
   list.innerHTML = html;
 
   const totalPnl = investedValue - investedCost;
-  const totalValue = portfolio.cash + investedValue;
+  const usdCashJpy = cashUsd * usdjpyRate;
+  const totalValue = portfolio.cash + usdCashJpy + investedValue;
   const netDep = parseFloat(portfolio.net_deposits) || parseFloat(portfolio.fund_amount) || 1000000;
   const allTimePnl = totalValue - netDep;
   const allTimePct = netDep ? (allTimePnl / netDep) * 100 : 0;
@@ -3331,7 +3370,12 @@ function updateTradeSummary() {
   document.getElementById('ts-commission').textContent = fmtPrice(commission, currentSymbol);
   document.getElementById('ts-grand').textContent = fmtPrice(grand, currentSymbol);
   if (tradeAction === 'buy') {
-    document.getElementById('trade-avail').textContent = `${t('pos_avail_cash')} ¥${(portfolio.cash||0).toLocaleString()}`;
+    if (isUSSymbol(currentSymbol)) {
+      const usdCash = portfolio.cash_usd || 0;
+      document.getElementById('trade-avail').textContent = `Available: $${usdCash.toLocaleString('en-US', {minimumFractionDigits:2})}`;
+    } else {
+      document.getElementById('trade-avail').textContent = `${t('pos_avail_cash')} ¥${(portfolio.cash||0).toLocaleString()}`;
+    }
   } else {
     const h = portfolio.holdings?.find(h => h.symbol === currentSymbol);
     document.getElementById('trade-avail').textContent = h ? `${t('pos_shares_avail')} ${h.shares}` : t('pos_no_sell');
@@ -3700,6 +3744,42 @@ async function doWithdraw() {
     showToast(`Withdrew ¥${amount.toLocaleString()}`);
     renderPortfolio();
   } catch(e) { showToast('Withdrawal failed', 'error'); }
+}
+
+function updateFxPreview() {
+  const amount = parseFloat(document.getElementById('fx-amount').value) || 0;
+  const direction = document.getElementById('fx-direction').value;
+  const rate = stockPrices['USDJPY=X']?.price || 150;
+  const el = document.getElementById('fx-preview');
+  if (!amount) { el.textContent = ''; return; }
+  if (direction === 'buy_usd') {
+    const jpyCost = (amount * (rate + 0.25)).toFixed(0);
+    el.innerHTML = `Buy <strong>$${amount.toFixed(2)}</strong> → costs <strong>¥${Number(jpyCost).toLocaleString()}</strong> (rate: ${(rate + 0.25).toFixed(2)})`;
+  } else {
+    const jpyReceive = (amount * (rate - 0.25)).toFixed(0);
+    el.innerHTML = `Sell <strong>$${amount.toFixed(2)}</strong> → receive <strong>¥${Number(jpyReceive).toLocaleString()}</strong> (rate: ${(rate - 0.25).toFixed(2)})`;
+  }
+}
+
+async function doFxConvert() {
+  const amount = parseFloat(document.getElementById('fx-amount').value);
+  if (!amount || amount <= 0) { showToast('Enter a valid amount', 'error'); return; }
+  const direction = document.getElementById('fx-direction').value;
+  try {
+    const res = await apiFetch(`/api/portfolios/${currentPortfolioId}/fx-convert`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ direction, amount, amount_currency: 'usd' })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Conversion failed', 'error'); return; }
+    document.getElementById('fx-amount').value = '';
+    document.getElementById('fx-preview').textContent = '';
+    const dirLabel = direction === 'buy_usd' ? 'Bought' : 'Sold';
+    showToast(`${dirLabel} $${data.usd_amount.toLocaleString()} at ¥${data.rate.toFixed(2)}`);
+    portfolio.cash = data.cash;
+    portfolio.cash_usd = data.cash_usd;
+    renderPortfolio();
+  } catch(e) { showToast('Conversion failed', 'error'); }
 }
 
 async function saveFundAmount() {

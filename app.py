@@ -1553,13 +1553,15 @@ def get_portfolio():
     conn = get_db()
     ensure_user_portfolio(conn, uid)
     pid = get_portfolio_id(uid, request.args.get('portfolio_id'))
-    sp = conn.execute('SELECT cash, realized_pnl FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
+    sp = conn.execute('SELECT cash, cash_usd, realized_pnl FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
     if sp:
         cash = sp['cash']
+        cash_usd = sp['cash_usd'] or 0.0
         realized_pnl = sp['realized_pnl'] or 0.0
     else:
         cash_row = conn.execute('SELECT cash FROM portfolio WHERE user_id = ?', (uid,)).fetchone()
         cash = cash_row['cash'] if cash_row else 1000000.0
+        cash_usd = 0.0
         realized_pnl = 0.0
     fund_amount = get_fund_amount(conn, uid, pid)
     if fund_amount == 0:
@@ -1569,9 +1571,13 @@ def get_portfolio():
     if net_deposits == 0:
         net_deposits = 1000000.0
     holdings = [dict(r) for r in conn.execute('SELECT * FROM holdings WHERE user_id = ? AND portfolio_id = ?', (uid, pid)).fetchall()]
+    # Get USDJPY rate for frontend total calculation
+    fx = PRICE_CACHE.get('USDJPY=X')
+    usdjpy_rate = fx['data']['price'] if fx and fx['data'].get('price') else 150.0
     conn.close()
-    return jsonify({'cash': round(cash, 2), 'realized_pnl': round(realized_pnl, 2), 'fund_amount': fund_amount,
-                    'total_deposits': total_deposits, 'total_withdrawals': total_withdrawals, 'net_deposits': net_deposits, 'holdings': holdings})
+    return jsonify({'cash': round(cash, 2), 'cash_usd': round(cash_usd, 2), 'realized_pnl': round(realized_pnl, 2), 'fund_amount': fund_amount,
+                    'total_deposits': total_deposits, 'total_withdrawals': total_withdrawals, 'net_deposits': net_deposits,
+                    'usdjpy_rate': round(usdjpy_rate, 2), 'holdings': holdings})
 
 @app.route('/api/transactions')
 def get_transactions():
@@ -1764,31 +1770,33 @@ def trade():
     commission_pct = float(data.get('commission_pct', 0))
     commission = round(total * commission_pct / 100, 2) if commission_pct > 0 else 0.0
     pid = get_portfolio_id(uid, data.get('portfolio_id'))
-
-    # For US stocks, convert USD total to JPY for cash deduction
-    usdjpy_rate = 1.0
     is_us = _is_us_symbol(symbol)
-    if is_us:
-        fx = PRICE_CACHE.get('USDJPY=X')
-        usdjpy_rate = fx['data']['price'] if fx and fx['data'].get('price') else 150.0  # fallback
-    total_jpy = round(total * usdjpy_rate, 2) if is_us else total
-    commission_jpy = round(commission * usdjpy_rate, 2) if is_us else commission
 
     conn = get_db()
     ensure_user_portfolio(conn, uid)
-    sp = conn.execute('SELECT cash FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
+    sp = conn.execute('SELECT cash, cash_usd FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
     if not sp:
         conn.close()
         return jsonify({'error': 'Portfolio not found'}), 404
-    cash = sp['cash']
+
+    # SBI-style: US stocks use USD cash, JP stocks use JPY cash
+    cash_jpy = sp['cash'] or 0
+    cash_usd = sp['cash_usd'] or 0
 
     txn_pnl = 0.0
     if action == 'buy':
-        if cash < total_jpy + commission_jpy:
-            conn.close()
-            return jsonify({'error': 'Insufficient funds'}), 400
-        cash -= total_jpy + commission_jpy
-        conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ?', (cash, pid))
+        if is_us:
+            if cash_usd < total + commission:
+                conn.close()
+                return jsonify({'error': f'Insufficient USD. Available: ${cash_usd:,.2f}. Convert JPY→USD first.'}), 400
+            cash_usd -= total + commission
+            conn.execute('UPDATE sub_portfolios SET cash_usd = ? WHERE id = ?', (cash_usd, pid))
+        else:
+            if cash_jpy < total + commission:
+                conn.close()
+                return jsonify({'error': 'Insufficient funds'}), 400
+            cash_jpy -= total + commission
+            conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ?', (cash_jpy, pid))
         existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
         if existing:
             new_shares = existing['shares'] + shares
@@ -1803,11 +1811,13 @@ def trade():
         if not existing or existing['shares'] < shares:
             conn.close()
             return jsonify({'error': 'Insufficient shares'}), 400
-        cash += total_jpy - commission_jpy
-        # Realized P&L = (sell_price - avg_cost) * shares_sold - commission (converted to JPY for US)
-        txn_pnl_native = round((price - existing['avg_cost']) * shares - commission, 2)
-        txn_pnl = round(txn_pnl_native * usdjpy_rate, 2) if is_us else txn_pnl_native
-        conn.execute('UPDATE sub_portfolios SET cash = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash, txn_pnl, pid))
+        txn_pnl = round((price - existing['avg_cost']) * shares - commission, 2)
+        if is_us:
+            cash_usd += total - commission
+            conn.execute('UPDATE sub_portfolios SET cash_usd = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_usd, txn_pnl, pid))
+        else:
+            cash_jpy += total - commission
+            conn.execute('UPDATE sub_portfolios SET cash = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_jpy, txn_pnl, pid))
         new_shares = existing['shares'] - shares
         if new_shares < 0.001:
             conn.execute('DELETE FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid))
@@ -1821,7 +1831,7 @@ def trade():
     conn.close()
     # Rebuild snapshots so performance chart reflects the trade date accurately
     _backfill_snapshots_internal(uid, pid)
-    return jsonify({'success': True, 'cash': round(cash, 2), 'commission': commission, 'usdjpy_rate': usdjpy_rate if is_us else None})
+    return jsonify({'success': True, 'cash': round(cash_jpy, 2), 'cash_usd': round(cash_usd, 2), 'commission': commission})
 
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
@@ -1976,6 +1986,99 @@ def withdraw_funds(pid):
     return jsonify({'success': True, 'cash': round(new_cash, 2), 'amount': amount})
 
 
+@app.route('/api/portfolios/<pid>/fx-convert', methods=['POST'])
+def fx_convert(pid):
+    """SBI-style currency conversion between JPY and USD with spread."""
+    uid, err = get_auth_user()
+    if err: return err
+    data = request.json or {}
+    direction = data.get('direction', '').strip()  # 'buy_usd' or 'sell_usd'
+    if direction not in ('buy_usd', 'sell_usd'):
+        return jsonify({'error': 'Direction must be buy_usd or sell_usd'}), 400
+    try:
+        amount = float(data.get('amount', 0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid amount'}), 400
+    if amount <= 0:
+        return jsonify({'error': 'Amount must be positive'}), 400
+    amount_currency = data.get('amount_currency', 'usd').strip().lower()
+
+    # Get live USDJPY rate
+    fx = PRICE_CACHE.get('USDJPY=X')
+    mid_rate = fx['data']['price'] if fx and fx['data'].get('price') else None
+    if not mid_rate:
+        return jsonify({'error': 'USDJPY rate not available. Try again in a moment.'}), 503
+
+    FX_SPREAD = 0.25  # SBI-style spread (¥0.25 per dollar)
+
+    conn = get_db()
+    ensure_user_portfolio(conn, uid)
+    sp = conn.execute('SELECT cash, cash_usd FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
+    if not sp:
+        conn.close()
+        return jsonify({'error': 'Portfolio not found'}), 404
+    cash_jpy = sp['cash'] or 0
+    cash_usd = sp['cash_usd'] or 0
+
+    if direction == 'buy_usd':
+        rate = mid_rate + FX_SPREAD  # Worse rate for buyer (pay more JPY per USD)
+        if amount_currency == 'usd':
+            usd_amount = amount
+            jpy_amount = round(usd_amount * rate, 2)
+        else:  # jpy
+            jpy_amount = amount
+            usd_amount = round(jpy_amount / rate, 2)
+        if jpy_amount > cash_jpy:
+            conn.close()
+            return jsonify({'error': f'Insufficient JPY. Available: ¥{cash_jpy:,.0f}, Required: ¥{jpy_amount:,.0f}'}), 400
+        conn.execute('UPDATE sub_portfolios SET cash = cash - ?, cash_usd = cash_usd + ? WHERE id = ?', (jpy_amount, usd_amount, pid))
+    else:  # sell_usd
+        rate = mid_rate - FX_SPREAD  # Worse rate for seller (receive less JPY per USD)
+        if amount_currency == 'usd':
+            usd_amount = amount
+            jpy_amount = round(usd_amount * rate, 2)
+        else:  # jpy
+            jpy_amount = amount
+            usd_amount = round(jpy_amount / rate, 2)
+        if usd_amount > cash_usd:
+            conn.close()
+            return jsonify({'error': f'Insufficient USD. Available: ${cash_usd:,.2f}, Required: ${usd_amount:,.2f}'}), 400
+        conn.execute('UPDATE sub_portfolios SET cash = cash + ?, cash_usd = cash_usd - ? WHERE id = ?', (jpy_amount, usd_amount, pid))
+
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    conn.execute('INSERT INTO fx_transactions (user_id, portfolio_id, direction, usd_amount, jpy_amount, rate, spread, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                 (uid, pid, direction, usd_amount, jpy_amount, rate, FX_SPREAD, now))
+    conn.commit()
+    updated = conn.execute('SELECT cash, cash_usd FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
+    conn.close()
+    return jsonify({
+        'success': True,
+        'cash': round(updated['cash'], 2),
+        'cash_usd': round(updated['cash_usd'], 2),
+        'usd_amount': round(usd_amount, 2),
+        'jpy_amount': round(jpy_amount, 2),
+        'rate': round(rate, 2),
+        'mid_rate': round(mid_rate, 2),
+        'spread': FX_SPREAD,
+        'direction': direction
+    })
+
+
+@app.route('/api/portfolios/<pid>/fx-history', methods=['GET'])
+def fx_history(pid):
+    """Get FX conversion history for a portfolio."""
+    uid, err = get_auth_user()
+    if err: return err
+    conn = get_db()
+    rows = conn.execute('SELECT * FROM fx_transactions WHERE user_id = ? AND portfolio_id = ? ORDER BY timestamp DESC', (uid, pid)).fetchall()
+    conn.close()
+    return jsonify([{
+        'id': r['id'], 'direction': r['direction'],
+        'usd_amount': r['usd_amount'], 'jpy_amount': r['jpy_amount'],
+        'rate': r['rate'], 'spread': r['spread'], 'timestamp': r['timestamp']
+    } for r in rows])
+
+
 @app.route('/api/portfolios/<pid>/fund-history', methods=['GET'])
 def fund_history(pid):
     uid, err = get_auth_user()
@@ -2058,13 +2161,14 @@ def reset_portfolio():
     fund = get_fund_amount(conn, uid, pid)
     if fund == 0:
         fund = 1000000.0
-    conn.execute('UPDATE sub_portfolios SET cash = ?, realized_pnl = 0 WHERE id = ? AND user_id = ?', (fund, pid, uid))
+    conn.execute('UPDATE sub_portfolios SET cash = ?, cash_usd = 0, realized_pnl = 0 WHERE id = ? AND user_id = ?', (fund, pid, uid))
     conn.execute('DELETE FROM holdings WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
     conn.execute('DELETE FROM transactions WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
-    # Keep fund_transactions — only clear trade transactions
+    conn.execute('DELETE FROM fx_transactions WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
+    # Keep fund_transactions — only clear trade transactions and FX history
     conn.commit()
     conn.close()
-    return jsonify({'success': True, 'cash': fund})
+    return jsonify({'success': True, 'cash': fund, 'cash_usd': 0})
 
 @app.route('/api/portfolios', methods=['GET'])
 def list_portfolios():
@@ -2072,7 +2176,7 @@ def list_portfolios():
     if err: return err
     conn = get_db()
     ensure_user_portfolio(conn, uid)
-    rows = conn.execute('SELECT id, name, cash, created_at FROM sub_portfolios WHERE user_id = ? ORDER BY created_at', (uid,)).fetchall()
+    rows = conn.execute('SELECT id, name, cash, cash_usd, created_at FROM sub_portfolios WHERE user_id = ? ORDER BY created_at', (uid,)).fetchall()
     result = []
     for r in rows:
         d = dict(r)

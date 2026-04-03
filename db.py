@@ -388,6 +388,25 @@ def _init_db_pg():
         timestamp TEXT NOT NULL
     )''')
 
+    # Migration: add cash_usd column to sub_portfolios (SBI-style dual currency)
+    try:
+        c.execute('ALTER TABLE sub_portfolios ADD COLUMN cash_usd DOUBLE PRECISION DEFAULT 0.0')
+    except Exception:
+        conn.rollback()
+
+    # FX conversion transactions
+    c.execute('''CREATE TABLE IF NOT EXISTS fx_transactions (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        portfolio_id TEXT NOT NULL,
+        direction TEXT NOT NULL,
+        usd_amount DOUBLE PRECISION NOT NULL,
+        jpy_amount DOUBLE PRECISION NOT NULL,
+        rate DOUBLE PRECISION NOT NULL,
+        spread DOUBLE PRECISION NOT NULL DEFAULT 0.25,
+        timestamp TEXT NOT NULL
+    )''')
+
     # Seed default user and portfolio
     from datetime import datetime
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -554,6 +573,25 @@ def _init_db_sqlite():
         c.execute('ALTER TABLE portfolio_snapshots ADD COLUMN net_deposits REAL DEFAULT 0')
     except:
         pass
+
+    # Migration: add cash_usd column to sub_portfolios (SBI-style dual currency)
+    try:
+        c.execute('ALTER TABLE sub_portfolios ADD COLUMN cash_usd REAL DEFAULT 0.0')
+    except Exception:
+        pass
+
+    # FX conversion transactions (separate from fund_transactions to avoid CHECK constraint)
+    c.execute('''CREATE TABLE IF NOT EXISTS fx_transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        portfolio_id TEXT NOT NULL,
+        direction TEXT NOT NULL,
+        usd_amount REAL NOT NULL,
+        jpy_amount REAL NOT NULL,
+        rate REAL NOT NULL,
+        spread REAL NOT NULL DEFAULT 0.25,
+        timestamp TEXT NOT NULL
+    )''')
 
     # Watchlist
     c.execute('''CREATE TABLE IF NOT EXISTS watchlist (
