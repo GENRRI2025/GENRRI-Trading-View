@@ -1945,7 +1945,6 @@ function _renderPortfolioUI(priceMap) {
   }
 
   let investedCost = 0, investedValue = 0;
-  const usdjpyRate = stockPrices['USDJPY=X']?.price || 150;
   let html = '';
   portfolio.holdings.forEach(h => {
     const q = priceMap[h.symbol];
