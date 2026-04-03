@@ -564,7 +564,7 @@ def get_stocks():
         params.append('%.T')
 
     if q:
-        where.append("(name_jp LIKE ? OR symbol LIKE ? OR code LIKE ?)")
+        where.append("(UPPER(name_jp) LIKE UPPER(?) OR UPPER(symbol) LIKE UPPER(?) OR UPPER(code) LIKE UPPER(?))")
         like = f"%{q}%"
         params += [like, like, like]
     if sector:
@@ -795,14 +795,21 @@ def get_quotes_batch():
     us_to_fetch = [s for s in to_fetch if _is_us_symbol(s)]
     jp_to_fetch = [s for s in to_fetch if not _is_us_symbol(s)]
 
-    # Fetch US symbols via Finnhub (real-time, individual calls with rate limiting)
+    # Fetch US symbols via Finnhub (real-time, parallel calls with rate limiting)
     if us_to_fetch and FINNHUB_API_KEY:
-        for sym in us_to_fetch[:50]:  # cap at 50 to stay within rate limit
-            fh = _fetch_finnhub_quote(sym)
-            if fh:
-                r = fh.copy()
-                r.pop('chart', None)
-                results[sym] = r
+        from concurrent.futures import ThreadPoolExecutor
+        batch = us_to_fetch[:50]  # cap at 50 to stay within rate limit
+        def _fh_fetch(sym):
+            try:
+                return sym, _fetch_finnhub_quote(sym)
+            except Exception:
+                return sym, None
+        with ThreadPoolExecutor(max_workers=10) as ex:
+            for sym, fh in ex.map(_fh_fetch, batch):
+                if fh:
+                    r = fh.copy()
+                    r.pop('chart', None)
+                    results[sym] = r
         # Any US symbols not fetched via Finnhub fall through to yfinance below
         us_remaining = [s for s in us_to_fetch if s not in results]
         jp_to_fetch.extend(us_remaining)
