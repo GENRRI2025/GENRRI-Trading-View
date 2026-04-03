@@ -198,7 +198,7 @@ def refresh_us_stock_list():
         # Get current US symbols in DB
         existing = set()
         try:
-            rows = conn.execute("SELECT symbol FROM stocks WHERE symbol NOT LIKE '%.T'").fetchall()
+            rows = conn.execute("SELECT symbol FROM stocks WHERE symbol NOT LIKE ?", ('%.T',)).fetchall()
             existing = {r[0] for r in rows}
         except Exception:
             pass
@@ -213,7 +213,7 @@ def refresh_us_stock_list():
             print(f"[us-stocks] Delisted ({len(removed)}): {', '.join(sorted(removed)[:20])}{'...' if len(removed) > 20 else ''}", flush=True)
 
         # Delete existing US stocks, keep JP stocks intact
-        conn.execute("DELETE FROM stocks WHERE symbol NOT LIKE '%.T'")
+        conn.execute("DELETE FROM stocks WHERE symbol NOT LIKE ?", ('%.T',))
         conn.executemany(
             'INSERT OR REPLACE INTO stocks (symbol, name, name_jp, sector, market, code) VALUES (?,?,?,?,?,?)',
             new_stocks)
@@ -557,9 +557,11 @@ def get_stocks():
 
     # Region filter: jp = symbols ending in .T, us = everything else
     if region == 'us':
-        where.append("symbol NOT LIKE '%.T'")
+        where.append("symbol NOT LIKE ?")
+        params.append('%.T')
     else:
-        where.append("symbol LIKE '%.T'")
+        where.append("symbol LIKE ?")
+        params.append('%.T')
 
     if q:
         where.append("(name_jp LIKE ? OR symbol LIKE ? OR code LIKE ?)")
@@ -604,11 +606,11 @@ def get_sectors():
     region = request.args.get('region', 'jp').strip().lower()
     conn = get_db()
     if region == 'us':
-        region_filter = "symbol NOT LIKE '%.T'"
+        region_filter = "symbol NOT LIKE ?"
     else:
-        region_filter = "symbol LIKE '%.T'"
-    rows = conn.execute(f"SELECT DISTINCT sector FROM stocks WHERE sector != '' AND {region_filter} ORDER BY sector").fetchall()
-    markets = conn.execute(f"SELECT DISTINCT market FROM stocks WHERE market != '' AND {region_filter} ORDER BY market").fetchall()
+        region_filter = "symbol LIKE ?"
+    rows = conn.execute(f"SELECT DISTINCT sector FROM stocks WHERE sector != '' AND {region_filter} ORDER BY sector", ('%.T',)).fetchall()
+    markets = conn.execute(f"SELECT DISTINCT market FROM stocks WHERE market != '' AND {region_filter} ORDER BY market", ('%.T',)).fetchall()
     conn.close()
     return jsonify({"sectors": [r[0] for r in rows], "markets": [r[0] for r in markets]})
 
