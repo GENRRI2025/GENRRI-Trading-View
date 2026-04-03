@@ -111,6 +111,135 @@ _JPX_SECTOR_MAP = {
 _STOCK_LIST_REFRESH_INTERVAL = 6 * 3600  # 6 hours
 _last_stock_refresh = None
 
+# ── Finnhub integration (real-time US quotes) ────────────────────
+FINNHUB_API_KEY = os.environ.get('FINNHUB_API_KEY', '')
+_FINNHUB_BASE = 'https://finnhub.io/api/v1'
+_finnhub_call_times = []  # timestamps of recent calls for rate limiting
+_FINNHUB_RATE_LIMIT = 55  # stay under 60/min
+_US_STOCK_REFRESH_INTERVAL = 24 * 3600  # 24 hours
+_last_us_stock_refresh = None
+
+
+def _is_us_symbol(symbol):
+    """Check if a symbol is a US stock (not JP, not index, not forex)."""
+    return bool(symbol) and not symbol.endswith('.T') and '=' not in symbol and not symbol.startswith('^')
+
+
+def _finnhub_get(path, params=None):
+    """Make a rate-limited GET request to Finnhub API. Returns parsed JSON or None."""
+    if not FINNHUB_API_KEY:
+        return None
+    now_ts = datetime.now().timestamp()
+    # Prune calls older than 60 seconds
+    _finnhub_call_times[:] = [t for t in _finnhub_call_times if now_ts - t < 60]
+    if len(_finnhub_call_times) >= _FINNHUB_RATE_LIMIT:
+        return None  # rate limited
+    _finnhub_call_times.append(now_ts)
+
+    query = urllib.parse.urlencode({**(params or {}), 'token': FINNHUB_API_KEY})
+    url = f'{_FINNHUB_BASE}{path}?{query}'
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    ctx = ssl.create_default_context()
+    try:
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+            return json.loads(resp.read())
+    except Exception:
+        try:
+            ctx = ssl._create_unverified_context()
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                return json.loads(resp.read())
+        except Exception:
+            return None
+
+
+def _fetch_us_stocks():
+    """Fetch US common stock listings from Finnhub. Returns list of stock tuples."""
+    data = _finnhub_get('/stock/symbol', {'exchange': 'US'})
+    if not data:
+        return None
+    _MIC_MAP = {
+        'XNYS': 'NYSE', 'XNAS': 'NASDAQ', 'XASE': 'AMEX',
+        'ARCX': 'NYSE Arca', 'BATS': 'BATS',
+    }
+    stocks = []
+    for item in data:
+        if item.get('type') != 'Common Stock':
+            continue
+        mic = item.get('mic', '')
+        market = _MIC_MAP.get(mic)
+        if not market:
+            continue
+        sym = item.get('symbol', '').strip()
+        desc = item.get('description', '').strip()
+        if not sym or not desc:
+            continue
+        # Skip symbols with dots/slashes (preferred shares, warrants, etc.)
+        if '.' in sym or '/' in sym:
+            continue
+        stocks.append((sym, desc, desc, 'US', market, sym))
+    return stocks
+
+
+def refresh_us_stock_list():
+    """Fetch US stock listings from Finnhub and update the database."""
+    global _last_us_stock_refresh
+    if not FINNHUB_API_KEY:
+        return
+    try:
+        new_stocks = _fetch_us_stocks()
+        if not new_stocks:
+            return
+        if len(new_stocks) < 2000:
+            print(f"[us-stocks] Too few stocks ({len(new_stocks)}), skipping update", flush=True)
+            return
+
+        conn = get_db()
+
+        # Get current US symbols in DB
+        existing = set()
+        try:
+            rows = conn.execute("SELECT symbol FROM stocks WHERE symbol NOT LIKE '%.T'").fetchall()
+            existing = {r[0] for r in rows}
+        except Exception:
+            pass
+
+        new_symbols = {s[0] for s in new_stocks}
+        added = new_symbols - existing
+        removed = existing - new_symbols
+
+        if added:
+            print(f"[us-stocks] Newly listed ({len(added)}): {', '.join(sorted(added)[:20])}{'...' if len(added) > 20 else ''}", flush=True)
+        if removed:
+            print(f"[us-stocks] Delisted ({len(removed)}): {', '.join(sorted(removed)[:20])}{'...' if len(removed) > 20 else ''}", flush=True)
+
+        # Delete existing US stocks, keep JP stocks intact
+        conn.execute("DELETE FROM stocks WHERE symbol NOT LIKE '%.T'")
+        conn.executemany(
+            'INSERT OR REPLACE INTO stocks (symbol, name, name_jp, sector, market, code) VALUES (?,?,?,?,?,?)',
+            new_stocks)
+        conn.commit()
+        conn.close()
+
+        _last_us_stock_refresh = datetime.now()
+        change_msg = ''
+        if added or removed:
+            change_msg = f' (added: {len(added)}, removed: {len(removed)})'
+        print(f"[us-stocks] Refreshed: {len(new_stocks)} US stocks from Finnhub{change_msg}", flush=True)
+    except Exception as e:
+        print(f"[us-stocks] Could not refresh from Finnhub: {e}", flush=True)
+
+
+def _us_stock_list_auto_refresh():
+    """Background thread: periodically refresh US stock listings."""
+    import time as _time
+    while True:
+        _time.sleep(_US_STOCK_REFRESH_INTERVAL)
+        try:
+            print(f"[us-stocks] Auto-refresh: checking Finnhub for listing changes...", flush=True)
+            refresh_us_stock_list()
+        except Exception as e:
+            print(f"[us-stocks] Auto-refresh error: {e}", flush=True)
+
 
 def _fetch_jpx_stocks():
     """Download the JPX listed stocks file and return list of stock tuples."""
@@ -215,6 +344,7 @@ def _stock_list_auto_refresh():
 
 # Refresh stock list on startup
 refresh_stock_list()
+refresh_us_stock_list()
 
 
 def get_auth_user():
@@ -415,6 +545,7 @@ def get_stocks():
     q      = request.args.get('q', '').strip()
     sector = request.args.get('sector', '').strip()
     market = request.args.get('market', '').strip()
+    region = request.args.get('region', 'jp').strip().lower()
     try:
         limit  = min(int(request.args.get('limit', 50)), 200)
         offset = int(request.args.get('offset', 0))
@@ -423,6 +554,13 @@ def get_stocks():
 
     conn = get_db()
     where, params = [], []
+
+    # Region filter: jp = symbols ending in .T, us = everything else
+    if region == 'us':
+        where.append("symbol NOT LIKE '%.T'")
+    else:
+        where.append("symbol LIKE '%.T'")
+
     if q:
         where.append("(name_jp LIKE ? OR symbol LIKE ? OR code LIKE ?)")
         like = f"%{q}%"
@@ -435,10 +573,12 @@ def get_stocks():
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     total = conn.execute(f"SELECT COUNT(*) FROM stocks {clause}", params).fetchone()[0]
 
-    # Sort algorithm: Prime Market first, then Standard, then Growth, then others, then by numeric code
+    # Sort algorithm depends on region
     sort_param = request.args.get('sort', 'default')
     if sort_param == 'code':
         order_by = "code"
+    elif region == 'us':
+        order_by = "symbol"  # Alphabetical for US stocks
     else:
         order_by = ("CASE "
                     "WHEN market='プライム（内国株式）' THEN 1 "
@@ -461,9 +601,14 @@ def get_stocks():
 
 @app.route('/api/sectors')
 def get_sectors():
+    region = request.args.get('region', 'jp').strip().lower()
     conn = get_db()
-    rows = conn.execute("SELECT DISTINCT sector FROM stocks WHERE sector != '' ORDER BY sector").fetchall()
-    markets = conn.execute("SELECT DISTINCT market FROM stocks WHERE market != '' ORDER BY market").fetchall()
+    if region == 'us':
+        region_filter = "symbol NOT LIKE '%.T'"
+    else:
+        region_filter = "symbol LIKE '%.T'"
+    rows = conn.execute(f"SELECT DISTINCT sector FROM stocks WHERE sector != '' AND {region_filter} ORDER BY sector").fetchall()
+    markets = conn.execute(f"SELECT DISTINCT market FROM stocks WHERE market != '' AND {region_filter} ORDER BY market").fetchall()
     conn.close()
     return jsonify({"sectors": [r[0] for r in rows], "markets": [r[0] for r in markets]})
 
@@ -518,6 +663,27 @@ def _save_stock_info_cache():
     except Exception:
         pass
 
+def _fetch_finnhub_quote(symbol):
+    """Fetch a real-time quote from Finnhub for a US stock."""
+    data = _finnhub_get('/quote', {'symbol': symbol})
+    if not data or data.get('c', 0) == 0:
+        return None
+    price = round(float(data['c']), 2)
+    change = round(float(data.get('d', 0) or 0), 2)
+    change_pct = round(float(data.get('dp', 0) or 0), 2)
+    prev_close = round(float(data.get('pc', 0) or 0), 2)
+    result = {
+        'symbol': symbol,
+        'price': price,
+        'change': change,
+        'change_pct': change_pct,
+        'prev_close': prev_close,
+        'chart': []
+    }
+    PRICE_CACHE[symbol] = {'data': result, 'ts': datetime.now()}
+    return result
+
+
 def _fetch_single_quote(symbol, with_chart=False):
     """Fetch a single quote, using cache when possible."""
     now = datetime.now()
@@ -527,6 +693,23 @@ def _fetch_single_quote(symbol, with_chart=False):
         if not with_chart:
             result.pop('chart', None)
         return result
+
+    # Try Finnhub first for US stocks (real-time)
+    if _is_us_symbol(symbol) and FINNHUB_API_KEY:
+        fh_result = _fetch_finnhub_quote(symbol)
+        if fh_result:
+            if with_chart:
+                # Fetch intraday chart from yfinance (Finnhub free has no candle data)
+                try:
+                    hist = yf.Ticker(symbol).history(period='1d', interval='5m')
+                    if not hist.empty:
+                        chart_data = []
+                        for ts, row in hist.iterrows():
+                            chart_data.append({'time': ts.strftime('%H:%M'), 'price': round(float(row['Close']), 2)})
+                        fh_result['chart'] = chart_data
+                except Exception:
+                    pass
+            return fh_result
 
     try:
         ticker = yf.Ticker(symbol)
@@ -606,15 +789,31 @@ def get_quotes_batch():
         else:
             to_fetch.append(sym)
 
-    # Batch fetch uncached symbols using yf.download (single HTTP call)
-    if to_fetch:
+    # Split into US and JP symbols for different fetch strategies
+    us_to_fetch = [s for s in to_fetch if _is_us_symbol(s)]
+    jp_to_fetch = [s for s in to_fetch if not _is_us_symbol(s)]
+
+    # Fetch US symbols via Finnhub (real-time, individual calls with rate limiting)
+    if us_to_fetch and FINNHUB_API_KEY:
+        for sym in us_to_fetch[:50]:  # cap at 50 to stay within rate limit
+            fh = _fetch_finnhub_quote(sym)
+            if fh:
+                r = fh.copy()
+                r.pop('chart', None)
+                results[sym] = r
+        # Any US symbols not fetched via Finnhub fall through to yfinance below
+        us_remaining = [s for s in us_to_fetch if s not in results]
+        jp_to_fetch.extend(us_remaining)
+
+    # Batch fetch JP (and any remaining US) symbols using yf.download
+    if jp_to_fetch:
         try:
             import pandas as pd
-            tickers_str = ' '.join(to_fetch)
+            tickers_str = ' '.join(jp_to_fetch)
             df = yf.download(tickers_str, period='5d', interval='1d',
                            group_by='ticker', progress=False, threads=True)
 
-            for sym in to_fetch:
+            for sym in jp_to_fetch:
                 try:
                     sym_df = df[sym] if sym in df.columns.get_level_values(0) else None
 
@@ -648,7 +847,7 @@ def get_quotes_batch():
             def _fetch_one(s):
                 return s, _fetch_single_quote(s, with_chart=False)
             with ThreadPoolExecutor(max_workers=6) as ex:
-                futures = list(ex.map(_fetch_one, to_fetch))
+                futures = list(ex.map(_fetch_one, jp_to_fetch))
                 for sym, result in futures:
                     if 'error' not in result:
                         r = result.copy()
@@ -885,7 +1084,7 @@ def _prefetch_once():
     conn.close()
 
     all_syms = list(holding_syms | watchlist_syms)
-    all_syms += ['^N225', 'USDJPY=X']
+    all_syms += ['^N225', 'USDJPY=X', '^GSPC', '^DJI', '^IXIC']
 
     if not all_syms:
         return holding_syms
@@ -1037,10 +1236,16 @@ def stock_news(symbol):
         except Exception:
             pass
 
-        # Google News RSS — use Japanese name for JP search, English for EN
+        # Google News RSS — JP/EN depending on stock region
         code = symbol.replace('.T', '')
-        jp_news = fetch_google_news(f'{company_name_jp} {code}', max_items=8, lang='ja')
-        en_news = fetch_google_news(f'{company_name_en} {code} stock', max_items=6, lang='en')
+        if _is_us_symbol(symbol):
+            # US stock: English news only
+            jp_news = []
+            en_news = fetch_google_news(f'{company_name_en} stock', max_items=10, lang='en')
+        else:
+            # JP stock: both languages
+            jp_news = fetch_google_news(f'{company_name_jp} {code}', max_items=8, lang='ja')
+            en_news = fetch_google_news(f'{company_name_en} {code} stock', max_items=6, lang='en')
         google_news = []
         for gn in jp_news + en_news:
             google_news.append({
@@ -1102,22 +1307,27 @@ MARKET_NEWS_TTL = 1800  # 30 minutes
 
 @app.route('/api/market-news')
 def market_news():
+    region = request.args.get('region', 'jp').strip().lower()
     now = datetime.now()
-    cached = MARKET_NEWS_CACHE.get('jp')
+    cached = MARKET_NEWS_CACHE.get(region)
     if cached and (now - cached['ts']).total_seconds() < MARKET_NEWS_TTL:
         return jsonify(cached['result'])
 
     try:
-        # Search for broad Japanese market news from multiple angles
-        queries_jp = [
-            ('日経平均 株式市場', 'ja', 8),
-            ('東証 マーケット 相場', 'ja', 5),
-            ('日本経済 金融政策', 'ja', 5),
-        ]
-        queries_en = [
-            ('Japan stock market Nikkei', 'en', 5),
-            ('Tokyo Stock Exchange economy', 'en', 4),
-        ]
+        if region == 'us':
+            queries = [
+                ('US stock market today Wall Street', 'en', 8),
+                ('S&P 500 Nasdaq Dow Jones', 'en', 5),
+                ('Federal Reserve economy US', 'en', 5),
+            ]
+        else:
+            queries = [
+                ('日経平均 株式市場', 'ja', 8),
+                ('東証 マーケット 相場', 'ja', 5),
+                ('日本経済 金融政策', 'ja', 5),
+                ('Japan stock market Nikkei', 'en', 5),
+                ('Tokyo Stock Exchange economy', 'en', 4),
+            ]
 
         all_items = []
         existing_titles = set()
@@ -1131,7 +1341,7 @@ def market_news():
             except Exception:
                 return d
 
-        for query, lang, limit in queries_jp + queries_en:
+        for query, lang, limit in queries:
             items = fetch_google_news(query, max_items=limit, lang=lang)
             for item in items:
                 key = item.get('title', '').lower()[:40]
@@ -1148,7 +1358,7 @@ def market_news():
         all_items.sort(key=lambda x: parse_date_key(x.get('date', '')), reverse=True)
         result = all_items[:15]
 
-        MARKET_NEWS_CACHE['jp'] = {'result': result, 'ts': now}
+        MARKET_NEWS_CACHE[region] = {'result': result, 'ts': now}
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1546,6 +1756,15 @@ def trade():
     commission = round(total * commission_pct / 100, 2) if commission_pct > 0 else 0.0
     pid = get_portfolio_id(uid, data.get('portfolio_id'))
 
+    # For US stocks, convert USD total to JPY for cash deduction
+    usdjpy_rate = 1.0
+    is_us = _is_us_symbol(symbol)
+    if is_us:
+        fx = PRICE_CACHE.get('USDJPY=X')
+        usdjpy_rate = fx['data']['price'] if fx and fx['data'].get('price') else 150.0  # fallback
+    total_jpy = round(total * usdjpy_rate, 2) if is_us else total
+    commission_jpy = round(commission * usdjpy_rate, 2) if is_us else commission
+
     conn = get_db()
     ensure_user_portfolio(conn, uid)
     sp = conn.execute('SELECT cash FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
@@ -1556,10 +1775,10 @@ def trade():
 
     txn_pnl = 0.0
     if action == 'buy':
-        if cash < total + commission:
+        if cash < total_jpy + commission_jpy:
             conn.close()
             return jsonify({'error': 'Insufficient funds'}), 400
-        cash -= total + commission
+        cash -= total_jpy + commission_jpy
         conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ?', (cash, pid))
         existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
         if existing:
@@ -1575,9 +1794,10 @@ def trade():
         if not existing or existing['shares'] < shares:
             conn.close()
             return jsonify({'error': 'Insufficient shares'}), 400
-        cash += total - commission
-        # Realized P&L = (sell_price - avg_cost) * shares_sold - commission
-        txn_pnl = round((price - existing['avg_cost']) * shares - commission, 2)
+        cash += total_jpy - commission_jpy
+        # Realized P&L = (sell_price - avg_cost) * shares_sold - commission (converted to JPY for US)
+        txn_pnl_native = round((price - existing['avg_cost']) * shares - commission, 2)
+        txn_pnl = round(txn_pnl_native * usdjpy_rate, 2) if is_us else txn_pnl_native
         conn.execute('UPDATE sub_portfolios SET cash = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash, txn_pnl, pid))
         new_shares = existing['shares'] - shares
         if new_shares < 0.001:
@@ -1592,7 +1812,7 @@ def trade():
     conn.close()
     # Rebuild snapshots so performance chart reflects the trade date accurately
     _backfill_snapshots_internal(uid, pid)
-    return jsonify({'success': True, 'cash': round(cash, 2), 'commission': commission})
+    return jsonify({'success': True, 'cash': round(cash, 2), 'commission': commission, 'usdjpy_rate': usdjpy_rate if is_us else None})
 
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
@@ -2406,4 +2626,7 @@ if __name__ == '__main__':
     threading.Thread(target=_prefetch_background, daemon=True).start()
     # Auto-refresh stock list from JPX every 6 hours (detects new listings / delistings)
     threading.Thread(target=_stock_list_auto_refresh, daemon=True).start()
+    # Auto-refresh US stock list from Finnhub every 24 hours
+    if FINNHUB_API_KEY:
+        threading.Thread(target=_us_stock_list_auto_refresh, daemon=True).start()
     app.run(debug=False, port=port, threaded=True)

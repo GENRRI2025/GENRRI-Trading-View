@@ -366,10 +366,19 @@ select.s-input { appearance: none; }
 </nav>
 
 <div class="market-header">
-  <div class="market-item">Nikkei 225 <strong id="nk-price">-</strong> <span id="nk-change">-</span></div>
+  <div class="market-item" id="mh-index-jp">Nikkei 225 <strong id="nk-price">-</strong> <span id="nk-change">-</span></div>
+  <div class="market-item" id="mh-index-sp" style="display:none">S&P 500 <strong id="sp-price">-</strong> <span id="sp-change">-</span></div>
+  <div class="market-item" id="mh-index-dj" style="display:none">Dow <strong id="dj-price">-</strong> <span id="dj-change">-</span></div>
+  <div class="market-item" id="mh-index-nq" style="display:none">Nasdaq <strong id="nq-price">-</strong> <span id="nq-change">-</span></div>
   <div class="market-item">USD/JPY <strong id="usdjpy">-</strong></div>
   <div class="market-item"><span data-i18n="market_label">Market</span> <strong id="market-status">-</strong></div>
-  <div class="market-item" style="font-size:11px" data-i18n="data_delayed">Data delayed ~15 min</div>
+  <div class="market-item" id="mh-data-delay" style="font-size:11px" data-i18n="data_delayed">Data delayed ~15 min</div>
+  <div class="market-item" style="margin-left:auto">
+    <div style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;font-size:11px">
+      <button id="region-jp" onclick="switchRegion('jp')" style="padding:3px 10px;border:none;cursor:pointer;font-weight:600;background:var(--accent);color:#fff">JP</button>
+      <button id="region-us" onclick="switchRegion('us')" style="padding:3px 10px;border:none;cursor:pointer;font-weight:600;background:var(--surface);color:var(--text2)">US</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════ PORTFOLIO ═══════════════════ -->
@@ -1630,7 +1639,7 @@ async function renderWatchlistBanner() {
   banner.innerHTML = syms.map(sym => {
     const info = stockList.find(s => s.symbol === sym) || {};
     const q = stockPrices[sym];
-    const ticker = sym.replace('.T','');
+    const ticker = tickerDisplay(sym);
     const held = heldSyms.includes(sym);
     const watched = watchlist.includes(sym);
     return `<div class="wl-card" onclick="openDetail('${sym}')">
@@ -1652,7 +1661,7 @@ async function renderWatchlistBanner() {
   for (const sym of syms) {
     const q = stockPrices[sym];
     if (!q) continue;
-    const ticker = sym.replace('.T','');
+    const ticker = tickerDisplay(sym);
     const pe = document.getElementById(`wlp-${ticker}`);
     const ce = document.getElementById(`wlc-${ticker}`);
     if (pe) pe.textContent = fmt(q.price);
@@ -1673,7 +1682,7 @@ function renderAllocChart(cash, holdings, prices) {
   if (totalVal <= 0 || holdings.length === 0) { wrap.style.display='none'; return; }
   wrap.style.display = 'block';
 
-  const labels = ['Cash', ...holdings.map(h => h.symbol.replace('.T',''))];
+  const labels = ['Cash', ...holdings.map(h => tickerDisplay(h.symbol))];
   const vals   = [cash,  ...holdings.map(h => h.shares*(prices[h.symbol]?.price||h.avg_cost))];
   const colors = labels.map((_,i) => ALLOC_COLORS[i % ALLOC_COLORS.length]);
 
@@ -1696,6 +1705,17 @@ function renderAllocChart(cash, holdings, prices) {
 }
 
 // ——— UTILS ——————————————————————————————
+let currentRegion = localStorage.getItem('marketRegion') || 'jp';
+function isUSSymbol(sym) { return sym && !sym.endsWith('.T') && !sym.includes('=') && !sym.startsWith('^'); }
+function tickerDisplay(sym) { return sym ? (sym.endsWith('.T') ? sym.slice(0, -2) : sym) : ''; }
+function currencySymbol(sym) { return isUSSymbol(sym) ? '$' : '¥'; }
+function fmtPrice(n, sym) {
+  const isUS = isUSSymbol(sym);
+  const prefix = isUS ? '$' : '¥';
+  const locale = isUS ? 'en-US' : 'ja-JP';
+  const decimals = isUS ? 2 : (n % 1 !== 0 ? 2 : 0);
+  return prefix + Math.abs(n).toLocaleString(locale, {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+}
 const fmt = n => '¥' + Math.abs(n).toLocaleString('ja-JP', {minimumFractionDigits: n % 1 !== 0 ? 2 : 0});
 const sign = n => n >= 0 ? '+' : '-';
 
@@ -1887,6 +1907,7 @@ function _renderPortfolioUI(priceMap) {
   }
 
   let investedCost = 0, investedValue = 0;
+  const usdjpyRate = stockPrices['USDJPY=X']?.price || 150;
   let html = '';
   portfolio.holdings.forEach(h => {
     const q = priceMap[h.symbol];
@@ -1895,21 +1916,23 @@ function _renderPortfolioUI(priceMap) {
     const cost = h.shares * h.avg_cost;
     const pnl = value - cost;
     const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
-    investedCost += cost;
-    investedValue += value;
-    const ticker = h.symbol.replace('.T','');
+    // Convert to JPY for portfolio totals
+    const fxRate = isUSSymbol(h.symbol) ? usdjpyRate : 1;
+    investedCost += cost * fxRate;
+    investedValue += value * fxRate;
+    const ticker = tickerDisplay(h.symbol);
     const loading = !q ? ' style="opacity:0.6"' : '';
     html += `<div class="holding-item" onclick="openDetail('${h.symbol}')"${loading}>
       <div class="holding-left">
         <div class="holding-icon">${ticker}</div>
         <div>
           <div class="holding-name">${h.name}</div>
-          <div class="holding-shares">${h.shares} ${t('pos_shares').toLowerCase()} · ${t('pos_avg_cost')} ${fmt(h.avg_cost)}</div>
+          <div class="holding-shares">${h.shares} ${t('pos_shares').toLowerCase()} · ${t('pos_avg_cost')} ${fmtPrice(h.avg_cost, h.symbol)}</div>
         </div>
       </div>
       <div class="holding-right">
-        <div class="holding-value">${fmt(value)}</div>
-        <div class="holding-pnl ${pnl >= 0 ? 'pos' : 'neg'}">${sign(pnl)}${fmt(Math.abs(pnl))} (${sign(pnlPct)}${Math.abs(pnlPct).toFixed(2)}%)</div>
+        <div class="holding-value">${fmtPrice(value, h.symbol)}</div>
+        <div class="holding-pnl ${pnl >= 0 ? 'pos' : 'neg'}">${sign(pnl)}${fmtPrice(Math.abs(pnl), h.symbol)} (${sign(pnlPct)}${Math.abs(pnlPct).toFixed(2)}%)</div>
       </div>
     </div>`;
   });
@@ -1981,10 +2004,13 @@ let sectorsLoaded = false;
 async function loadMarket() {
   if (!sectorsLoaded) {
     try {
-      const r = await apiFetch(`/api/sectors`);
+      const r = await apiFetch(`/api/sectors?region=${currentRegion}`);
       const d = await r.json();
       const sEl = document.getElementById('sector-filter');
       const mEl = document.getElementById('market-filter');
+      // Clear existing options (keep the first "All" option)
+      while (sEl.options.length > 1) sEl.remove(1);
+      while (mEl.options.length > 1) mEl.remove(1);
       d.sectors.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; sEl.appendChild(o); });
       d.markets.forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; mEl.appendChild(o); });
       sectorsLoaded = true;
@@ -2004,7 +2030,7 @@ async function loadMarketNews() {
   if (marketNewsLoaded) return;
   const el = document.getElementById('market-news-list');
   try {
-    const res = await apiFetch('/api/market-news');
+    const res = await apiFetch(`/api/market-news?region=${currentRegion}`);
     if (!res.ok) throw new Error('Failed');
     const news = await res.json();
     if (!news.length) {
@@ -2127,7 +2153,7 @@ function renderListStocksPreview() {
   }
   el.innerHTML = _listModalStocks.map(sym => {
     const info = stockList.find(s => s.symbol === sym) || {};
-    const label = info.name ? `${sym.replace('.T','')} ${info.name}` : sym;
+    const label = info.name ? `${tickerDisplay(sym)} ${info.name}` : sym;
     return `<span style="display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600">
       ${escHtml(label.substring(0,20))}
       <span onclick="removeListStock('${sym}')" style="cursor:pointer;color:var(--text2);font-size:14px;line-height:1">×</span>
@@ -2166,7 +2192,7 @@ function addListStock(sym, name) {
   if (!_listModalStocks.includes(sym)) {
     _listModalStocks.push(sym);
     // Ensure stock is in local list cache
-    if (!stockList.find(s => s.symbol === sym)) stockList.push({ symbol: sym, name, nameJP: name, sector: '', market: '', code: sym.replace('.T','') });
+    if (!stockList.find(s => s.symbol === sym)) stockList.push({ symbol: sym, name, nameJP: name, sector: '', market: '', code: tickerDisplay(sym) });
   }
   document.getElementById('list-stock-search').value = '';
   document.getElementById('list-ac-list').style.display = 'none';
@@ -2204,7 +2230,7 @@ async function renderCustomListView(list) {
       <div class="empty-sub">Click ⋮ on the tab above to edit this list</div></div>`;
     return;
   }
-  const stocks = list.symbols.map(sym => stockList.find(s => s.symbol === sym) || { symbol: sym, name: sym, nameJP: sym, sector: '', market: '', code: sym.replace('.T','') });
+  const stocks = list.symbols.map(sym => stockList.find(s => s.symbol === sym) || { symbol: sym, name: sym, nameJP: sym, sector: '', market: '', code: tickerDisplay(sym) });
   grid.innerHTML = '';
   appendStockRows(stocks, true);
   loadPricesForBatch(stocks);
@@ -2219,7 +2245,7 @@ async function renderWatchlistMarket() {
     return;
   }
   document.getElementById('stock-count').textContent = `${watchlist.length} ${t('watched')}`;
-  const stocks = watchlist.map(sym => stockList.find(s=>s.symbol===sym) || {symbol:sym,name:sym,nameJP:sym,sector:'',market:'',code:sym.replace('.T','')});
+  const stocks = watchlist.map(sym => stockList.find(s=>s.symbol===sym) || {symbol:sym,name:sym,nameJP:sym,sector:'',market:'',code:tickerDisplay(sym)});
   grid.innerHTML = '';
   appendStockRows(stocks, true);
   loadPricesForBatch(stocks);
@@ -2240,12 +2266,12 @@ async function searchStocks(reset = false) {
   const sector = document.getElementById('sector-filter').value;
   const market = document.getElementById('market-filter').value;
 
-  const params = new URLSearchParams({ limit: PAGE_SIZE, offset: marketOffset });
+  const params = new URLSearchParams({ limit: PAGE_SIZE, offset: marketOffset, region: currentRegion });
   if (q) params.set('q', q);
   if (sector) params.set('sector', sector);
   if (market) params.set('market', market);
 
-  const cacheKey = `stocks_${q}_${sector}_${market}_${marketOffset}`;
+  const cacheKey = `stocks_${currentRegion}_${q}_${sector}_${market}_${marketOffset}`;
   let data = null;
   try {
     const res = await apiFetch(`/api/stocks?${params}`);
@@ -2292,7 +2318,7 @@ function appendStockRows(stocks, reset) {
   if (reset && !stocks.length) { grid.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text2)">${t('no_stocks_found')}</div>`; return; }
   stocks.forEach(s => {
     const q = stockPrices[s.symbol];
-    const ticker = s.symbol.replace('.T','');
+    const ticker = tickerDisplay(s.symbol);
     const starred = watchlist.includes(s.symbol);
     const div = document.createElement('div');
     div.className = 'stock-row';
@@ -2304,7 +2330,7 @@ function appendStockRows(stocks, reset) {
         <div><div class="stock-name">${s.name}</div><div class="stock-name-jp">${s.sector}${s.market?' · '+s.market:''}</div></div>
       </div>
       <div class="stock-right">
-        <div class="stock-price" id="price-${ticker}">${q ? fmt(q.price) : '<div class="loading-dots"><span></span><span></span><span></span></div>'}</div>
+        <div class="stock-price" id="price-${ticker}">${q ? fmtPrice(q.price, s.symbol) : '<div class="loading-dots"><span></span><span></span><span></span></div>'}</div>
         <div class="stock-change-badge ${q ? (q.change_pct >= 0 ? 'pos':'neg') : ''}" id="chg-${ticker}">${q ? `${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%` : ''}</div>
         <button class="row-star ${starred?'on':''}" data-wl="${s.symbol}" onclick="toggleWatchlist('${s.symbol}',event)" title="${starred?'Remove from watchlist':'Add to watchlist'}">${starred?'★':'☆'}</button>
       </div>`;
@@ -2315,12 +2341,12 @@ function appendStockRows(stocks, reset) {
 const _freshPrices = new Set();  // Symbols with fresh data this session
 
 function updateStockRow(symbol, q) {
-  const ticker = symbol.replace('.T','');
+  const ticker = tickerDisplay(symbol);
   const p = document.getElementById(`price-${ticker}`);
   const c = document.getElementById(`chg-${ticker}`);
   const stale = !_freshPrices.has(symbol);
   if (p) {
-    p.textContent = fmt(q.price);
+    p.textContent = fmtPrice(q.price, symbol);
     p.style.opacity = stale ? '0.45' : '1';
   }
   if (c) {
@@ -2357,7 +2383,7 @@ async function openDetail(symbol) {
   // If stock isn't cached yet, try to fetch it from backend
   if (!stockList.find(s => s.symbol === symbol)) {
     try {
-      const r = await apiFetch(`/api/stocks?q=${symbol.replace('.T','')}&limit=5`);
+      const r = await apiFetch(`/api/stocks?q=${tickerDisplay(symbol)}&limit=5`);
       const d = await r.json();
       d.stocks.forEach(s => { if (!stockList.find(x=>x.symbol===s.symbol)) stockList.push(s); });
     } catch(e) {}
@@ -2390,13 +2416,14 @@ async function openDetail(symbol) {
 }
 
 function _applyQuoteUI(q) {
-  document.getElementById('detail-price').textContent = `¥${q.price.toLocaleString()}`;
+  const cs = currencySymbol(currentSymbol);
+  document.getElementById('detail-price').textContent = fmtPrice(q.price, currentSymbol);
   const changeEl = document.getElementById('detail-change');
-  changeEl.textContent = `${sign(q.change)}¥${Math.abs(q.change).toLocaleString()} (${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%) ${t('today')}`;
+  changeEl.textContent = `${sign(q.change)}${fmtPrice(q.change, currentSymbol)} (${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%) ${t('today')}`;
   changeEl.className = `detail-change ${q.change >= 0 ? 'pos':'neg'}`;
   document.getElementById('detail-info-grid').innerHTML = `
-    <div class="info-item"><div class="info-label">Prev Close</div><div class="info-value">¥${q.prev_close.toLocaleString()}</div></div>
-    <div class="info-item"><div class="info-label">Change</div><div class="info-value ${q.change>=0?'pos':'neg'}">${sign(q.change)}¥${Math.abs(q.change).toFixed(0)}</div></div>
+    <div class="info-item"><div class="info-label">Prev Close</div><div class="info-value">${fmtPrice(q.prev_close, currentSymbol)}</div></div>
+    <div class="info-item"><div class="info-label">Change</div><div class="info-value ${q.change>=0?'pos':'neg'}">${sign(q.change)}${fmtPrice(q.change, currentSymbol)}</div></div>
     <div class="info-item"><div class="info-label">Change %</div><div class="info-value ${q.change_pct>=0?'pos':'neg'}">${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%</div></div>
     <div class="info-item"><div class="info-label">Sector</div><div class="info-value">${currentStockInfo.sector||'-'}</div></div>`;
   updateTradeSummary();
@@ -2428,22 +2455,23 @@ const stockInfoCache = {};
 let currentInfoTab = 'overview';
 let stockInfoExpanded = false;
 
-function fmtBig(n) {
+function fmtBig(n, sym) {
   if (n == null) return '-';
+  const cur = (sym && isUSSymbol(sym)) ? '$' : '¥';
   const abs = Math.abs(n);
-  if (currentLang === 'en') {
-    if (abs >= 1e12) return '¥' + (n / 1e12).toFixed(2) + 'T';
-    if (abs >= 1e9)  return '¥' + (n / 1e9).toFixed(2) + 'B';
-    if (abs >= 1e6)  return '¥' + (n / 1e6).toFixed(1) + 'M';
-    if (abs >= 1e3)  return '¥' + (n / 1e3).toFixed(1) + 'K';
-    return '¥' + n.toLocaleString();
+  if (currentLang === 'en' || (sym && isUSSymbol(sym))) {
+    if (abs >= 1e12) return cur + (n / 1e12).toFixed(2) + 'T';
+    if (abs >= 1e9)  return cur + (n / 1e9).toFixed(2) + 'B';
+    if (abs >= 1e6)  return cur + (n / 1e6).toFixed(1) + 'M';
+    if (abs >= 1e3)  return cur + (n / 1e3).toFixed(1) + 'K';
+    return cur + n.toLocaleString();
   }
   // JA / ZH — use 兆/億/万
-  if (abs >= 1e12) return '¥' + (n / 1e12).toFixed(2) + '兆';
-  if (abs >= 1e8)  return '¥' + (n / 1e8).toFixed(0) + '億';
-  if (abs >= 1e6)  return '¥' + (n / 1e6).toFixed(1) + 'M';
-  if (abs >= 1e4)  return '¥' + (n / 1e4).toFixed(1) + '万';
-  return '¥' + n.toLocaleString();
+  if (abs >= 1e12) return cur + (n / 1e12).toFixed(2) + '兆';
+  if (abs >= 1e8)  return cur + (n / 1e8).toFixed(0) + '億';
+  if (abs >= 1e6)  return cur + (n / 1e6).toFixed(1) + 'M';
+  if (abs >= 1e4)  return cur + (n / 1e4).toFixed(1) + '万';
+  return cur + n.toLocaleString();
 }
 
 function fmtPct(n) {
@@ -2759,13 +2787,14 @@ function renderStockInfo(tab) {
     if (d.employees) details.push(`<span style="color:var(--text2);font-size:12px">${t('info_employees')}: ${d.employees.toLocaleString()}</span>`);
     if (details.length) companyInfo = `<div style="margin-bottom:14px;display:flex;flex-direction:column;gap:4px">${details.join('')}</div>`;
 
+    const cs = currencySymbol(currentSymbol);
     el.innerHTML = companyInfo + summaryHtml + infoGrid([
-      [t('info_market_cap'), fmtBig(d.marketCap)],
+      [t('info_market_cap'), fmtBig(d.marketCap, currentSymbol)],
       [t('info_pe'), fmtNum(d.trailingPE)],
       [t('info_pb'), fmtNum(d.priceToBook)],
       [t('info_div_yield'), d.dividendYield != null ? d.dividendYield.toFixed(2) + '%' : '-'],
-      [t('info_52w_high'), d.fiftyTwoWeekHigh != null ? '¥' + fmtNum(d.fiftyTwoWeekHigh) : '-'],
-      [t('info_52w_low'), d.fiftyTwoWeekLow != null ? '¥' + fmtNum(d.fiftyTwoWeekLow) : '-'],
+      [t('info_52w_high'), d.fiftyTwoWeekHigh != null ? cs + fmtNum(d.fiftyTwoWeekHigh) : '-'],
+      [t('info_52w_low'), d.fiftyTwoWeekLow != null ? cs + fmtNum(d.fiftyTwoWeekLow) : '-'],
       [t('info_beta'), fmtNum(d.beta)],
       [t('info_avg_vol'), fmtVol(d.avgVolume)],
     ]);
@@ -2787,7 +2816,7 @@ function renderStockInfo(tab) {
       [t('info_earn_growth'), fmtPct(d.earningsGrowth)],
       [t('info_debt_equity'), fmtNum(d.debtToEquity)],
       [t('info_current_ratio'), fmtNum(d.currentRatio)],
-      [t('info_book_value'), d.bookValue != null ? '¥' + fmtNum(d.bookValue) : '-'],
+      [t('info_book_value'), d.bookValue != null ? currencySymbol(currentSymbol) + fmtNum(d.bookValue) : '-'],
     ]);
   }
 
@@ -2804,12 +2833,12 @@ function renderStockInfo(tab) {
       rangeBar = `<div style="margin-bottom:14px">
         <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${t('info_52w_range')}</div>
         <div style="display:flex;align-items:center;gap:8px;font-size:12px">
-          <span>¥${fmtNum(low)}</span>
+          <span>${currencySymbol(currentSymbol)}${fmtNum(low)}</span>
           <div style="flex:1;height:6px;background:var(--surface2);border-radius:3px;position:relative;overflow:visible">
             <div style="position:absolute;left:0;top:0;height:100%;width:${pct}%;background:linear-gradient(90deg,var(--up),var(--accent));border-radius:3px"></div>
             <div style="position:absolute;top:-3px;left:calc(${pct}% - 6px);width:12px;height:12px;background:var(--accent);border-radius:50%;border:2px solid var(--surface)"></div>
           </div>
-          <span>¥${fmtNum(high)}</span>
+          <span>${currencySymbol(currentSymbol)}${fmtNum(high)}</span>
         </div>
       </div>`;
     }
@@ -2817,10 +2846,10 @@ function renderStockInfo(tab) {
     el.innerHTML = rangeBar + infoGrid([
       [t('info_volume'), fmtVol(d.volume)],
       [t('info_avg_vol'), fmtVol(d.avgVolume)],
-      [t('info_52w_high'), d.fiftyTwoWeekHigh != null ? '¥' + fmtNum(d.fiftyTwoWeekHigh) : '-'],
-      [t('info_52w_low'), d.fiftyTwoWeekLow != null ? '¥' + fmtNum(d.fiftyTwoWeekLow) : '-'],
-      [t('info_50d_ma'), d.fiftyDayAvg != null ? '¥' + fmtNum(d.fiftyDayAvg) : '-'],
-      [t('info_200d_ma'), d.twoHundredDayAvg != null ? '¥' + fmtNum(d.twoHundredDayAvg) : '-'],
+      [t('info_52w_high'), d.fiftyTwoWeekHigh != null ? currencySymbol(currentSymbol) + fmtNum(d.fiftyTwoWeekHigh) : '-'],
+      [t('info_52w_low'), d.fiftyTwoWeekLow != null ? currencySymbol(currentSymbol) + fmtNum(d.fiftyTwoWeekLow) : '-'],
+      [t('info_50d_ma'), d.fiftyDayAvg != null ? currencySymbol(currentSymbol) + fmtNum(d.fiftyDayAvg) : '-'],
+      [t('info_200d_ma'), d.twoHundredDayAvg != null ? currencySymbol(currentSymbol) + fmtNum(d.twoHundredDayAvg) : '-'],
       [t('info_beta'), fmtNum(d.beta)],
       [t('info_total_cash'), fmtBig(d.totalCash)],
       [t('info_total_debt'), fmtBig(d.totalDebt)],
@@ -2857,21 +2886,21 @@ function renderStockInfo(tab) {
       targetHtml = `<div style="margin-bottom:14px">
         <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${t('info_target_mean')}</div>
         <div style="display:flex;align-items:center;gap:8px;font-size:12px">
-          <span>¥${fmtNum(low)}</span>
+          <span>${currencySymbol(currentSymbol)}${fmtNum(low)}</span>
           <div style="flex:1;height:6px;background:var(--surface2);border-radius:3px;position:relative;overflow:visible">
             <div style="position:absolute;top:-3px;left:calc(${meanPct}% - 6px);width:12px;height:12px;background:var(--accent2);border-radius:50%;border:2px solid var(--surface)" title="Mean target"></div>
             ${pricePct != null ? `<div style="position:absolute;top:-3px;left:calc(${pricePct}% - 5px);width:10px;height:10px;background:var(--accent);border-radius:50%;border:2px solid var(--surface)" title="Current price"></div>` : ''}
           </div>
-          <span>¥${fmtNum(high)}</span>
+          <span>${currencySymbol(currentSymbol)}${fmtNum(high)}</span>
         </div>
       </div>`;
     }
 
     el.innerHTML = ratingHtml + targetHtml + infoGrid([
-      [t('info_target_high'), d.targetHigh != null ? '¥' + fmtNum(d.targetHigh) : '-'],
-      [t('info_target_mean'), d.targetMean != null ? '¥' + fmtNum(d.targetMean) : '-'],
-      [t('info_target_median'), d.targetMedian != null ? '¥' + fmtNum(d.targetMedian) : '-'],
-      [t('info_target_low'), d.targetLow != null ? '¥' + fmtNum(d.targetLow) : '-'],
+      [t('info_target_high'), d.targetHigh != null ? currencySymbol(currentSymbol) + fmtNum(d.targetHigh) : '-'],
+      [t('info_target_mean'), d.targetMean != null ? currencySymbol(currentSymbol) + fmtNum(d.targetMean) : '-'],
+      [t('info_target_median'), d.targetMedian != null ? currencySymbol(currentSymbol) + fmtNum(d.targetMedian) : '-'],
+      [t('info_target_low'), d.targetLow != null ? currencySymbol(currentSymbol) + fmtNum(d.targetLow) : '-'],
       [t('info_num_analysts'), d.numAnalysts != null ? d.numAnalysts : '-'],
       [t('info_div_yield'), d.dividendYield != null ? d.dividendYield.toFixed(2) + '%' : '-'],
       [t('info_payout_ratio'), d.payoutRatio != null ? (d.payoutRatio * 100).toFixed(2) + '%' : '-'],
@@ -2939,7 +2968,7 @@ function renderLWChart() {
         lineWidth: 1,
         lineStyle: LightweightCharts.LineStyle.Dashed,
         axisLabelVisible: true,
-        title: `${t('avg_cost_line')} ¥${holding.avg_cost.toLocaleString()}`,
+        title: `${t('avg_cost_line')} ${fmtPrice(holding.avg_cost, currentSymbol)}`,
       });
     } catch(e) {}
   }
@@ -3271,9 +3300,9 @@ function loadPositionInfo(symbol) {
   const pnl = value - h.shares * h.avg_cost;
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text2)">${t('pos_shares')}</span><strong>${h.shares}</strong></div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text2)">${t('pos_avg_cost')}</span><strong>¥${h.avg_cost.toLocaleString()}</strong></div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text2)">${t('pos_mkt_value')}</span><strong>${fmt(value)}</strong></div>
-    <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">${t('pos_pnl')}</span><strong class="${pnl>=0?'pos':'neg'}">${sign(pnl)}${fmt(Math.abs(pnl))}</strong></div>`;
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text2)">${t('pos_avg_cost')}</span><strong>${fmtPrice(h.avg_cost, symbol)}</strong></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text2)">${t('pos_mkt_value')}</span><strong>${fmtPrice(value, symbol)}</strong></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">${t('pos_pnl')}</span><strong class="${pnl>=0?'pos':'neg'}">${sign(pnl)}${fmtPrice(Math.abs(pnl), symbol)}</strong></div>`;
 }
 
 // ——— TRADE ————————————————————————————————
@@ -3295,11 +3324,12 @@ function updateTradeSummary() {
   const total = price * shares;
   const commission = Math.round(total * commPct / 100 * 100) / 100;
   const grand = total + commission;
-  document.getElementById('ts-price').textContent = price ? `¥${price.toLocaleString()}` : '¥-';
+  const cs = currencySymbol(currentSymbol);
+  document.getElementById('ts-price').textContent = price ? fmtPrice(price, currentSymbol) : cs + '-';
   document.getElementById('ts-shares').textContent = shares;
-  document.getElementById('ts-total').textContent = `¥${total.toLocaleString('ja-JP',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-  document.getElementById('ts-commission').textContent = `¥${commission.toLocaleString('ja-JP',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-  document.getElementById('ts-grand').textContent = `¥${grand.toLocaleString('ja-JP',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  document.getElementById('ts-total').textContent = fmtPrice(total, currentSymbol);
+  document.getElementById('ts-commission').textContent = fmtPrice(commission, currentSymbol);
+  document.getElementById('ts-grand').textContent = fmtPrice(grand, currentSymbol);
   if (tradeAction === 'buy') {
     document.getElementById('trade-avail').textContent = `${t('pos_avail_cash')} ¥${(portfolio.cash||0).toLocaleString()}`;
   } else {
@@ -3372,15 +3402,15 @@ async function loadHistory() {
     // Trade transaction (buy/sell)
     const pnl = tx.pnl || 0;
     const comm = tx.commission || 0;
-    const commLine = comm > 0 ? `<div style="font-size:11px;color:var(--text2);text-align:right">Fee: ¥${comm.toLocaleString()}</div>` : '';
+    const commLine = comm > 0 ? `<div style="font-size:11px;color:var(--text2);text-align:right">Fee: ${fmtPrice(comm, tx.symbol)}</div>` : '';
     const pnlLine = tx.action === 'sell'
       ? `<div style="font-size:12px;text-align:right" class="${pnl >= 0 ? 'pos' : 'neg'}">P&L: ${pnl >= 0 ? '+' : ''}${fmt(pnl)}</div>`
       : '';
     return `<div class="txn-item" style="position:relative">
       <div style="display:flex;align-items:center;gap:8px">
         <span class="txn-badge ${tx.action}">${tx.action}</span>
-        <span style="font-weight:600;font-size:14px">${tx.symbol.replace('.T','')}</span>
-        <div><div style="font-size:13px;font-weight:500">${tx.name}</div><div style="font-size:12px;color:var(--text2)">${tx.shares} shares @ ¥${tx.price.toLocaleString()}</div></div>
+        <span style="font-weight:600;font-size:14px">${tickerDisplay(tx.symbol)}</span>
+        <div><div style="font-size:13px;font-weight:500">${tx.name}</div><div style="font-size:12px;color:var(--text2)">${tx.shares} shares @ ${fmtPrice(tx.price, tx.symbol)}</div></div>
       </div>
       <div style="display:flex;align-items:start;gap:10px">
         <div>
@@ -3442,7 +3472,7 @@ function renderManualHoldings() {
       <thead><tr><th>${t('s_stock_label').split('(')[0].trim()}</th><th>Name</th><th>${t('pos_shares')}</th><th>${t('pos_avg_cost')}</th><th>Total</th><th></th></tr></thead>
       <tbody>${portfolio.holdings.map(h => `
         <tr>
-          <td><strong>${h.symbol.replace('.T','')}</strong></td>
+          <td><strong>${tickerDisplay(h.symbol)}</strong></td>
           <td style="color:var(--text2)">${h.name}</td>
           <td>${h.shares.toLocaleString()}</td>
           <td>¥${h.avg_cost.toLocaleString()}</td>
@@ -3492,7 +3522,7 @@ async function loadPortfolioTxnHistory() {
             return `<tr>
               <td style="font-size:11px;color:var(--text2);white-space:nowrap">${tx.timestamp.split(' ')[0]}</td>
               <td><span class="txn-badge ${tx.action}">${tx.action}</span></td>
-              <td><strong>${tx.symbol.replace('.T','')}</strong><div style="font-size:11px;color:var(--text2)">${tx.name}</div></td>
+              <td><strong>${tickerDisplay(tx.symbol)}</strong><div style="font-size:11px;color:var(--text2)">${tx.name}</div></td>
               <td><span style="white-space:nowrap">${tx.shares.toLocaleString()} × ¥${tx.price.toLocaleString()}</span><div style="font-size:11px" class="${tx.action==='buy'?'neg':'pos'}">${tx.action==='buy'?'-':'+'}${fmt(tx.total + comm)}${comm > 0 ? ` <span style="color:var(--text2)">(fee ¥${comm.toLocaleString()})</span>` : ''}</div></td>
               <td>${pnlHtml}</td>
               <td style="white-space:nowrap"><button class="icon-btn" title="Edit" onclick="openEditTxnModal(${tx.id},'${tx.action}',${tx.shares},${tx.price},'${tx.timestamp.split(' ')[0]}','${tx.symbol.replace(/'/g,"\\'")}','${tx.name.replace(/'/g,"\\'")}',${tx.commission||0})" style="font-size:13px;padding:3px">✏️</button><button class="icon-btn" title="Delete" onclick="deleteTxn(${tx.id})" style="font-size:13px;padding:3px">🗑️</button></td>
@@ -3530,7 +3560,7 @@ async function onPosSearchInput() {
 
 function selectPosStock(symbol, name) {
   document.getElementById('pos-symbol').value = symbol;
-  document.getElementById('pos-search').value = `${symbol.replace('.T','')} — ${name}`;
+  document.getElementById('pos-search').value = `${tickerDisplay(symbol)} — ${name}`;
   document.getElementById('pos-selected-label').textContent = `✓ ${symbol}`;
   document.getElementById('pos-ac-list').style.display = 'none';
   // Prefill existing holding if present
@@ -3548,7 +3578,7 @@ function prefillEdit(symbol, shares, avgCost) {
   setImportMode('set'); // Switch to "Set Position" mode for editing
   const info = stockList.find(s => s.symbol === symbol);
   document.getElementById('pos-symbol').value = symbol;
-  document.getElementById('pos-search').value = `${symbol.replace('.T','')} — ${info?.name || symbol}`;
+  document.getElementById('pos-search').value = `${tickerDisplay(symbol)} — ${info?.name || symbol}`;
   document.getElementById('pos-selected-label').textContent = `✓ ${symbol}`;
   document.getElementById('pos-shares').value = shares;
   document.getElementById('pos-price').value = avgCost;
@@ -3753,7 +3783,7 @@ let userAlerts = [];
 function openAlertModal() {
   const price = stockPrices[currentSymbol]?.price;
   const name = document.getElementById('detail-name')?.textContent || currentSymbol;
-  document.getElementById('alert-modal-sub').textContent = `${currentSymbol.replace('.T','')} — ${name}`;
+  document.getElementById('alert-modal-sub').textContent = `${tickerDisplay(currentSymbol)} — ${name}`;
   document.getElementById('alert-ref-price').value = price || '';
   document.getElementById('alert-up-pct').value = '';
   document.getElementById('alert-down-pct').value = '';
@@ -3825,7 +3855,7 @@ function renderAlertsList() {
   section.style.display = '';
   let html = '';
   const renderAlert = (a, isTriggered) => {
-    const code = a.symbol.replace('.T','');
+    const code = a.tickerDisplay(symbol);
     const thresholds = [];
     if (a.up_pct) {
       const upPrice = (a.reference_price * (1 + a.up_pct / 100)).toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1});
@@ -3871,16 +3901,16 @@ function checkAlerts() {
     let msg = '';
     if (a.up_pct && pctChange >= a.up_pct) {
       triggered = true;
-      msg = `🔔 ${a.symbol.replace('.T','')} ${t('alert_triggered_up')} +${pctChange.toFixed(1)}%! (${fmt(currentPrice)})`;
+      msg = `🔔 ${a.tickerDisplay(symbol)} ${t('alert_triggered_up')} +${pctChange.toFixed(1)}%! (${fmt(currentPrice)})`;
     } else if (a.down_pct && pctChange <= -a.down_pct) {
       triggered = true;
-      msg = `🔔 ${a.symbol.replace('.T','')} ${t('alert_triggered_down')} ${pctChange.toFixed(1)}%! (${fmt(currentPrice)})`;
+      msg = `🔔 ${a.tickerDisplay(symbol)} ${t('alert_triggered_down')} ${pctChange.toFixed(1)}%! (${fmt(currentPrice)})`;
     }
     if (triggered) {
       a.triggered = 1;
       showToast(msg, pctChange >= 0 ? 'success' : 'error');
       // Browser notification (works even if tab is in background)
-      sendBrowserNotification(a.name || a.symbol.replace('.T',''), msg);
+      sendBrowserNotification(a.name || a.tickerDisplay(symbol), msg);
       apiFetch(`/api/alerts/${a.id}/trigger`, { method: 'POST' }).catch(() => {});
       renderAlertsList();
     }
@@ -4005,7 +4035,7 @@ async function importCSV() {
     if (parts[0].toLowerCase() === 'symbol' || parts[1].toLowerCase() === 'action') continue;
     let symbol = parts[0];
     if (!symbol.includes('.')) symbol += '.T';
-    rows.push({ symbol, action: parts[1], shares: parseFloat(parts[2]), price: parseFloat(parts[3]), date: parts[4] || '', name: symbol.replace('.T', '') });
+    rows.push({ symbol, action: parts[1], shares: parseFloat(parts[2]), price: parseFloat(parts[3]), date: parts[4] || '', name: tickerDisplay(symbol) });
   }
 
   if (!rows.length) { showToast('No valid rows found', 'error'); return; }
@@ -4078,7 +4108,7 @@ function openEditTxnModal(id, action, shares, price, date, symbol, name, commiss
   document.getElementById('edit-txn-date').value = date;
   document.getElementById('edit-txn-date').type = 'date';
   document.getElementById('edit-txn-commission').value = commission || 0;
-  document.getElementById('edit-txn-sub').textContent = `${symbol.replace('.T','')} — ${name}`;
+  document.getElementById('edit-txn-sub').textContent = `${tickerDisplay(symbol)} — ${name}`;
   document.getElementById('edit-txn-modal').style.display = 'flex';
 }
 
@@ -4191,25 +4221,89 @@ async function doReset() {
 
 // ——— MARKET TICKER ———————————————————————
 async function loadMarketTicker() {
-  // Fetch Nikkei + USD/JPY in parallel (both single-stock so use individual calls concurrently)
-  const [nkRes, fxRes] = await Promise.allSettled([
+  // Fetch indices + USD/JPY
+  const fetches = [
     apiFetch(`/api/quote/%5EN225`).then(r => r.json()),
-    apiFetch(`/api/quote/USDJPY=X`).then(r => r.json())
-  ]);
+    apiFetch(`/api/quote/USDJPY=X`).then(r => r.json()),
+    apiFetch(`/api/quote/%5EGSPC`).then(r => r.json()),
+    apiFetch(`/api/quote/%5EDJI`).then(r => r.json()),
+    apiFetch(`/api/quote/%5EIXIC`).then(r => r.json()),
+  ];
+  const [nkRes, fxRes, spRes, djRes, nqRes] = await Promise.allSettled(fetches);
+
+  // Nikkei 225
   if (nkRes.status === 'fulfilled' && !nkRes.value.error) {
     const q = nkRes.value;
     document.getElementById('nk-price').textContent = `¥${q.price.toLocaleString()}`;
     document.getElementById('nk-change').innerHTML = `<span class="${q.change_pct>=0?'pos':'neg'}">${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%</span>`;
   }
+  // S&P 500
+  if (spRes.status === 'fulfilled' && !spRes.value.error) {
+    const q = spRes.value;
+    document.getElementById('sp-price').textContent = q.price.toLocaleString();
+    document.getElementById('sp-change').innerHTML = `<span class="${q.change_pct>=0?'pos':'neg'}">${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%</span>`;
+  }
+  // Dow Jones
+  if (djRes.status === 'fulfilled' && !djRes.value.error) {
+    const q = djRes.value;
+    document.getElementById('dj-price').textContent = q.price.toLocaleString();
+    document.getElementById('dj-change').innerHTML = `<span class="${q.change_pct>=0?'pos':'neg'}">${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%</span>`;
+  }
+  // Nasdaq
+  if (nqRes.status === 'fulfilled' && !nqRes.value.error) {
+    const q = nqRes.value;
+    document.getElementById('nq-price').textContent = q.price.toLocaleString();
+    document.getElementById('nq-change').innerHTML = `<span class="${q.change_pct>=0?'pos':'neg'}">${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%</span>`;
+  }
+  // USD/JPY
   if (fxRes.status === 'fulfilled' && !fxRes.value.error) {
     document.getElementById('usdjpy').textContent = fxRes.value.price.toFixed(2);
   }
+
+  // Market status — check JP or US hours based on region
   const now = new Date();
-  const jst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-  const h = jst.getHours(), m = jst.getMinutes(), d = jst.getDay();
-  const mins = h * 60 + m;
-  const isOpen = d >= 1 && d <= 5 && ((mins >= 570 && mins < 690) || (mins >= 780 && mins < 930));
-  document.getElementById('market-status').textContent = isOpen ? `🟢 ${t('market_open')}` : `🔴 ${t('market_closed')}`;
+  if (currentRegion === 'us') {
+    const est = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const h = est.getHours(), m = est.getMinutes(), d = est.getDay();
+    const mins = h * 60 + m;
+    const isOpen = d >= 1 && d <= 5 && mins >= 570 && mins < 960; // 9:30-16:00 ET
+    document.getElementById('market-status').textContent = isOpen ? `🟢 ${t('market_open')}` : `🔴 ${t('market_closed')}`;
+    document.getElementById('mh-data-delay').textContent = 'Real-time (Finnhub)';
+  } else {
+    const jst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+    const h = jst.getHours(), m = jst.getMinutes(), d = jst.getDay();
+    const mins = h * 60 + m;
+    const isOpen = d >= 1 && d <= 5 && ((mins >= 570 && mins < 690) || (mins >= 780 && mins < 930));
+    document.getElementById('market-status').textContent = isOpen ? `🟢 ${t('market_open')}` : `🔴 ${t('market_closed')}`;
+    document.getElementById('mh-data-delay').textContent = t('data_delayed');
+  }
+
+  // Show/hide indices based on region
+  _updateMarketHeaderVisibility();
+}
+
+function _updateMarketHeaderVisibility() {
+  const isUS = currentRegion === 'us';
+  document.getElementById('mh-index-jp').style.display = isUS ? 'none' : '';
+  document.getElementById('mh-index-sp').style.display = isUS ? '' : 'none';
+  document.getElementById('mh-index-dj').style.display = isUS ? '' : 'none';
+  document.getElementById('mh-index-nq').style.display = isUS ? '' : 'none';
+  // Update toggle button styles
+  document.getElementById('region-jp').style.background = isUS ? 'var(--surface)' : 'var(--accent)';
+  document.getElementById('region-jp').style.color = isUS ? 'var(--text2)' : '#fff';
+  document.getElementById('region-us').style.background = isUS ? 'var(--accent)' : 'var(--surface)';
+  document.getElementById('region-us').style.color = isUS ? '#fff' : 'var(--text2)';
+}
+
+function switchRegion(region) {
+  currentRegion = region;
+  localStorage.setItem('marketRegion', region);
+  sectorsLoaded = false;
+  marketNewsLoaded = false;
+  marketOffset = 0;
+  _updateMarketHeaderVisibility();
+  loadMarketTicker();
+  loadMarket();
 }
 
 // ——— INIT ——————————————————————————————————
@@ -4231,6 +4325,7 @@ async function initApp() {
   loadPortfolio();
   loadAlerts();
   loadServerWatchlist();
+  _updateMarketHeaderVisibility();
   startMarketTicker();
 }
 
