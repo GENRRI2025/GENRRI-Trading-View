@@ -163,7 +163,7 @@ def _fetch_us_stocks():
     }
     stocks = []
     for item in data:
-        if item.get('type') != 'Common Stock':
+        if item.get('type') not in ('Common Stock', 'ADR'):
             continue
         mic = item.get('mic', '')
         market = _MIC_MAP.get(mic)
