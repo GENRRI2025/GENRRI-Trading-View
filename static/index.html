@@ -558,15 +558,40 @@ select.s-input { appearance: none; }
               <div style="font-size:15px;font-weight:600;margin-top:4px" id="fx-usd-bal">$0.00</div>
             </div>
           </div>
-          <div style="text-align:center;font-size:11px;color:var(--text2);margin-bottom:8px">
+          <div style="text-align:center;font-size:11px;color:var(--text2);margin-bottom:8px" id="fx-live-rate-row">
             Rate: <strong id="fx-rate">-</strong> (spread: ±¥0.25)
           </div>
-          <div class="s-row" style="gap:8px;margin-bottom:8px">
-            <input class="s-input" type="number" id="fx-amount" placeholder="USD amount" min="0.01" step="0.01" style="flex:2" oninput="updateFxPreview()"/>
-            <select class="s-input" id="fx-direction" style="flex:1" onchange="updateFxPreview()">
-              <option value="buy_usd">Buy USD</option>
-              <option value="sell_usd">Sell USD</option>
-            </select>
+          <div style="margin-bottom:8px">
+            <label style="font-size:11px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center">
+              <input type="checkbox" id="fx-exact-toggle" onchange="toggleFxExactMode()"/> Set exact amounts (match broker transaction)
+            </label>
+          </div>
+          <!-- Live rate mode -->
+          <div id="fx-live-mode">
+            <div class="s-row" style="gap:8px;margin-bottom:8px">
+              <input class="s-input" type="number" id="fx-amount" placeholder="USD amount" min="0.01" step="0.01" style="flex:2" oninput="updateFxPreview()"/>
+              <select class="s-input" id="fx-direction" style="flex:1" onchange="updateFxPreview()">
+                <option value="buy_usd">Buy USD</option>
+                <option value="sell_usd">Sell USD</option>
+              </select>
+            </div>
+          </div>
+          <!-- Exact amounts mode -->
+          <div id="fx-exact-mode" style="display:none">
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:12px;color:var(--text2);width:85px">JPY spent:</span>
+                <input class="s-input" type="number" id="fx-exact-jpy" placeholder="e.g. 15000" min="1" step="1" style="flex:1" oninput="updateFxPreview()"/>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:12px;color:var(--text2);width:85px">USD received:</span>
+                <input class="s-input" type="number" id="fx-exact-usd" placeholder="e.g. 100" min="0.01" step="0.01" style="flex:1" oninput="updateFxPreview()"/>
+              </div>
+              <select class="s-input" id="fx-exact-direction" style="font-size:12px" onchange="updateFxExactLabels()">
+                <option value="buy_usd">Buy USD (JPY → USD)</option>
+                <option value="sell_usd">Sell USD (USD → JPY)</option>
+              </select>
+            </div>
           </div>
           <div style="font-size:12px;color:var(--text2);margin-bottom:8px;text-align:center" id="fx-preview"></div>
           <button class="s-btn" style="background:var(--accent);color:#fff;width:100%;margin-bottom:4px" onclick="doFxConvert()">Convert</button>
@@ -3745,36 +3770,88 @@ async function doWithdraw() {
   } catch(e) { showToast('Withdrawal failed', 'error'); }
 }
 
+function toggleFxExactMode() {
+  const exact = document.getElementById('fx-exact-toggle').checked;
+  document.getElementById('fx-live-rate-row').style.display = exact ? 'none' : '';
+  document.getElementById('fx-live-mode').style.display = exact ? 'none' : '';
+  document.getElementById('fx-exact-mode').style.display = exact ? '' : 'none';
+  document.getElementById('fx-preview').textContent = '';
+  updateFxPreview();
+}
+
+function updateFxExactLabels() {
+  const dir = document.getElementById('fx-exact-direction').value;
+  const jpyLabel = document.querySelector('#fx-exact-mode span:first-child');
+  const usdLabel = document.querySelectorAll('#fx-exact-mode span')[1];
+  // No need to change labels — "JPY spent" / "USD received" works for buy_usd
+  // For sell_usd it's "JPY received" / "USD spent" but let's keep it simple
+  updateFxPreview();
+}
+
 function updateFxPreview() {
-  const amount = parseFloat(document.getElementById('fx-amount').value) || 0;
-  const direction = document.getElementById('fx-direction').value;
-  const rate = stockPrices['USDJPY=X']?.price || 150;
   const el = document.getElementById('fx-preview');
-  if (!amount) { el.textContent = ''; return; }
-  if (direction === 'buy_usd') {
-    const jpyCost = (amount * (rate + 0.25)).toFixed(0);
-    el.innerHTML = `Buy <strong>$${amount.toFixed(2)}</strong> → costs <strong>¥${Number(jpyCost).toLocaleString()}</strong> (rate: ${(rate + 0.25).toFixed(2)})`;
+  const exact = document.getElementById('fx-exact-toggle').checked;
+
+  if (exact) {
+    const jpy = parseFloat(document.getElementById('fx-exact-jpy').value) || 0;
+    const usd = parseFloat(document.getElementById('fx-exact-usd').value) || 0;
+    if (!jpy || !usd) { el.textContent = ''; return; }
+    const rate = (jpy / usd).toFixed(2);
+    const dir = document.getElementById('fx-exact-direction').value;
+    if (dir === 'buy_usd') {
+      el.innerHTML = `<strong>¥${jpy.toLocaleString()}</strong> → <strong>$${usd.toFixed(2)}</strong> (rate: ¥${rate}/USD)`;
+    } else {
+      el.innerHTML = `<strong>$${usd.toFixed(2)}</strong> → <strong>¥${jpy.toLocaleString()}</strong> (rate: ¥${rate}/USD)`;
+    }
   } else {
-    const jpyReceive = (amount * (rate - 0.25)).toFixed(0);
-    el.innerHTML = `Sell <strong>$${amount.toFixed(2)}</strong> → receive <strong>¥${Number(jpyReceive).toLocaleString()}</strong> (rate: ${(rate - 0.25).toFixed(2)})`;
+    const amount = parseFloat(document.getElementById('fx-amount').value) || 0;
+    const direction = document.getElementById('fx-direction').value;
+    const liveRate = stockPrices['USDJPY=X']?.price || 150;
+    if (!amount) { el.textContent = ''; return; }
+    if (direction === 'buy_usd') {
+      const jpyCost = (amount * (liveRate + 0.25)).toFixed(0);
+      el.innerHTML = `Buy <strong>$${amount.toFixed(2)}</strong> → costs <strong>¥${Number(jpyCost).toLocaleString()}</strong> (rate: ${(liveRate + 0.25).toFixed(2)}, spread ±0.25)`;
+    } else {
+      const jpyReceive = (amount * (liveRate - 0.25)).toFixed(0);
+      el.innerHTML = `Sell <strong>$${amount.toFixed(2)}</strong> → receive <strong>¥${Number(jpyReceive).toLocaleString()}</strong> (rate: ${(liveRate - 0.25).toFixed(2)}, spread ±0.25)`;
+    }
   }
 }
 
 async function doFxConvert() {
-  const amount = parseFloat(document.getElementById('fx-amount').value);
-  if (!amount || amount <= 0) { showToast('Enter a valid amount', 'error'); return; }
-  const direction = document.getElementById('fx-direction').value;
+  const exact = document.getElementById('fx-exact-toggle').checked;
+  let body;
+
+  if (exact) {
+    const jpy = parseFloat(document.getElementById('fx-exact-jpy').value);
+    const usd = parseFloat(document.getElementById('fx-exact-usd').value);
+    const direction = document.getElementById('fx-exact-direction').value;
+    if (!jpy || jpy <= 0 || !usd || usd <= 0) { showToast('Enter valid JPY and USD amounts', 'error'); return; }
+    body = { direction, amount: usd, jpy_amount: jpy, amount_currency: 'usd' };
+  } else {
+    const amount = parseFloat(document.getElementById('fx-amount').value);
+    if (!amount || amount <= 0) { showToast('Enter a valid amount', 'error'); return; }
+    const direction = document.getElementById('fx-direction').value;
+    body = { direction, amount, amount_currency: 'usd' };
+  }
+
   try {
     const res = await apiFetch(`/api/portfolios/${currentPortfolioId}/fx-convert`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ direction, amount, amount_currency: 'usd' })
+      body: JSON.stringify(body)
     });
     const data = await res.json();
     if (!res.ok) { showToast(data.error || 'Conversion failed', 'error'); return; }
-    document.getElementById('fx-amount').value = '';
+    // Clear inputs
+    if (exact) {
+      document.getElementById('fx-exact-jpy').value = '';
+      document.getElementById('fx-exact-usd').value = '';
+    } else {
+      document.getElementById('fx-amount').value = '';
+    }
     document.getElementById('fx-preview').textContent = '';
-    const dirLabel = direction === 'buy_usd' ? 'Bought' : 'Sold';
-    showToast(`${dirLabel} $${data.usd_amount.toLocaleString()} at ¥${data.rate.toFixed(2)}`);
+    const dirLabel = body.direction === 'buy_usd' ? 'Bought' : 'Sold';
+    showToast(`${dirLabel} $${data.usd_amount.toLocaleString()} at ¥${data.rate.toFixed(2)}${exact ? ' (exact)' : ''}`);
     portfolio.cash = data.cash;
     portfolio.cash_usd = data.cash_usd;
     renderPortfolio();

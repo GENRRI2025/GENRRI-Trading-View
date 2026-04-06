@@ -2003,13 +2003,38 @@ def fx_convert(pid):
         return jsonify({'error': 'Amount must be positive'}), 400
     amount_currency = data.get('amount_currency', 'usd').strip().lower()
 
-    # Get live USDJPY rate
-    fx = PRICE_CACHE.get('USDJPY=X')
-    mid_rate = fx['data']['price'] if fx and fx['data'].get('price') else None
-    if not mid_rate:
-        return jsonify({'error': 'USDJPY rate not available. Try again in a moment.'}), 503
+    # Exact amounts mode: user provides both JPY and USD amounts directly
+    exact_jpy = data.get('jpy_amount')
+    exact_mode = exact_jpy is not None
+    if exact_mode:
+        try:
+            exact_jpy = float(exact_jpy)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid JPY amount'}), 400
+        if exact_jpy <= 0 or amount <= 0:
+            return jsonify({'error': 'Both amounts must be positive'}), 400
 
-    FX_SPREAD = 0.25  # SBI-style spread (¥0.25 per dollar)
+    # Manual rate override: user provides their own rate (e.g. from SBI)
+    manual_rate = data.get('manual_rate')
+    if exact_mode:
+        mid_rate = round(exact_jpy / amount, 4)  # Derive rate from exact amounts
+        FX_SPREAD = 0
+    elif manual_rate is not None:
+        try:
+            manual_rate = float(manual_rate)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid manual rate'}), 400
+        if manual_rate <= 0:
+            return jsonify({'error': 'Manual rate must be positive'}), 400
+        mid_rate = manual_rate
+        FX_SPREAD = 0
+    else:
+        # Get live USDJPY rate
+        fx = PRICE_CACHE.get('USDJPY=X')
+        mid_rate = fx['data']['price'] if fx and fx['data'].get('price') else None
+        if not mid_rate:
+            return jsonify({'error': 'USDJPY rate not available. Try again in a moment.'}), 503
+        FX_SPREAD = 0.25  # SBI-style spread (¥0.25 per dollar)
 
     conn = get_db()
     ensure_user_portfolio(conn, uid)
@@ -2021,33 +2046,42 @@ def fx_convert(pid):
     cash_usd = sp['cash_usd'] or 0
 
     if direction == 'buy_usd':
-        rate = mid_rate + FX_SPREAD  # Worse rate for buyer (pay more JPY per USD)
-        if amount_currency == 'usd':
+        if exact_mode:
             usd_amount = amount
-            jpy_amount = round(usd_amount * rate, 2)
-        else:  # jpy
-            jpy_amount = amount
-            usd_amount = round(jpy_amount / rate, 2)
+            jpy_amount = exact_jpy
+        else:
+            rate = mid_rate + FX_SPREAD
+            if amount_currency == 'usd':
+                usd_amount = amount
+                jpy_amount = round(usd_amount * rate, 2)
+            else:
+                jpy_amount = amount
+                usd_amount = round(jpy_amount / rate, 2)
         if jpy_amount > cash_jpy:
             conn.close()
             return jsonify({'error': f'Insufficient JPY. Available: ¥{cash_jpy:,.0f}, Required: ¥{jpy_amount:,.0f}'}), 400
         conn.execute('UPDATE sub_portfolios SET cash = cash - ?, cash_usd = cash_usd + ? WHERE id = ?', (jpy_amount, usd_amount, pid))
     else:  # sell_usd
-        rate = mid_rate - FX_SPREAD  # Worse rate for seller (receive less JPY per USD)
-        if amount_currency == 'usd':
+        if exact_mode:
             usd_amount = amount
-            jpy_amount = round(usd_amount * rate, 2)
-        else:  # jpy
-            jpy_amount = amount
-            usd_amount = round(jpy_amount / rate, 2)
+            jpy_amount = exact_jpy
+        else:
+            rate = mid_rate - FX_SPREAD
+            if amount_currency == 'usd':
+                usd_amount = amount
+                jpy_amount = round(usd_amount * rate, 2)
+            else:
+                jpy_amount = amount
+                usd_amount = round(jpy_amount / rate, 2)
         if usd_amount > cash_usd:
             conn.close()
             return jsonify({'error': f'Insufficient USD. Available: ${cash_usd:,.2f}, Required: ${usd_amount:,.2f}'}), 400
         conn.execute('UPDATE sub_portfolios SET cash = cash + ?, cash_usd = cash_usd - ? WHERE id = ?', (jpy_amount, usd_amount, pid))
 
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    effective_rate = round(jpy_amount / usd_amount, 4) if usd_amount > 0 else mid_rate
     conn.execute('INSERT INTO fx_transactions (user_id, portfolio_id, direction, usd_amount, jpy_amount, rate, spread, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                 (uid, pid, direction, usd_amount, jpy_amount, rate, FX_SPREAD, now))
+                 (uid, pid, direction, usd_amount, jpy_amount, effective_rate, FX_SPREAD, now))
     conn.commit()
     updated = conn.execute('SELECT cash, cash_usd FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
     conn.close()
@@ -2057,8 +2091,8 @@ def fx_convert(pid):
         'cash_usd': round(updated['cash_usd'], 2),
         'usd_amount': round(usd_amount, 2),
         'jpy_amount': round(jpy_amount, 2),
-        'rate': round(rate, 2),
-        'mid_rate': round(mid_rate, 2),
+        'rate': round(effective_rate, 2),
+        'mid_rate': round(mid_rate, 4),
         'spread': FX_SPREAD,
         'direction': direction
     })
