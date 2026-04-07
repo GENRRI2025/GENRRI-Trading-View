@@ -1301,6 +1301,7 @@ const LANG_DATA = {
     confirm_delete_list:'Delete list "{name}"?',
     confirm_delete_txn:'Delete this transaction? The portfolio will be recalculated from remaining transactions.',
     confirm_delete_fund_txn:'Delete this fund transaction? The portfolio will be recalculated.',
+    confirm_delete_fx_txn:'Delete this FX conversion? The JPY/USD balances will be reversed.',
     // Other
     loading:'Loading...', data_realtime:'Real-time (Finnhub)',
     edit_delete:'Edit/Delete', customize_ma:'Customize MA periods',
@@ -1316,12 +1317,14 @@ const LANG_DATA = {
     msg_txn_deleted:'Transaction deleted — portfolio recalculated',
     msg_fund_txn_updated:'Fund transaction updated — portfolio recalculated',
     msg_fund_txn_deleted:'Fund transaction deleted — portfolio recalculated',
+    msg_fx_txn_deleted:'FX conversion deleted — balances reversed',
     err_shares_price_positive:'Shares and price must be positive',
     err_amount_positive:'Amount must be positive',
     err_update_txn:'Failed to update transaction',
     err_delete_txn:'Failed to delete transaction',
     err_update_fund_txn:'Failed to update fund transaction',
     err_delete_fund_txn:'Failed to delete fund transaction',
+    err_delete_fx_txn:'Failed to delete FX conversion',
     alert_deleted:'Alert deleted',
     err_no_csv:'Paste CSV data first', err_no_valid_rows:'No valid rows found',
   },
@@ -1493,6 +1496,7 @@ const LANG_DATA = {
     confirm_delete_list:'リスト「{name}」を削除しますか？',
     confirm_delete_txn:'この取引を削除しますか？残りの取引からポートフォリオが再計算されます。',
     confirm_delete_fund_txn:'この資金取引を削除しますか？ポートフォリオが再計算されます。',
+    confirm_delete_fx_txn:'この為替取引を削除しますか？JPY/USD残高が元に戻ります。',
     // Other
     loading:'読み込み中...', data_realtime:'リアルタイム (Finnhub)',
     edit_delete:'編集/削除', customize_ma:'MA期間のカスタマイズ',
@@ -1508,12 +1512,14 @@ const LANG_DATA = {
     msg_txn_deleted:'取引を削除 — ポートフォリオを再計算しました',
     msg_fund_txn_updated:'資金取引を更新 — ポートフォリオを再計算しました',
     msg_fund_txn_deleted:'資金取引を削除 — ポートフォリオを再計算しました',
+    msg_fx_txn_deleted:'為替取引を削除 — 残高を元に戻しました',
     err_shares_price_positive:'株数と価格は正の値にしてください',
     err_amount_positive:'金額は正の値にしてください',
     err_update_txn:'取引の更新に失敗しました',
     err_delete_txn:'取引の削除に失敗しました',
     err_update_fund_txn:'資金取引の更新に失敗しました',
     err_delete_fund_txn:'資金取引の削除に失敗しました',
+    err_delete_fx_txn:'為替取引の削除に失敗しました',
     alert_deleted:'アラートを削除しました',
     err_no_csv:'CSVデータを貼り付けてください', err_no_valid_rows:'有効な行が見つかりません',
   },
@@ -1685,6 +1691,7 @@ const LANG_DATA = {
     confirm_delete_list:'删除列表「{name}」？',
     confirm_delete_txn:'删除此交易？投资组合将根据剩余交易重新计算。',
     confirm_delete_fund_txn:'删除此资金交易？投资组合将重新计算。',
+    confirm_delete_fx_txn:'删除此汇率交易？JPY/USD余额将恢复。',
     // Other
     loading:'加载中...', data_realtime:'实时数据 (Finnhub)',
     edit_delete:'编辑/删除', customize_ma:'自定义均线周期',
@@ -1700,12 +1707,14 @@ const LANG_DATA = {
     msg_txn_deleted:'交易已删除 — 投资组合已重新计算',
     msg_fund_txn_updated:'资金交易已更新 — 投资组合已重新计算',
     msg_fund_txn_deleted:'资金交易已删除 — 投资组合已重新计算',
+    msg_fx_txn_deleted:'汇率交易已删除 — 余额已恢复',
     err_shares_price_positive:'股数和价格必须为正数',
     err_amount_positive:'金额必须为正数',
     err_update_txn:'更新交易失败',
     err_delete_txn:'删除交易失败',
     err_update_fund_txn:'更新资金交易失败',
     err_delete_fund_txn:'删除资金交易失败',
+    err_delete_fx_txn:'删除汇率交易失败',
     alert_deleted:'提醒已删除',
     err_no_csv:'请先粘贴CSV数据', err_no_valid_rows:'未找到有效行',
   }
@@ -3738,17 +3747,22 @@ async function loadHistory() {
       const rate = tx.price;    // rate stored in price field
       return `<div class="txn-item" style="position:relative">
         <div style="display:flex;align-items:center;gap:8px">
-          <span class="txn-badge" style="background:var(--accent);color:#fff;font-size:10px;padding:3px 8px;border-radius:6px">FX</span>
+          <span class="txn-badge" style="background:var(--accent);color:#fff">FX</span>
           <div>
             <div style="font-size:13px;font-weight:500">${isBuy ? t('fx_buy_usd_full') : t('fx_sell_usd_full')}</div>
             <div style="font-size:12px;color:var(--text2)">$${usdAmt.toLocaleString(undefined,{minimumFractionDigits:2})} ↔ ¥${jpyAmt.toLocaleString()} @ ¥${rate.toFixed(2)}</div>
           </div>
         </div>
-        <div>
-          <div style="font-weight:600;font-size:14px;text-align:right">${isBuy ? '-' : '+'}¥${jpyAmt.toLocaleString()}</div>
-          <div style="font-weight:600;font-size:12px;text-align:right;color:var(--text2)">${isBuy ? '+' : '-'}$${usdAmt.toLocaleString(undefined,{minimumFractionDigits:2})}</div>
-          <div style="font-size:11px;color:var(--text2);text-align:right">${tx.timestamp}</div>
-          <div style="font-size:10px;color:var(--accent);text-align:right;margin-top:2px">${pfName}</div>
+        <div style="display:flex;align-items:start;gap:10px">
+          <div>
+            <div style="font-weight:600;font-size:14px;text-align:right">${isBuy ? '-' : '+'}¥${jpyAmt.toLocaleString()}</div>
+            <div style="font-size:12px;text-align:right;color:var(--text2)">${isBuy ? '+' : '-'}$${usdAmt.toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+            <div style="font-size:11px;color:var(--text2);text-align:right">${tx.timestamp}</div>
+            <div style="font-size:10px;color:var(--accent);text-align:right;margin-top:2px">${pfName}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <button class="icon-btn" title="Delete" onclick="deleteFxTxn(${tx.id})" style="font-size:14px;padding:4px">🗑️</button>
+          </div>
         </div>
       </div>`;
     }
@@ -4673,6 +4687,21 @@ async function deleteFundTxn(id) {
     const txnSection = document.getElementById('pf-txn-section');
     if (txnSection?.open) loadPortfolioTxnHistory();
   } catch(e) { showToast(t('err_delete_fund_txn'), 'error'); }
+}
+
+async function deleteFxTxn(id) {
+  if (!confirm(t('confirm_delete_fx_txn'))) return;
+  try {
+    const res = await apiFetch(`/api/fx-transactions/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+    portfolio.cash = data.cash;
+    portfolio.cash_usd = data.cash_usd;
+    showToast(t('msg_fx_txn_deleted'));
+    loadPortfolio();
+    loadFxHistory();
+    if (document.getElementById('page-history')?.style.display !== 'none') loadHistory();
+  } catch(e) { showToast(t('err_delete_fx_txn'), 'error'); }
 }
 
 function confirmReset() {

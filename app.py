@@ -2220,6 +2220,38 @@ def delete_fund_transaction(fid):
     return jsonify({'success': True})
 
 
+@app.route('/api/fx-transactions/<int:fxid>', methods=['DELETE'])
+def delete_fx_transaction(fxid):
+    """Delete an FX conversion and reverse the cash changes."""
+    uid, err = get_auth_user()
+    if err: return err
+    conn = get_db()
+    fx = conn.execute('SELECT * FROM fx_transactions WHERE id = ? AND user_id = ?', (fxid, uid)).fetchone()
+    if not fx:
+        conn.close()
+        return jsonify({'error': 'FX transaction not found'}), 404
+
+    pid = fx['portfolio_id']
+    direction = fx['direction']
+    usd_amount = fx['usd_amount']
+    jpy_amount = fx['jpy_amount']
+
+    # Reverse the conversion
+    if direction == 'buy_usd':
+        # Was: JPY decreased, USD increased → reverse: add JPY, subtract USD
+        conn.execute('UPDATE sub_portfolios SET cash = cash + ?, cash_usd = cash_usd - ? WHERE id = ?', (jpy_amount, usd_amount, pid))
+    else:
+        # Was: USD decreased, JPY increased → reverse: add USD, subtract JPY
+        conn.execute('UPDATE sub_portfolios SET cash = cash - ?, cash_usd = cash_usd + ? WHERE id = ?', (jpy_amount, usd_amount, pid))
+
+    conn.execute('DELETE FROM fx_transactions WHERE id = ?', (fxid,))
+    conn.commit()
+
+    updated = conn.execute('SELECT cash, cash_usd FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
+    conn.close()
+    return jsonify({'success': True, 'cash': round(updated['cash'], 2), 'cash_usd': round(updated['cash_usd'], 2)})
+
+
 @app.route('/api/reset', methods=['POST'])
 def reset_portfolio():
     uid, err = get_auth_user()
