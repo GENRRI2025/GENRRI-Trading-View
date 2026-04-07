@@ -93,6 +93,8 @@ body { background: var(--bg); color: var(--text); font-family: -apple-system, Bl
 .holding-right { text-align: right; }
 .holding-value { font-weight: 600; font-size: 15px; }
 .holding-pnl { font-size: 12px; margin-top: 2px; }
+.holding-gain { border-left: 3px solid var(--up); background: rgba(16, 185, 129, 0.07); }
+.holding-loss { border-left: 3px solid var(--down); background: rgba(239, 68, 68, 0.06); }
 .pos { color: var(--up); }
 .neg { color: var(--down); }
 
@@ -331,7 +333,26 @@ select.s-input { appearance: none; }
   .stats-row { grid-template-columns: 1fr 1fr; }
   .theme-grid { grid-template-columns: repeat(3, 1fr); }
   .add-pos-form { grid-template-columns: 1fr 1fr; }
-  .nav-tabs .nav-tab span { display: none; }
+  /* Bottom nav bar */
+  .nav { position: fixed; bottom: 0; top: auto; left: 0; right: 0; height: 58px; padding: 0 0 env(safe-area-inset-bottom, 0); z-index: 200; border-top: 1px solid var(--border); border-bottom: none; justify-content: center; }
+  .nav .logo { display: none; }
+  .nav-balance { display: none; }
+  .nav-tabs { width: 100%; justify-content: space-around; }
+  .nav-tabs .nav-tab { flex-direction: column; gap: 2px; font-size: 10px; padding: 8px 0; }
+  .nav-tabs .nav-tab span { display: block !important; }
+  .nav-tabs .nav-tab svg { width: 22px; height: 22px; }
+  body { padding-bottom: 66px; }
+  /* Container padding */
+  .container { padding-left: 12px; padding-right: 12px; }
+  /* Market header compact */
+  .market-header { padding: 4px 12px; gap: 6px 14px; font-size: 11px; }
+  .market-header .market-item:last-child { margin-left: 0; }
+  /* Trade summary fit */
+  .trade-summary { font-size: 12px; padding: 10px; }
+  /* Indicator buttons horizontal scroll */
+  .ind-row { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
+  .ind-row::-webkit-scrollbar { display: none; }
+  .ind-btn { flex-shrink: 0; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -402,9 +423,9 @@ select.s-input { appearance: none; }
 
     <!-- ── Performance Chart ── -->
     <div class="alloc-wrap" id="perf-chart-wrap" style="display:none">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div class="section-title" style="margin-bottom:0">📊 <span data-i18n="port_performance">Portfolio Performance</span></div>
-        <div style="display:flex;gap:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div class="section-title" style="margin-bottom:0;font-size:13px">📊 <span data-i18n="port_performance">Portfolio Performance</span></div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
           <button class="ct-btn active" data-perf="1m" onclick="setPerfRange('1m')">1M</button>
           <button class="ct-btn" data-perf="3m" onclick="setPerfRange('3m')">3M</button>
           <button class="ct-btn" data-perf="6m" onclick="setPerfRange('6m')">6M</button>
@@ -2216,7 +2237,8 @@ function _renderPortfolioUI(priceMap) {
     investedValue += value * fxRate;
     const ticker = tickerDisplay(h.symbol);
     const loading = !q ? ' style="opacity:0.6"' : '';
-    html += `<div class="holding-item" onclick="openDetail('${h.symbol}')"${loading}>
+    const pnlTint = pnl >= 0 ? 'holding-gain' : 'holding-loss';
+    html += `<div class="holding-item ${pnlTint}" onclick="openDetail('${h.symbol}')"${loading}>
       <div class="holding-left">
         <div class="holding-icon">${ticker}</div>
         <div>
