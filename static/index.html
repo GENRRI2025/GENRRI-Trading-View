@@ -419,12 +419,15 @@ select.s-input { appearance: none; }
     <div class="alloc-wrap" id="perf-chart-wrap" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
         <div class="section-title" style="margin-bottom:0;font-size:13px">📊 <span data-i18n="port_performance">Portfolio Performance</span></div>
-        <div style="display:flex;gap:4px;flex-shrink:0">
+        <div style="display:flex;gap:4px;flex-shrink:0;align-items:center">
           <button class="ct-btn active" data-perf="1m" onclick="setPerfRange('1m')">1M</button>
           <button class="ct-btn" data-perf="3m" onclick="setPerfRange('3m')">3M</button>
           <button class="ct-btn" data-perf="6m" onclick="setPerfRange('6m')">6M</button>
           <button class="ct-btn" data-perf="1y" onclick="setPerfRange('1y')">1Y</button>
           <button class="ct-btn" data-perf="all" onclick="setPerfRange('all')">ALL</button>
+          <span style="width:1px;height:16px;background:var(--border);margin:0 2px"></span>
+          <button class="ct-btn active" id="perf-mode-abs" onclick="setPerfMode('abs')" title="Absolute value">¥</button>
+          <button class="ct-btn" id="perf-mode-pct" onclick="setPerfMode('pct')" title="Percentage change">%</button>
         </div>
       </div>
       <div style="position:relative;height:200px;width:100%"><canvas id="perf-chart"></canvas></div>
@@ -4482,6 +4485,7 @@ async function deleteAlert(id) {
 // ——— PORTFOLIO PERFORMANCE CHART ——————————————
 let perfChart = null;
 let perfSnapshots = [];
+let perfMode = 'abs'; // 'abs' = absolute ¥ value, 'pct' = % change
 
 async function loadPerfChart() {
   try {
@@ -4508,22 +4512,47 @@ function setPerfRange(range) {
   renderPerfChart(filtered);
 }
 
+function setPerfMode(mode) {
+  perfMode = mode;
+  document.getElementById('perf-mode-abs').classList.toggle('active', mode === 'abs');
+  document.getElementById('perf-mode-pct').classList.toggle('active', mode === 'pct');
+  // Re-render with current range filter
+  const activeRange = document.querySelector('[data-perf].active');
+  if (activeRange) setPerfRange(activeRange.dataset.perf);
+  else renderPerfChart(perfSnapshots);
+}
+
 function renderPerfChart(data) {
   if (perfChart) { perfChart.destroy(); perfChart = null; }
   if (data.length < 2) return;
   const canvas = document.getElementById('perf-chart');
   const labels = data.map(d => d.date);
-  const values = data.map(d => d.total_value);
-  const startVal = values[0];
-  const isUp = values[values.length - 1] >= startVal;
-  const lineColor = isUp ? getComputedStyle(document.documentElement).getPropertyValue('--up').trim() : getComputedStyle(document.documentElement).getPropertyValue('--down').trim();
+  const rawValues = data.map(d => d.total_value);
+  const startVal = rawValues[0];
+
+  // Calculate display values based on mode
+  let values, yTickFn, tooltipFn;
+  if (perfMode === 'pct') {
+    values = rawValues.map(v => startVal ? ((v - startVal) / startVal) * 100 : 0);
+    yTickFn = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+    tooltipFn = ctx => (ctx.raw >= 0 ? '+' : '') + ctx.raw.toFixed(2) + '%';
+  } else {
+    values = rawValues;
+    yTickFn = v => '¥' + (v/1000).toFixed(0) + 'k';
+    tooltipFn = ctx => fmt(ctx.raw);
+  }
+
+  const endVal = values[values.length - 1];
+  const isUp = perfMode === 'pct' ? endVal >= 0 : rawValues[rawValues.length - 1] >= startVal;
+  const cs = getComputedStyle(document.documentElement);
+  const lineColor = isUp ? cs.getPropertyValue('--up').trim() : cs.getPropertyValue('--down').trim();
 
   perfChart = new Chart(canvas, {
     type: 'line',
     data: { labels, datasets: [{ data: values, borderColor: lineColor, borderWidth: 2, fill: true, backgroundColor: lineColor + '15', pointRadius: 0, tension: 0.3 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmt(ctx.raw) } } },
-      scales: { x: { display: true, ticks: { maxTicksLimit: 6, font: { size: 10 }, color: getComputedStyle(document.documentElement).getPropertyValue('--text2').trim() }, grid: { display: false } },
-        y: { display: true, ticks: { callback: v => '¥' + (v/1000).toFixed(0) + 'k', font: { size: 10 }, color: getComputedStyle(document.documentElement).getPropertyValue('--text2').trim() }, grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim() } } } }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: tooltipFn } } },
+      scales: { x: { display: true, ticks: { maxTicksLimit: 6, font: { size: 10 }, color: cs.getPropertyValue('--text2').trim() }, grid: { display: false } },
+        y: { display: true, ticks: { callback: yTickFn, font: { size: 10 }, color: cs.getPropertyValue('--text2').trim() }, grid: { color: cs.getPropertyValue('--chart-grid').trim() } } } }
   });
 }
 
