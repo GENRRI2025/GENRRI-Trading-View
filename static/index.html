@@ -93,8 +93,8 @@ body { background: var(--bg); color: var(--text); font-family: -apple-system, Bl
 .holding-right { text-align: right; }
 .holding-value { font-weight: 600; font-size: 15px; }
 .holding-pnl { font-size: 12px; margin-top: 2px; }
-.holding-gain { border-left: 3px solid var(--up); background: rgba(16, 185, 129, 0.07); }
-.holding-loss { border-left: 3px solid var(--down); background: rgba(239, 68, 68, 0.06); }
+.holding-gain { border-left: 3px solid var(--up); background: color-mix(in srgb, var(--up) 10%, transparent); }
+.holding-loss { border-left: 3px solid var(--down); background: color-mix(in srgb, var(--down) 8%, transparent); }
 .pos { color: var(--up); }
 .neg { color: var(--down); }
 
