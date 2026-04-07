@@ -523,6 +523,33 @@ def logout():
     return jsonify({'success': True})
 
 
+@app.route('/api/admin/reset-password', methods=['POST'])
+def admin_reset_password():
+    """Reset a user's password. Requires invite code for authentication."""
+    data = request.json or {}
+    invite_code = (data.get('invite_code') or '').strip()
+    expected_code = os.environ.get('INVITE_CODE', 'GENRRI')
+    if not expected_code or invite_code != expected_code:
+        return jsonify({'error': 'Invalid invite code'}), 403
+    username = (data.get('username') or '').strip()
+    new_password = (data.get('new_password') or '').strip()
+    if not username or not new_password:
+        return jsonify({'error': 'Username and new_password are required'}), 400
+    if len(new_password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+    conn = get_db()
+    user = conn.execute('SELECT id FROM users WHERE name = ?', (username,)).fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+    password_hash, salt = hash_password(new_password)
+    conn.execute('UPDATE users SET password_hash = ?, salt = ? WHERE name = ?', (password_hash, salt, username))
+    conn.execute('DELETE FROM sessions WHERE user_id = ?', (user['id'],))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True, 'message': f'Password reset for {username}'})
+
+
 @app.route('/api/stocks')
 def get_stocks():
     # Bulk symbol lookup — returns info for specific symbols
