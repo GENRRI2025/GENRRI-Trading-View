@@ -4516,7 +4516,7 @@ function renderPerfChart(data) {
   const values = data.map(d => d.total_value);
   const startVal = values[0];
   const isUp = values[values.length - 1] >= startVal;
-  const lineColor = isUp ? getComputedStyle(document.documentElement).getPropertyValue('--green').trim() : getComputedStyle(document.documentElement).getPropertyValue('--red').trim();
+  const lineColor = isUp ? getComputedStyle(document.documentElement).getPropertyValue('--up').trim() : getComputedStyle(document.documentElement).getPropertyValue('--down').trim();
 
   perfChart = new Chart(canvas, {
     type: 'line',
