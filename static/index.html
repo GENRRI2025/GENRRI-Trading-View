@@ -507,25 +507,25 @@ select.s-input { appearance: none; }
                   onfocus="this.type='date'" onblur="if(!this.value)this.type='text'"/>
               </div>
               <div class="form-group" style="display:flex;align-items:flex-end">
-                <button class="s-btn" id="imp-submit-btn" onclick="submitImport()" style="width:100%;padding:12px">Submit</button>
+                <button class="s-btn" id="imp-submit-btn" onclick="submitImport()" style="width:100%;padding:12px" data-i18n="btn_submit">Submit</button>
               </div>
             </div>
             <div class="s-hint" style="margin-top:8px" id="imp-hint"></div>
             <!-- CSV Batch Import -->
             <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px">
-              <div style="font-size:13px;font-weight:700;margin-bottom:8px">📄 Batch Import (CSV)</div>
-              <div class="s-desc" style="margin-bottom:10px">Paste CSV data or upload a file. Format: <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:11px">symbol,action,shares,price,date</code></div>
+              <div style="font-size:13px;font-weight:700;margin-bottom:8px">📄 <span data-i18n="batch_import_title">Batch Import (CSV)</span></div>
+              <div class="s-desc" style="margin-bottom:10px"><span data-i18n="batch_import_desc">Paste CSV data or upload a file. Format:</span> <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:11px">symbol,action,shares,price,date</code></div>
               <textarea class="s-input" id="csv-input" rows="5" placeholder="7203.T,buy,100,3400,2025-01-15&#10;9984.T,buy,50,8500,2025-02-01&#10;7203.T,sell,50,3600,2025-03-01" style="width:100%;font-family:monospace;font-size:12px;resize:vertical"></textarea>
               <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
                 <label class="s-btn secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-                  📁 Upload CSV
+                  📁 <span data-i18n="btn_upload_csv">Upload CSV</span>
                   <input type="file" accept=".csv,.txt" onchange="loadCSVFile(event)" style="display:none"/>
                 </label>
                 <div style="display:flex;align-items:center;gap:4px">
-                  <label style="font-size:11px;color:var(--text2)">Commission %</label>
+                  <label style="font-size:11px;color:var(--text2)" data-i18n="commission_pct_label">Commission %</label>
                   <input class="s-input" type="number" id="csv-commission" min="0" max="100" step="0.01" value="1" style="width:60px;padding:4px 6px;font-size:12px"/>
                 </div>
-                <button class="s-btn" onclick="importCSV()">Import All</button>
+                <button class="s-btn" onclick="importCSV()" data-i18n="btn_import_all">Import All</button>
                 <span id="csv-status" style="font-size:12px;color:var(--text2)"></span>
               </div>
             </div>
@@ -670,10 +670,10 @@ select.s-input { appearance: none; }
     </div>
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
       <select id="sector-filter" class="s-input" style="flex:1;min-width:180px;max-width:300px;padding:8px 12px;font-size:13px" onchange="searchStocks(true)">
-        <option value="">All Sectors</option>
+        <option value="" data-i18n="all_sectors">All Sectors</option>
       </select>
       <select id="market-filter" class="s-input" style="min-width:180px;max-width:240px;padding:8px 12px;font-size:13px" onchange="searchStocks(true)">
-        <option value="">All Markets</option>
+        <option value="" data-i18n="all_markets">All Markets</option>
       </select>
       <div id="stock-count" style="font-size:13px;color:var(--text2);white-space:nowrap"></div>
     </div>
@@ -747,7 +747,7 @@ select.s-input { appearance: none; }
           </div>
           <!-- MA custom period panel -->
           <div id="ma-cfg-panel" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:10px;gap:14px;flex-wrap:wrap;align-items:center">
-            <span style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px">MA Periods</span>
+            <span style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px" data-i18n="ma_periods_label">MA Periods</span>
             <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#f97316">MA1<input type="number" id="ma-inp-0" min="2" max="500" value="5"   style="width:52px;background:var(--surface);border:1px solid #f97316;color:#f97316;border-radius:5px;padding:3px 7px;font-size:12px;outline:none" oninput="updateMAPeriod(0)"/></label>
             <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#3b82f6">MA2<input type="number" id="ma-inp-1" min="2" max="500" value="20"  style="width:52px;background:var(--surface);border:1px solid #3b82f6;color:#3b82f6;border-radius:5px;padding:3px 7px;font-size:12px;outline:none" oninput="updateMAPeriod(1)"/></label>
             <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#8b5cf6">MA3<input type="number" id="ma-inp-2" min="2" max="500" value="50"  style="width:52px;background:var(--surface);border:1px solid #8b5cf6;color:#8b5cf6;border-radius:5px;padding:3px 7px;font-size:12px;outline:none" oninput="updateMAPeriod(2)"/></label>
@@ -861,23 +861,23 @@ select.s-input { appearance: none; }
       <div class="theme-grid">
         <div class="theme-swatch swatch-dark" onclick="setTheme('dark')" id="swatch-dark">
           <div class="swatch-preview">🌑</div>
-          <div class="swatch-label">Dark</div>
+          <div class="swatch-label" data-i18n="theme_dark">Dark</div>
         </div>
         <div class="theme-swatch swatch-light" onclick="setTheme('light')" id="swatch-light">
           <div class="swatch-preview" style="color:#1a202c">☀️</div>
-          <div class="swatch-label" style="color:#1a202c;background:#e8ecf4">Light</div>
+          <div class="swatch-label" style="color:#1a202c;background:#e8ecf4" data-i18n="theme_light">Light</div>
         </div>
         <div class="theme-swatch swatch-rose" onclick="setTheme('rose')" id="swatch-rose">
           <div class="swatch-preview">🌸</div>
-          <div class="swatch-label" style="background:#2d1f28;color:#f5e8ef">Rosé</div>
+          <div class="swatch-label" style="background:#2d1f28;color:#f5e8ef" data-i18n="theme_rose">Rosé</div>
         </div>
         <div class="theme-swatch swatch-sand" onclick="setTheme('sand')" id="swatch-sand">
           <div class="swatch-preview" style="color:#2c2416">🏖️</div>
-          <div class="swatch-label" style="background:#f3eedf;color:#2c2416">Sand</div>
+          <div class="swatch-label" style="background:#f3eedf;color:#2c2416" data-i18n="theme_sand">Sand</div>
         </div>
         <div class="theme-swatch swatch-midnight" onclick="setTheme('midnight')" id="swatch-midnight">
           <div class="swatch-preview">🌊</div>
-          <div class="swatch-label" style="background:#112240;color:#ccd6f6">Midnight</div>
+          <div class="swatch-label" style="background:#112240;color:#ccd6f6" data-i18n="theme_midnight">Midnight</div>
         </div>
       </div>
 
@@ -911,7 +911,7 @@ select.s-input { appearance: none; }
     <div class="settings-section">
       <h3>🧠 <span data-i18n="s_ai_analyst">AI Analyst</span></h3>
       <div class="s-desc" data-i18n="s_ai_desc">Enable AI-powered stock analysis. Requires an Anthropic API key (get one at console.anthropic.com). The key is stored locally in your browser only.</div>
-      <div class="stat-label" style="margin-bottom:6px">Anthropic API Key</div>
+      <div class="stat-label" style="margin-bottom:6px" data-i18n="ai_key_label">Anthropic API Key</div>
       <div class="s-row">
         <input class="s-input" type="password" id="s-ai-key" placeholder="sk-ant-..." autocomplete="off"/>
         <button class="s-btn" onclick="saveAIKey()" data-i18n="btn_save">Save</button>
@@ -1327,6 +1327,29 @@ const LANG_DATA = {
     err_delete_fx_txn:'Failed to delete FX conversion',
     alert_deleted:'Alert deleted',
     err_no_csv:'Paste CSV data first', err_no_valid_rows:'No valid rows found',
+    // Batch Import
+    batch_import_title:'Batch Import (CSV)',
+    batch_import_desc:'Paste CSV data or upload a file. Format:',
+    btn_upload_csv:'Upload CSV', btn_import_all:'Import All',
+    commission_pct_label:'Commission %',
+    // Table headers
+    th_date:'Date', th_stock:'Stock', th_details:'Details', th_pnl:'P&L',
+    // Theme swatches
+    theme_dark:'Dark', theme_light:'Light', theme_rose:'Rosé', theme_sand:'Sand', theme_midnight:'Midnight',
+    // Watchlist banner
+    wl_popular:'Popular Stocks', wl_positions_watchlist:'Positions & Watchlist',
+    wl_your_positions:'Your Positions', wl_watchlist:'Watchlist', wl_held:'HELD',
+    // Filter dropdowns
+    filter_all_sectors:'All Sectors', filter_all_markets:'All Markets',
+    // Empty states
+    empty_no_stocks_list:'No stocks added yet',
+    empty_edit_list_hint:'Click ⋮ on the tab above to edit this list',
+    err_loading_stocks_retry:'Error loading stocks — retrying...',
+    // Other missing
+    btn_submit:'Submit', ma_periods_label:'MA Periods',
+    list_name_ph:'e.g. Tech Picks, My Watchlist…', list_search_ph:'Search by name or code…',
+    ai_key_label:'Anthropic API Key',
+    initial_deposit:'Initial deposit',
   },
   ja: {
     trading_platform:'トレーディングプラットフォーム',
@@ -1522,6 +1545,22 @@ const LANG_DATA = {
     err_delete_fx_txn:'為替取引の削除に失敗しました',
     alert_deleted:'アラートを削除しました',
     err_no_csv:'CSVデータを貼り付けてください', err_no_valid_rows:'有効な行が見つかりません',
+    batch_import_title:'一括インポート (CSV)',
+    batch_import_desc:'CSVデータを貼り付けるかファイルをアップロード。形式:',
+    btn_upload_csv:'CSVアップロード', btn_import_all:'全てインポート',
+    commission_pct_label:'手数料 %',
+    th_date:'日付', th_stock:'銘柄', th_details:'詳細', th_pnl:'損益',
+    theme_dark:'ダーク', theme_light:'ライト', theme_rose:'ロゼ', theme_sand:'サンド', theme_midnight:'ミッドナイト',
+    wl_popular:'人気銘柄', wl_positions_watchlist:'保有・ウォッチリスト',
+    wl_your_positions:'保有銘柄', wl_watchlist:'ウォッチリスト', wl_held:'保有中',
+    filter_all_sectors:'全セクター', filter_all_markets:'全市場',
+    empty_no_stocks_list:'銘柄がまだ追加されていません',
+    empty_edit_list_hint:'上のタブの ⋮ をクリックしてリストを編集',
+    err_loading_stocks_retry:'銘柄の読み込みエラー — 再試行中...',
+    btn_submit:'送信', ma_periods_label:'MA期間',
+    list_name_ph:'例: テック銘柄, お気に入り…', list_search_ph:'名前またはコードで検索…',
+    ai_key_label:'Anthropic APIキー',
+    initial_deposit:'初回入金',
   },
   zh: {
     trading_platform:'交易平台',
@@ -1717,6 +1756,22 @@ const LANG_DATA = {
     err_delete_fx_txn:'删除汇率交易失败',
     alert_deleted:'提醒已删除',
     err_no_csv:'请先粘贴CSV数据', err_no_valid_rows:'未找到有效行',
+    batch_import_title:'批量导入 (CSV)',
+    batch_import_desc:'粘贴CSV数据或上传文件。格式:',
+    btn_upload_csv:'上传CSV', btn_import_all:'全部导入',
+    commission_pct_label:'手续费 %',
+    th_date:'日期', th_stock:'股票', th_details:'详情', th_pnl:'盈亏',
+    theme_dark:'深色', theme_light:'浅色', theme_rose:'玫瑰', theme_sand:'沙色', theme_midnight:'午夜',
+    wl_popular:'热门股票', wl_positions_watchlist:'持仓与关注',
+    wl_your_positions:'你的持仓', wl_watchlist:'关注列表', wl_held:'持有',
+    filter_all_sectors:'全部行业', filter_all_markets:'全部市场',
+    empty_no_stocks_list:'暂未添加股票',
+    empty_edit_list_hint:'点击上方标签的 ⋮ 编辑列表',
+    err_loading_stocks_retry:'加载股票出错 — 正在重试...',
+    btn_submit:'提交', ma_periods_label:'MA周期',
+    list_name_ph:'例如: 科技股, 我的关注…', list_search_ph:'按名称或代码搜索…',
+    ai_key_label:'Anthropic API密钥',
+    initial_deposit:'初始入金',
   }
 };
 
@@ -1953,9 +2008,9 @@ async function renderWatchlistBanner() {
   const watchedOnly = watchlist.filter(s => !heldSyms.includes(s));
   const hasCustom = heldSyms.length > 0 || watchedOnly.length > 0;
   const syms = hasCustom ? [...heldSyms, ...watchedOnly] : POPULAR_SYMS;
-  titleEl.textContent = !hasCustom ? 'Popular Stocks' :
-    heldSyms.length && watchedOnly.length ? 'Positions & Watchlist' :
-    heldSyms.length ? 'Your Positions' : 'Watchlist';
+  titleEl.textContent = !hasCustom ? t('wl_popular') :
+    heldSyms.length && watchedOnly.length ? t('wl_positions_watchlist') :
+    heldSyms.length ? t('wl_your_positions') : t('wl_watchlist');
 
   banner.innerHTML = syms.map(sym => {
     const info = stockList.find(s => s.symbol === sym) || {};
@@ -1964,7 +2019,7 @@ async function renderWatchlistBanner() {
     const held = heldSyms.includes(sym);
     const watched = watchlist.includes(sym);
     return `<div class="wl-card" onclick="openDetail('${sym}')">
-      ${held ? `<div class="held-badge">HELD</div>` : ''}
+      ${held ? `<div class="held-badge">${t('wl_held')}</div>` : ''}
       <button class="wl-star ${watched?'on':''}" data-wl="${sym}" onclick="toggleWatchlist('${sym}',event)">${watched?'★':'☆'}</button>
       <div class="wl-card-ticker" style="margin-top:${held?'14px':'0'}">${ticker}</div>
       <div class="wl-card-name">${info.name || sym}</div>
@@ -2483,7 +2538,7 @@ function closeListModal() {
 function renderListStocksPreview() {
   const el = document.getElementById('list-stocks-preview');
   if (!_listModalStocks.length) {
-    el.innerHTML = `<span style="color:var(--text2);font-size:13px">No stocks added yet</span>`;
+    el.innerHTML = `<span style="color:var(--text2);font-size:13px">${t('empty_no_stocks_list')}</span>`;
     return;
   }
   el.innerHTML = _listModalStocks.map(sym => {
@@ -2562,7 +2617,7 @@ async function renderCustomListView(list) {
   document.getElementById('stock-count').textContent = `${list.symbols.length} ${t('stocks_count')}`;
   if (!list.symbols.length) {
     grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">${t('list_empty')}</div>
-      <div class="empty-sub">Click ⋮ on the tab above to edit this list</div></div>`;
+      <div class="empty-sub">${t('empty_edit_list_hint')}</div></div>`;
     return;
   }
   const stocks = list.symbols.map(sym => stockList.find(s => s.symbol === sym) || { symbol: sym, name: sym, nameJP: sym, sector: '', market: '', code: tickerDisplay(sym) });
@@ -2619,7 +2674,7 @@ async function searchStocks(reset = false) {
     // Fallback to local cache
     data = _LC.get(cacheKey);
     if (!data) {
-      document.getElementById('stocks-grid').innerHTML = `<div style="text-align:center;padding:40px;color:var(--text2)">Error loading stocks — retrying...</div>`;
+      document.getElementById('stocks-grid').innerHTML = `<div style="text-align:center;padding:40px;color:var(--text2)">${t('err_loading_stocks_retry')}</div>`;
       setTimeout(() => { marketLoading = false; searchStocks(true); }, 3000);
       return;
     }
@@ -3866,7 +3921,7 @@ async function loadPortfolioTxnHistory() {
     }
     el.innerHTML = `<div style="max-height:500px;overflow:auto;border:1px solid var(--border);border-radius:10px">
         <table class="pos-table" style="margin:0;min-width:100%">
-          <thead><tr><th>Date</th><th></th><th>Stock</th><th>Details</th><th>P&L</th><th></th></tr></thead>
+          <thead><tr><th>${t('th_date')}</th><th></th><th>${t('th_stock')}</th><th>${t('th_details')}</th><th>${t('th_pnl')}</th><th></th></tr></thead>
           <tbody>${txns.map(tx => {
             // Fund transaction row
             if (tx.source === 'fund') {
