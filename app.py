@@ -1623,7 +1623,11 @@ def get_transactions():
                 SELECT f.id, '' as symbol, COALESCE(f.note, f.type) as name, f.type as action, 0 as shares, 0 as price, f.amount as total, 0 as pnl, 0 as commission, f.timestamp, f.portfolio_id, sp2.name AS portfolio_name, 'fund' as source
                 FROM fund_transactions f LEFT JOIN sub_portfolios sp2 ON f.portfolio_id = sp2.id
                 WHERE f.user_id = ?
-                ORDER BY 10 DESC, 1 DESC LIMIT 200''', (uid, uid)
+                UNION ALL
+                SELECT fx.id, '' as symbol, '' as name, fx.direction as action, fx.usd_amount as shares, fx.rate as price, fx.jpy_amount as total, 0 as pnl, fx.spread as commission, fx.timestamp, fx.portfolio_id, sp3.name AS portfolio_name, 'fx' as source
+                FROM fx_transactions fx LEFT JOIN sub_portfolios sp3 ON fx.portfolio_id = sp3.id
+                WHERE fx.user_id = ?
+                ORDER BY 10 DESC, 1 DESC LIMIT 200''', (uid, uid, uid)
             ).fetchall()]
         else:
             txns = [dict(r) for r in conn.execute(
@@ -1640,7 +1644,11 @@ def get_transactions():
                 SELECT f.id, '' as symbol, COALESCE(f.note, f.type) as name, f.type as action, 0 as shares, 0 as price, f.amount as total, 0 as pnl, 0 as commission, f.timestamp, f.portfolio_id, 'fund' as source
                 FROM fund_transactions f
                 WHERE f.user_id = ? AND f.portfolio_id = ?
-                ORDER BY 10 DESC, 1 DESC LIMIT 50''', (uid, pid, uid, pid)
+                UNION ALL
+                SELECT fx.id, '' as symbol, '' as name, fx.direction as action, fx.usd_amount as shares, fx.rate as price, fx.jpy_amount as total, 0 as pnl, fx.spread as commission, fx.timestamp, fx.portfolio_id, 'fx' as source
+                FROM fx_transactions fx
+                WHERE fx.user_id = ? AND fx.portfolio_id = ?
+                ORDER BY 10 DESC, 1 DESC LIMIT 50''', (uid, pid, uid, pid, uid, pid)
             ).fetchall()]
         else:
             txns = [dict(r) for r in conn.execute(

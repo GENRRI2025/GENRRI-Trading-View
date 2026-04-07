@@ -617,6 +617,11 @@ select.s-input { appearance: none; }
           <div style="font-size:12px;color:var(--text2);margin-bottom:8px;text-align:center" id="fx-preview"></div>
           <button class="s-btn" style="background:var(--accent);color:#fff;width:100%;margin-bottom:4px" onclick="doFxConvert()" data-i18n="btn_convert">Convert</button>
 
+          <div style="margin-top:16px">
+            <div class="stat-label" style="margin-bottom:8px" data-i18n="fx_history_title">Exchange History</div>
+            <div id="fx-history-list" style="max-height:300px;overflow-y:auto"></div>
+          </div>
+
           <div style="border-top:1px solid var(--border);margin:16px 0"></div>
           <!-- Starting Fund (hidden by default, collapsible) -->
           <details style="margin-bottom:0">
@@ -1253,6 +1258,7 @@ const LANG_DATA = {
     fx_buy_usd_full:'Buy USD (JPY → USD)', fx_sell_usd_full:'Sell USD (USD → JPY)',
     fx_jpy_spent:'JPY spent:', fx_usd_received:'USD received:',
     fx_usd_amount_ph:'USD amount', btn_convert:'Convert',
+    fx_history_title:'Exchange History', fx_history_empty:'No conversions yet',
     s_advanced_fund:'Advanced: Set Starting Fund Amount',
     s_advanced_fund_desc:'Override the initial fund amount. This creates a corrective deposit/withdrawal to match.',
     s_commission_label:'Default Commission %',
@@ -1444,6 +1450,7 @@ const LANG_DATA = {
     fx_buy_usd_full:'USD 購入 (JPY → USD)', fx_sell_usd_full:'USD 売却 (USD → JPY)',
     fx_jpy_spent:'JPY 支出:', fx_usd_received:'USD 受取:',
     fx_usd_amount_ph:'USD 金額', btn_convert:'両替する',
+    fx_history_title:'為替履歴', fx_history_empty:'為替取引はありません',
     s_advanced_fund:'詳細: 初期資金額の設定',
     s_advanced_fund_desc:'初期資金額を上書きします。差額の入出金が自動で作成されます。',
     s_commission_label:'デフォルト手数料 %',
@@ -1635,6 +1642,7 @@ const LANG_DATA = {
     fx_buy_usd_full:'买入 USD (JPY → USD)', fx_sell_usd_full:'卖出 USD (USD → JPY)',
     fx_jpy_spent:'JPY 支出:', fx_usd_received:'USD 收入:',
     fx_usd_amount_ph:'USD 金额', btn_convert:'兑换',
+    fx_history_title:'汇率历史', fx_history_empty:'暂无汇率交易',
     s_advanced_fund:'高级：设置初始资金金额',
     s_advanced_fund_desc:'覆盖初始资金金额。将自动创建修正性存取款记录。',
     s_commission_label:'默认佣金 %',
@@ -2288,6 +2296,7 @@ function _renderPortfolioUI(priceMap) {
   if (netEl) netEl.textContent = `¥${netDeposits.toLocaleString()}`;
   renderManualHoldings();
   setImportMode('txn');
+  loadFxHistory();
 }
 
 async function renderPortfolio() {
@@ -3721,6 +3730,28 @@ async function loadHistory() {
         </div>
       </div>`;
     }
+    // FX conversion transaction
+    if (tx.source === 'fx') {
+      const isBuy = tx.action === 'buy_usd';
+      const usdAmt = tx.shares; // usd_amount stored in shares field
+      const jpyAmt = tx.total;  // jpy_amount stored in total field
+      const rate = tx.price;    // rate stored in price field
+      return `<div class="txn-item" style="position:relative">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="txn-badge" style="background:var(--accent);color:#fff;font-size:10px;padding:3px 8px;border-radius:6px">FX</span>
+          <div>
+            <div style="font-size:13px;font-weight:500">${isBuy ? t('fx_buy_usd_full') : t('fx_sell_usd_full')}</div>
+            <div style="font-size:12px;color:var(--text2)">$${usdAmt.toLocaleString(undefined,{minimumFractionDigits:2})} ↔ ¥${jpyAmt.toLocaleString()} @ ¥${rate.toFixed(2)}</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-weight:600;font-size:14px;text-align:right">${isBuy ? '-' : '+'}¥${jpyAmt.toLocaleString()}</div>
+          <div style="font-weight:600;font-size:12px;text-align:right;color:var(--text2)">${isBuy ? '+' : '-'}$${usdAmt.toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+          <div style="font-size:11px;color:var(--text2);text-align:right">${tx.timestamp}</div>
+          <div style="font-size:10px;color:var(--accent);text-align:right;margin-top:2px">${pfName}</div>
+        </div>
+      </div>`;
+    }
     // Trade transaction (buy/sell)
     const pnl = tx.pnl || 0;
     const comm = tx.commission || 0;
@@ -4109,7 +4140,39 @@ async function doFxConvert() {
     portfolio.cash = data.cash;
     portfolio.cash_usd = data.cash_usd;
     renderPortfolio();
+    loadFxHistory();
   } catch(e) { showToast(t('fx_convert_failed'), 'error'); }
+}
+
+async function loadFxHistory() {
+  const list = document.getElementById('fx-history-list');
+  if (!list) return;
+  try {
+    const res = await apiFetch(`/api/portfolios/${currentPortfolioId}/fx-history`);
+    const data = await res.json();
+    if (!data.length) {
+      list.innerHTML = `<div style="text-align:center;padding:12px;color:var(--text2);font-size:12px">${t('fx_history_empty')}</div>`;
+      return;
+    }
+    list.innerHTML = data.map(fx => {
+      const isBuy = fx.direction === 'buy_usd';
+      const badge = isBuy ? `<span class="txn-badge buy" style="font-size:10px;padding:2px 6px">${t('fx_buy_usd')}</span>`
+                          : `<span class="txn-badge sell" style="font-size:10px;padding:2px 6px">${t('fx_sell_usd')}</span>`;
+      const date = fx.timestamp.split(' ')[0];
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:12px">
+        <div style="display:flex;align-items:center;gap:6px">
+          ${badge}
+          <span style="color:var(--text2)">${date}</span>
+        </div>
+        <div style="text-align:right">
+          <div><strong>$${fx.usd_amount.toLocaleString(undefined,{minimumFractionDigits:2})}</strong> ↔ <strong>¥${fx.jpy_amount.toLocaleString()}</strong></div>
+          <div style="color:var(--text2);font-size:11px">¥${fx.rate.toFixed(2)}/USD${fx.spread > 0 ? ` (±¥${fx.spread})` : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '';
+  }
 }
 
 async function saveFundAmount() {
