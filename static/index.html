@@ -403,7 +403,7 @@ select.s-input { appearance: none; }
     <!-- ── Performance Chart ── -->
     <div class="alloc-wrap" id="perf-chart-wrap" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div class="section-title" style="margin-bottom:0">📊 Portfolio Performance</div>
+        <div class="section-title" style="margin-bottom:0">📊 <span data-i18n="port_performance">Portfolio Performance</span></div>
         <div style="display:flex;gap:4px">
           <button class="ct-btn active" data-perf="1m" onclick="setPerfRange('1m')">1M</button>
           <button class="ct-btn" data-perf="3m" onclick="setPerfRange('3m')">3M</button>
@@ -528,51 +528,51 @@ select.s-input { appearance: none; }
           <div class="stat-label" style="margin-bottom:8px" data-i18n="fund_deposit_withdraw">Deposit / Withdraw Funds</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
             <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">Total Deposited</div>
+              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px" data-i18n="total_deposited">Total Deposited</div>
               <div style="font-size:15px;font-weight:600;margin-top:4px" id="s-total-deposits">¥0</div>
             </div>
             <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">Total Withdrawn</div>
+              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px" data-i18n="total_withdrawn">Total Withdrawn</div>
               <div style="font-size:15px;font-weight:600;margin-top:4px" id="s-total-withdrawals">¥0</div>
             </div>
           </div>
-          <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:12px">Net Deposits: <strong id="s-net-deposits">¥0</strong></div>
+          <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:12px"><span data-i18n="net_deposits_label">Net Deposits:</span> <strong id="s-net-deposits">¥0</strong></div>
           <div class="s-row" style="gap:8px;margin-bottom:8px">
-            <input class="s-input" type="number" id="fund-op-amount" placeholder="Amount (¥)" min="1" step="1" style="flex:2"/>
-            <input class="s-input" type="text" id="fund-op-note" placeholder="Note (optional)" style="flex:3"/>
+            <input class="s-input" type="number" id="fund-op-amount" data-i18n-ph="amount_jpy_ph" placeholder="Amount (¥)" min="1" step="1" style="flex:2"/>
+            <input class="s-input" type="text" id="fund-op-note" data-i18n-ph="note_optional_ph" placeholder="Note (optional)" style="flex:3"/>
           </div>
           <div class="s-row" style="gap:8px;margin-bottom:4px">
-            <button class="s-btn" style="background:var(--green);color:#fff;flex:1" onclick="doDeposit()">+ Deposit</button>
-            <button class="s-btn" style="background:var(--red);color:#fff;flex:1" onclick="doWithdraw()">− Withdraw</button>
+            <button class="s-btn" style="background:var(--green);color:#fff;flex:1" onclick="doDeposit()" data-i18n="btn_deposit">+ Deposit</button>
+            <button class="s-btn" style="background:var(--red);color:#fff;flex:1" onclick="doWithdraw()" data-i18n="btn_withdraw">− Withdraw</button>
           </div>
           <div style="border-top:1px solid var(--border);margin:16px 0"></div>
           <!-- Currency Exchange (SBI-style) -->
-          <div class="stat-label" style="margin-bottom:8px">💱 Currency Exchange (JPY ↔ USD)</div>
+          <div class="stat-label" style="margin-bottom:8px">💱 <span data-i18n="fx_title">Currency Exchange (JPY ↔ USD)</span></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
             <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">JPY Balance</div>
+              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px" data-i18n="fx_jpy_balance">JPY Balance</div>
               <div style="font-size:15px;font-weight:600;margin-top:4px" id="fx-jpy-bal">¥0</div>
             </div>
             <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">USD Balance</div>
+              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px" data-i18n="fx_usd_balance">USD Balance</div>
               <div style="font-size:15px;font-weight:600;margin-top:4px" id="fx-usd-bal">$0.00</div>
             </div>
           </div>
           <div style="text-align:center;font-size:11px;color:var(--text2);margin-bottom:8px" id="fx-live-rate-row">
-            Rate: <strong id="fx-rate">-</strong> (spread: ±¥0.25)
+            <span data-i18n="fx_rate_label">Rate:</span> <strong id="fx-rate">-</strong> <span data-i18n="fx_spread_label">(spread: ±¥0.25)</span>
           </div>
           <div style="margin-bottom:8px">
             <label style="font-size:11px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center">
-              <input type="checkbox" id="fx-exact-toggle" onchange="toggleFxExactMode()"/> Set exact amounts (match broker transaction)
+              <input type="checkbox" id="fx-exact-toggle" onchange="toggleFxExactMode()"/> <span data-i18n="fx_exact_toggle">Set exact amounts (match broker transaction)</span>
             </label>
           </div>
           <!-- Live rate mode -->
           <div id="fx-live-mode">
             <div class="s-row" style="gap:8px;margin-bottom:8px">
-              <input class="s-input" type="number" id="fx-amount" placeholder="USD amount" min="0.01" step="0.01" style="flex:2" oninput="updateFxPreview()"/>
+              <input class="s-input" type="number" id="fx-amount" data-i18n-ph="fx_usd_amount_ph" placeholder="USD amount" min="0.01" step="0.01" style="flex:2" oninput="updateFxPreview()"/>
               <select class="s-input" id="fx-direction" style="flex:1" onchange="updateFxPreview()">
-                <option value="buy_usd">Buy USD</option>
-                <option value="sell_usd">Sell USD</option>
+                <option value="buy_usd" data-i18n="fx_buy_usd">Buy USD</option>
+                <option value="sell_usd" data-i18n="fx_sell_usd">Sell USD</option>
               </select>
             </div>
           </div>
@@ -580,28 +580,28 @@ select.s-input { appearance: none; }
           <div id="fx-exact-mode" style="display:none">
             <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--text2);width:85px">JPY spent:</span>
+                <span style="font-size:12px;color:var(--text2);width:85px" data-i18n="fx_jpy_spent">JPY spent:</span>
                 <input class="s-input" type="number" id="fx-exact-jpy" placeholder="e.g. 15000" min="1" step="1" style="flex:1" oninput="updateFxPreview()"/>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--text2);width:85px">USD received:</span>
+                <span style="font-size:12px;color:var(--text2);width:85px" data-i18n="fx_usd_received">USD received:</span>
                 <input class="s-input" type="number" id="fx-exact-usd" placeholder="e.g. 100" min="0.01" step="0.01" style="flex:1" oninput="updateFxPreview()"/>
               </div>
               <select class="s-input" id="fx-exact-direction" style="font-size:12px" onchange="updateFxExactLabels()">
-                <option value="buy_usd">Buy USD (JPY → USD)</option>
-                <option value="sell_usd">Sell USD (USD → JPY)</option>
+                <option value="buy_usd" data-i18n="fx_buy_usd_full">Buy USD (JPY → USD)</option>
+                <option value="sell_usd" data-i18n="fx_sell_usd_full">Sell USD (USD → JPY)</option>
               </select>
             </div>
           </div>
           <div style="font-size:12px;color:var(--text2);margin-bottom:8px;text-align:center" id="fx-preview"></div>
-          <button class="s-btn" style="background:var(--accent);color:#fff;width:100%;margin-bottom:4px" onclick="doFxConvert()">Convert</button>
+          <button class="s-btn" style="background:var(--accent);color:#fff;width:100%;margin-bottom:4px" onclick="doFxConvert()" data-i18n="btn_convert">Convert</button>
 
           <div style="border-top:1px solid var(--border);margin:16px 0"></div>
           <!-- Starting Fund (hidden by default, collapsible) -->
           <details style="margin-bottom:0">
-            <summary style="font-size:12px;color:var(--text2);cursor:pointer;user-select:none">⚙️ Advanced: Set Starting Fund Amount</summary>
+            <summary style="font-size:12px;color:var(--text2);cursor:pointer;user-select:none">⚙️ <span data-i18n="s_advanced_fund">Advanced: Set Starting Fund Amount</span></summary>
             <div style="padding:10px 0 0">
-              <div class="s-desc" style="margin-bottom:8px;font-size:11px">Override the initial fund amount. This creates a corrective deposit/withdrawal to match.</div>
+              <div class="s-desc" style="margin-bottom:8px;font-size:11px" data-i18n="s_advanced_fund_desc">Override the initial fund amount. This creates a corrective deposit/withdrawal to match.</div>
               <div class="s-row">
                 <input class="s-input" type="number" id="s-fund-amount" placeholder="e.g. 1000000" min="1" step="1"/>
                 <button class="s-btn" onclick="saveFundAmount()" data-i18n="btn_save">Save</button>
@@ -610,13 +610,13 @@ select.s-input { appearance: none; }
             </div>
           </details>
           <div style="border-top:1px solid var(--border);margin:16px 0"></div>
-          <div class="stat-label" style="margin-bottom:6px">Default Commission %</div>
-          <div class="s-desc" style="margin-bottom:8px">Applied to all new trades and imports. Set to 0 for no commission.</div>
+          <div class="stat-label" style="margin-bottom:6px" data-i18n="s_commission_label">Default Commission %</div>
+          <div class="s-desc" style="margin-bottom:8px" data-i18n="s_commission_desc">Applied to all new trades and imports. Set to 0 for no commission.</div>
           <div class="s-row">
             <input class="s-input" type="number" id="s-commission-pct" placeholder="1" min="0" max="100" step="0.01" style="width:80px"/>
-            <button class="s-btn" onclick="saveCommissionPct()">Save</button>
+            <button class="s-btn" onclick="saveCommissionPct()" data-i18n="btn_save">Save</button>
           </div>
-          <div class="s-hint">Current: <strong id="s-commission-display">1%</strong></div>
+          <div class="s-hint"><span data-i18n="s_current_label">Current:</span> <strong id="s-commission-display">1%</strong></div>
         </div>
       </details>
     </div>
@@ -669,8 +669,8 @@ select.s-input { appearance: none; }
         <div class="detail-symbol" id="detail-symbol">-</div>
         <div style="display:flex;align-items:center;gap:10px">
           <div class="detail-name" id="detail-name" style="margin-bottom:0">-</div>
-          <button class="row-star" id="detail-star" onclick="toggleWatchlist(currentSymbol,event)" title="Add to watchlist" style="font-size:22px">☆</button>
-          <button class="row-star" id="detail-alert-btn" onclick="openAlertModal()" title="Set Price Alert" style="font-size:14px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;color:var(--text2)">+ Alert</button>
+          <button class="row-star" id="detail-star" onclick="toggleWatchlist(currentSymbol,event)" title="Add to watchlist" data-i18n-title="add_watchlist" style="font-size:22px">☆</button>
+          <button class="row-star" id="detail-alert-btn" onclick="openAlertModal()" title="Set Price Alert" data-i18n-title="set_price_alert" style="font-size:14px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;color:var(--text2)">+ Alert</button>
         </div>
         <div class="detail-sector" id="detail-sector" style="margin-top:4px">-</div>
         <div class="detail-price" id="detail-price">¥-</div>
@@ -717,7 +717,7 @@ select.s-input { appearance: none; }
             <button class="ind-btn" id="ind-ma3" onclick="toggleIndicator('ma3')">MA<span id="ma-lbl-3">200</span></button>
             <button class="ind-btn" id="ind-bb"  onclick="toggleIndicator('bb')">BB</button>
             <button class="ind-btn" id="ind-vol" onclick="toggleIndicator('vol')">VOL</button>
-            <button class="ind-btn" id="btn-ma-cfg" onclick="toggleMASettings()" title="Customize MA periods" style="border-style:dashed;font-size:13px">⚙</button>
+            <button class="ind-btn" id="btn-ma-cfg" onclick="toggleMASettings()" title="Customize MA periods" data-i18n-title="customize_ma" style="border-style:dashed;font-size:13px">⚙</button>
           </div>
           <!-- MA custom period panel -->
           <div id="ma-cfg-panel" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:10px;gap:14px;flex-wrap:wrap;align-items:center">
@@ -755,15 +755,15 @@ select.s-input { appearance: none; }
             <input class="trade-input" type="number" id="trade-shares" min="1" step="1" value="1" oninput="updateTradeSummary()"/>
           </div>
           <div class="trade-input-group">
-            <div class="trade-input-label">Commission %</div>
+            <div class="trade-input-label" data-i18n="trade_commission">Commission</div> %
             <input class="trade-input" type="number" id="trade-commission" min="0" max="100" step="0.01" value="1" oninput="updateTradeSummary()" style="width:80px"/>
           </div>
           <div class="trade-summary">
             <div class="trade-summary-row"><span data-i18n="trade_mkt_price">Market Price</span><span id="ts-price">¥-</span></div>
             <div class="trade-summary-row"><span data-i18n="trade_shares">Shares</span><span id="ts-shares">0</span></div>
             <div class="trade-summary-row"><span data-i18n="trade_est_total">Estimated Total</span><span id="ts-total">¥0</span></div>
-            <div class="trade-summary-row"><span>Commission</span><span id="ts-commission">¥0</span></div>
-            <div class="trade-summary-row" style="font-weight:700;border-top:1px solid var(--border);padding-top:6px"><span>Grand Total</span><span id="ts-grand">¥0</span></div>
+            <div class="trade-summary-row"><span data-i18n="trade_commission">Commission</span><span id="ts-commission">¥0</span></div>
+            <div class="trade-summary-row" style="font-weight:700;border-top:1px solid var(--border);padding-top:6px"><span data-i18n="trade_grand_total">Grand Total</span><span id="ts-grand">¥0</span></div>
           </div>
           <div style="font-size:12px;color:var(--text2);margin-bottom:14px" id="trade-avail"></div>
           <button class="trade-btn buy" id="trade-btn" onclick="executeTrade()" data-i18n="trade_buy">Buy</button>
@@ -785,7 +785,7 @@ select.s-input { appearance: none; }
         <button class="period-btn" onclick="switchInfoTab('ai')" id="info-tab-ai" style="background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(59,130,246,0.15));border:1px solid rgba(139,92,246,0.3)" data-i18n="s_ai_analyst">AI Analyst</button>
       </div>
       <div id="stock-info-content" style="font-size:13px">
-        <div style="color:var(--text2);text-align:center;padding:20px">Loading fundamentals...</div>
+        <div style="color:var(--text2);text-align:center;padding:20px" data-i18n="info_loading">Loading fundamentals...</div>
       </div>
     </div>
   </div>
@@ -911,43 +911,43 @@ select.s-input { appearance: none; }
 
       <!-- Tab switcher -->
       <div style="display:flex; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:4px; margin-bottom:24px">
-        <button id="tab-signin" onclick="switchAuthTab('signin')" style="flex:1; padding:10px; border:none; border-radius:9px; background:var(--accent); color:#000; font-weight:700; font-size:14px; cursor:pointer">Sign In</button>
-        <button id="tab-register" onclick="switchAuthTab('register')" style="flex:1; padding:10px; border:none; border-radius:9px; background:transparent; color:var(--text2); font-weight:600; font-size:14px; cursor:pointer">Create Account</button>
+        <button id="tab-signin" onclick="switchAuthTab('signin')" style="flex:1; padding:10px; border:none; border-radius:9px; background:var(--accent); color:#000; font-weight:700; font-size:14px; cursor:pointer" data-i18n="login_sign_in">Sign In</button>
+        <button id="tab-register" onclick="switchAuthTab('register')" style="flex:1; padding:10px; border:none; border-radius:9px; background:transparent; color:var(--text2); font-weight:600; font-size:14px; cursor:pointer" data-i18n="login_create_account">Create Account</button>
       </div>
 
       <!-- Sign In form -->
       <div id="form-signin">
         <div style="margin-bottom:16px">
-          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px">Username</label>
-          <input id="si-username" class="s-input" type="text" placeholder="Enter your username" style="width:100%" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('si-password').focus()"/>
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px" data-i18n="login_username">Username</label>
+          <input id="si-username" class="s-input" type="text" data-i18n-ph="login_username_ph" placeholder="Enter your username" style="width:100%" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('si-password').focus()"/>
         </div>
         <div style="margin-bottom:24px">
-          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px">Password</label>
-          <input id="si-password" class="s-input" type="password" placeholder="Enter your password" style="width:100%" autocomplete="current-password" onkeydown="if(event.key==='Enter')doSignIn()"/>
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px" data-i18n="login_password">Password</label>
+          <input id="si-password" class="s-input" type="password" data-i18n-ph="login_password_ph" placeholder="Enter your password" style="width:100%" autocomplete="current-password" onkeydown="if(event.key==='Enter')doSignIn()"/>
         </div>
-        <button onclick="doSignIn()" style="width:100%; padding:14px; background:var(--accent); color:#000; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer">Sign In</button>
+        <button onclick="doSignIn()" style="width:100%; padding:14px; background:var(--accent); color:#000; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer" data-i18n="login_sign_in">Sign In</button>
         <div id="si-error" style="color:var(--red); font-size:13px; text-align:center; margin-top:12px; display:none"></div>
       </div>
 
       <!-- Create Account form -->
       <div id="form-register" style="display:none">
         <div style="margin-bottom:16px">
-          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px">Username</label>
-          <input id="reg-username" class="s-input" type="text" placeholder="Choose a username" style="width:100%" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('reg-password').focus()"/>
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px" data-i18n="login_username">Username</label>
+          <input id="reg-username" class="s-input" type="text" data-i18n-ph="reg_username_ph" placeholder="Choose a username" style="width:100%" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('reg-password').focus()"/>
         </div>
         <div style="margin-bottom:16px">
-          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px">Password</label>
-          <input id="reg-password" class="s-input" type="password" placeholder="Min 6 characters" style="width:100%" autocomplete="new-password" onkeydown="if(event.key==='Enter')document.getElementById('reg-confirm').focus()"/>
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px" data-i18n="login_password">Password</label>
+          <input id="reg-password" class="s-input" type="password" data-i18n-ph="reg_password_ph" placeholder="Min 6 characters" style="width:100%" autocomplete="new-password" onkeydown="if(event.key==='Enter')document.getElementById('reg-confirm').focus()"/>
         </div>
         <div style="margin-bottom:16px">
-          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px">Confirm Password</label>
-          <input id="reg-confirm" class="s-input" type="password" placeholder="Re-enter password" style="width:100%" autocomplete="new-password" onkeydown="if(event.key==='Enter')document.getElementById('reg-invite').focus()"/>
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px" data-i18n="reg_confirm_label">Confirm Password</label>
+          <input id="reg-confirm" class="s-input" type="password" data-i18n-ph="reg_confirm_ph" placeholder="Re-enter password" style="width:100%" autocomplete="new-password" onkeydown="if(event.key==='Enter')document.getElementById('reg-invite').focus()"/>
         </div>
         <div style="margin-bottom:24px">
-          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px">Invite Code</label>
-          <input id="reg-invite" class="s-input" type="text" placeholder="Enter invite code" style="width:100%" autocomplete="off" onkeydown="if(event.key==='Enter')doRegister()"/>
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px" data-i18n="reg_invite_label">Invite Code</label>
+          <input id="reg-invite" class="s-input" type="text" data-i18n-ph="reg_invite_ph" placeholder="Enter invite code" style="width:100%" autocomplete="off" onkeydown="if(event.key==='Enter')doRegister()"/>
         </div>
-        <button onclick="doRegister()" style="width:100%; padding:14px; background:var(--accent); color:#000; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer">Create Account</button>
+        <button onclick="doRegister()" style="width:100%; padding:14px; background:var(--accent); color:#000; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer" data-i18n="login_create_account">Create Account</button>
         <div id="reg-error" style="color:var(--red); font-size:13px; text-align:center; margin-top:12px; display:none"></div>
       </div>
 
@@ -1024,7 +1024,7 @@ select.s-input { appearance: none; }
 <!-- Edit Transaction Modal -->
 <div id="edit-txn-modal" class="modal-overlay" style="display:none">
   <div class="modal" style="max-width:420px">
-    <div class="modal-title">✏️ Edit Transaction</div>
+    <div class="modal-title">✏️ <span data-i18n="edit_txn_title">Edit Transaction</span></div>
     <div class="modal-sub" id="edit-txn-sub" style="margin-bottom:16px"></div>
     <input type="hidden" id="edit-txn-id"/>
     <div style="display:grid;gap:14px">
@@ -1058,8 +1058,8 @@ select.s-input { appearance: none; }
       </div>
     </div>
     <div class="modal-actions" style="margin-top:20px">
-      <button class="btn btn-outline" onclick="document.getElementById('edit-txn-modal').style.display='none'">Cancel</button>
-      <button class="s-btn" onclick="saveEditTxn()">Save Changes</button>
+      <button class="btn btn-outline" onclick="document.getElementById('edit-txn-modal').style.display='none'" data-i18n="btn_cancel">Cancel</button>
+      <button class="s-btn" onclick="saveEditTxn()" data-i18n="btn_save_changes">Save Changes</button>
     </div>
   </div>
 </div>
@@ -1067,7 +1067,7 @@ select.s-input { appearance: none; }
 <!-- Edit Fund Transaction Modal -->
 <div id="edit-fund-modal" class="modal-overlay" style="display:none">
   <div class="modal" style="max-width:420px">
-    <div class="modal-title">✏️ Edit Fund Transaction</div>
+    <div class="modal-title">✏️ <span data-i18n="edit_fund_txn_title">Edit Fund Transaction</span></div>
     <input type="hidden" id="edit-fund-id"/>
     <div style="display:grid;gap:14px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -1096,8 +1096,8 @@ select.s-input { appearance: none; }
       </div>
     </div>
     <div class="modal-actions" style="margin-top:20px">
-      <button class="btn btn-outline" onclick="document.getElementById('edit-fund-modal').style.display='none'">Cancel</button>
-      <button class="s-btn" onclick="saveEditFund()">Save Changes</button>
+      <button class="btn btn-outline" onclick="document.getElementById('edit-fund-modal').style.display='none'" data-i18n="btn_cancel">Cancel</button>
+      <button class="s-btn" onclick="saveEditFund()" data-i18n="btn_save_changes">Save Changes</button>
     </div>
   </div>
 </div>
@@ -1221,6 +1221,82 @@ const LANG_DATA = {
     ai_confidence:'Confidence', ai_refresh:'Refresh',
     ai_news_used:'News analyzed', ai_articles:'articles', ai_generated:'Generated',
     ai_bad_key:'Invalid API Key', ai_error:'Analysis failed. Please try again.',
+    // Fund Settings / Currency Exchange
+    total_deposited:'Total Deposited', total_withdrawn:'Total Withdrawn',
+    net_deposits_label:'Net Deposits:', amount_jpy_ph:'Amount (¥)', note_optional_ph:'Note (optional)',
+    btn_deposit:'+ Deposit', btn_withdraw:'− Withdraw',
+    fx_title:'Currency Exchange (JPY ↔ USD)', fx_jpy_balance:'JPY Balance', fx_usd_balance:'USD Balance',
+    fx_rate_label:'Rate:', fx_spread_label:'(spread: ±¥0.25)',
+    fx_exact_toggle:'Set exact amounts (match broker transaction)',
+    fx_buy_usd:'Buy USD', fx_sell_usd:'Sell USD',
+    fx_buy_usd_full:'Buy USD (JPY → USD)', fx_sell_usd_full:'Sell USD (USD → JPY)',
+    fx_jpy_spent:'JPY spent:', fx_usd_received:'USD received:',
+    fx_usd_amount_ph:'USD amount', btn_convert:'Convert',
+    s_advanced_fund:'Advanced: Set Starting Fund Amount',
+    s_advanced_fund_desc:'Override the initial fund amount. This creates a corrective deposit/withdrawal to match.',
+    s_commission_label:'Default Commission %',
+    s_commission_desc:'Applied to all new trades and imports. Set to 0 for no commission.',
+    s_current_label:'Current:',
+    // Toast / Error messages
+    err_invalid_amount:'Enter a valid amount', fx_convert_failed:'Conversion failed',
+    deposit_failed:'Deposit failed', withdrawal_failed:'Withdrawal failed',
+    err_invalid_fx_amounts:'Enter valid JPY and USD amounts', err_invalid_fund:'Enter a valid fund amount',
+    err_create_portfolio:'Failed to create portfolio', err_rename_failed:'Failed to rename',
+    err_delete_failed:'Failed to delete', err_invalid_shares:'Enter a valid number of shares',
+    err_price_not_loaded:'Price not loaded yet', err_load_failed:'Failed to load',
+    err_select_stock:'Select a stock', err_invalid_share_count:'Enter a valid share count',
+    err_invalid_price:'Enter a valid price', err_record_txn:'Failed to record transaction',
+    err_invalid_ref_price:'Invalid reference price', err_set_threshold:'Set at least one threshold',
+    err_create_alert:'Error creating alert', err_import_failed:'Import failed',
+    msg_deposited:'Deposited ¥{amount}', msg_withdrew:'Withdrew ¥{amount}',
+    fx_bought:'Bought', fx_sold:'Sold',
+    msg_commission_set:'Default commission set to', err_commission_range:'Enter 0–100',
+    no_market_news:'No market news available', err_market_news:'Could not load market news',
+    fx_exact_label:'(exact)',
+    // Trading
+    trade_commission:'Commission', trade_grand_total:'Grand Total',
+    trade_available:'Available:',
+    // Portfolio Performance
+    port_performance:'Portfolio Performance',
+    // Login / Register
+    login_sign_in:'Sign In', login_create_account:'Create Account',
+    login_username:'Username', login_password:'Password',
+    login_username_ph:'Enter your username', login_password_ph:'Enter your password',
+    reg_username_ph:'Choose a username', reg_password_ph:'Min 6 characters',
+    reg_confirm_ph:'Re-enter password', reg_invite_ph:'Enter invite code',
+    reg_invite_label:'Invite Code', reg_confirm_label:'Confirm Password',
+    err_login_fields:'Please enter username and password.',
+    err_login_failed:'Login failed.', err_connection:'Connection error. Is the server running?',
+    err_reg_fields:'Please fill in all fields.', err_passwords_mismatch:'Passwords do not match.',
+    err_password_short:'Password must be at least 6 characters.',
+    err_invite_required:'Invite code is required.', err_reg_failed:'Registration failed.',
+    // Confirm dialogs
+    confirm_delete_list:'Delete list "{name}"?',
+    confirm_delete_txn:'Delete this transaction? The portfolio will be recalculated from remaining transactions.',
+    confirm_delete_fund_txn:'Delete this fund transaction? The portfolio will be recalculated.',
+    // Other
+    loading:'Loading...', data_realtime:'Real-time (Finnhub)',
+    edit_delete:'Edit/Delete', customize_ma:'Customize MA periods',
+    add_watchlist:'Add to watchlist', remove_watchlist:'Remove from watchlist',
+    set_price_alert:'Set Price Alert',
+    mean_target:'Mean target', current_price:'Current price',
+    info_prev_close:'Prev Close', info_change:'Change', info_change_pct:'Change %',
+    edit_txn_title:'Edit Transaction', edit_fund_txn_title:'Edit Fund Transaction',
+    btn_save_changes:'Save Changes',
+    msg_imported:'Imported {count} transactions',
+    msg_fund_set:'Starting fund set to ¥{amount}',
+    msg_txn_updated:'Transaction updated — portfolio recalculated',
+    msg_txn_deleted:'Transaction deleted — portfolio recalculated',
+    msg_fund_txn_updated:'Fund transaction updated — portfolio recalculated',
+    msg_fund_txn_deleted:'Fund transaction deleted — portfolio recalculated',
+    err_shares_price_positive:'Shares and price must be positive',
+    err_amount_positive:'Amount must be positive',
+    err_update_txn:'Failed to update transaction',
+    err_delete_txn:'Failed to delete transaction',
+    err_update_fund_txn:'Failed to update fund transaction',
+    err_delete_fund_txn:'Failed to delete fund transaction',
+    alert_deleted:'Alert deleted',
+    err_no_csv:'Paste CSV data first', err_no_valid_rows:'No valid rows found',
   },
   ja: {
     trading_platform:'トレーディングプラットフォーム',
@@ -1336,6 +1412,82 @@ const LANG_DATA = {
     ai_confidence:'信頼度', ai_refresh:'更新',
     ai_news_used:'分析ニュース数', ai_articles:'件', ai_generated:'生成日時',
     ai_bad_key:'無効なAPIキー', ai_error:'分析に失敗しました。再試行してください。',
+    // Fund Settings / Currency Exchange
+    total_deposited:'入金合計', total_withdrawn:'出金合計',
+    net_deposits_label:'純入金額:', amount_jpy_ph:'金額 (¥)', note_optional_ph:'メモ（任意）',
+    btn_deposit:'+ 入金', btn_withdraw:'− 出金',
+    fx_title:'為替取引 (JPY ↔ USD)', fx_jpy_balance:'JPY 残高', fx_usd_balance:'USD 残高',
+    fx_rate_label:'レート:', fx_spread_label:'(スプレッド: ±¥0.25)',
+    fx_exact_toggle:'正確な金額を設定（証券会社の取引に合わせる）',
+    fx_buy_usd:'USD 購入', fx_sell_usd:'USD 売却',
+    fx_buy_usd_full:'USD 購入 (JPY → USD)', fx_sell_usd_full:'USD 売却 (USD → JPY)',
+    fx_jpy_spent:'JPY 支出:', fx_usd_received:'USD 受取:',
+    fx_usd_amount_ph:'USD 金額', btn_convert:'両替する',
+    s_advanced_fund:'詳細: 初期資金額の設定',
+    s_advanced_fund_desc:'初期資金額を上書きします。差額の入出金が自動で作成されます。',
+    s_commission_label:'デフォルト手数料 %',
+    s_commission_desc:'すべての新規取引とインポートに適用されます。0で手数料なし。',
+    s_current_label:'現在:',
+    // Toast / Error messages
+    err_invalid_amount:'有効な金額を入力してください', fx_convert_failed:'両替に失敗しました',
+    deposit_failed:'入金に失敗しました', withdrawal_failed:'出金に失敗しました',
+    err_invalid_fx_amounts:'有効なJPYとUSDの金額を入力してください', err_invalid_fund:'有効な資金額を入力してください',
+    err_create_portfolio:'ポートフォリオの作成に失敗しました', err_rename_failed:'名前変更に失敗しました',
+    err_delete_failed:'削除に失敗しました', err_invalid_shares:'有効な株数を入力してください',
+    err_price_not_loaded:'価格がまだ読み込まれていません', err_load_failed:'読み込みに失敗しました',
+    err_select_stock:'銘柄を選択してください', err_invalid_share_count:'有効な株数を入力してください',
+    err_invalid_price:'有効な価格を入力してください', err_record_txn:'取引の記録に失敗しました',
+    err_invalid_ref_price:'無効な基準価格', err_set_threshold:'少なくとも1つの閾値を設定してください',
+    err_create_alert:'アラートの作成に失敗しました', err_import_failed:'インポートに失敗しました',
+    msg_deposited:'¥{amount}を入金しました', msg_withdrew:'¥{amount}を出金しました',
+    fx_bought:'購入', fx_sold:'売却',
+    msg_commission_set:'デフォルト手数料を設定:', err_commission_range:'0〜100を入力',
+    no_market_news:'マーケットニュースはありません', err_market_news:'マーケットニュースを読み込めませんでした',
+    fx_exact_label:'(指定額)',
+    // Trading
+    trade_commission:'手数料', trade_grand_total:'合計（税込）',
+    trade_available:'利用可能:',
+    // Portfolio Performance
+    port_performance:'ポートフォリオ実績',
+    // Login / Register
+    login_sign_in:'サインイン', login_create_account:'アカウント作成',
+    login_username:'ユーザー名', login_password:'パスワード',
+    login_username_ph:'ユーザー名を入力', login_password_ph:'パスワードを入力',
+    reg_username_ph:'ユーザー名を選択', reg_password_ph:'6文字以上',
+    reg_confirm_ph:'パスワード再入力', reg_invite_ph:'招待コードを入力',
+    reg_invite_label:'招待コード', reg_confirm_label:'パスワード確認',
+    err_login_fields:'ユーザー名とパスワードを入力してください。',
+    err_login_failed:'ログインに失敗しました。', err_connection:'接続エラー。サーバーは起動していますか？',
+    err_reg_fields:'すべてのフィールドを入力してください。', err_passwords_mismatch:'パスワードが一致しません。',
+    err_password_short:'パスワードは6文字以上にしてください。',
+    err_invite_required:'招待コードは必須です。', err_reg_failed:'登録に失敗しました。',
+    // Confirm dialogs
+    confirm_delete_list:'リスト「{name}」を削除しますか？',
+    confirm_delete_txn:'この取引を削除しますか？残りの取引からポートフォリオが再計算されます。',
+    confirm_delete_fund_txn:'この資金取引を削除しますか？ポートフォリオが再計算されます。',
+    // Other
+    loading:'読み込み中...', data_realtime:'リアルタイム (Finnhub)',
+    edit_delete:'編集/削除', customize_ma:'MA期間のカスタマイズ',
+    add_watchlist:'ウォッチリストに追加', remove_watchlist:'ウォッチリストから削除',
+    set_price_alert:'価格アラート設定',
+    mean_target:'平均目標株価', current_price:'現在の価格',
+    info_prev_close:'前日終値', info_change:'変動', info_change_pct:'変動率',
+    edit_txn_title:'取引を編集', edit_fund_txn_title:'資金取引を編集',
+    btn_save_changes:'変更を保存',
+    msg_imported:'{count}件の取引をインポートしました',
+    msg_fund_set:'初期資金を¥{amount}に設定しました',
+    msg_txn_updated:'取引を更新 — ポートフォリオを再計算しました',
+    msg_txn_deleted:'取引を削除 — ポートフォリオを再計算しました',
+    msg_fund_txn_updated:'資金取引を更新 — ポートフォリオを再計算しました',
+    msg_fund_txn_deleted:'資金取引を削除 — ポートフォリオを再計算しました',
+    err_shares_price_positive:'株数と価格は正の値にしてください',
+    err_amount_positive:'金額は正の値にしてください',
+    err_update_txn:'取引の更新に失敗しました',
+    err_delete_txn:'取引の削除に失敗しました',
+    err_update_fund_txn:'資金取引の更新に失敗しました',
+    err_delete_fund_txn:'資金取引の削除に失敗しました',
+    alert_deleted:'アラートを削除しました',
+    err_no_csv:'CSVデータを貼り付けてください', err_no_valid_rows:'有効な行が見つかりません',
   },
   zh: {
     trading_platform:'交易平台',
@@ -1451,6 +1603,82 @@ const LANG_DATA = {
     ai_confidence:'置信度', ai_refresh:'刷新',
     ai_news_used:'分析新闻数', ai_articles:'篇', ai_generated:'生成时间',
     ai_bad_key:'无效的API密钥', ai_error:'分析失败，请重试。',
+    // Fund Settings / Currency Exchange
+    total_deposited:'存入总额', total_withdrawn:'取出总额',
+    net_deposits_label:'净存入:', amount_jpy_ph:'金额 (¥)', note_optional_ph:'备注（可选）',
+    btn_deposit:'+ 存入', btn_withdraw:'− 取出',
+    fx_title:'货币兑换 (JPY ↔ USD)', fx_jpy_balance:'JPY 余额', fx_usd_balance:'USD 余额',
+    fx_rate_label:'汇率:', fx_spread_label:'(点差: ±¥0.25)',
+    fx_exact_toggle:'设置精确金额（匹配券商交易）',
+    fx_buy_usd:'买入 USD', fx_sell_usd:'卖出 USD',
+    fx_buy_usd_full:'买入 USD (JPY → USD)', fx_sell_usd_full:'卖出 USD (USD → JPY)',
+    fx_jpy_spent:'JPY 支出:', fx_usd_received:'USD 收入:',
+    fx_usd_amount_ph:'USD 金额', btn_convert:'兑换',
+    s_advanced_fund:'高级：设置初始资金金额',
+    s_advanced_fund_desc:'覆盖初始资金金额。将自动创建修正性存取款记录。',
+    s_commission_label:'默认佣金 %',
+    s_commission_desc:'应用于所有新交易和导入。设为0表示无佣金。',
+    s_current_label:'当前:',
+    // Toast / Error messages
+    err_invalid_amount:'请输入有效金额', fx_convert_failed:'兑换失败',
+    deposit_failed:'存入失败', withdrawal_failed:'取出失败',
+    err_invalid_fx_amounts:'请输入有效的JPY和USD金额', err_invalid_fund:'请输入有效的资金金额',
+    err_create_portfolio:'创建组合失败', err_rename_failed:'重命名失败',
+    err_delete_failed:'删除失败', err_invalid_shares:'请输入有效的股数',
+    err_price_not_loaded:'价格尚未加载', err_load_failed:'加载失败',
+    err_select_stock:'请选择一只股票', err_invalid_share_count:'请输入有效的股数',
+    err_invalid_price:'请输入有效的价格', err_record_txn:'记录交易失败',
+    err_invalid_ref_price:'无效的参考价格', err_set_threshold:'请至少设置一个阈值',
+    err_create_alert:'创建提醒失败', err_import_failed:'导入失败',
+    msg_deposited:'已存入 ¥{amount}', msg_withdrew:'已取出 ¥{amount}',
+    fx_bought:'买入', fx_sold:'卖出',
+    msg_commission_set:'默认佣金已设置为', err_commission_range:'请输入0–100',
+    no_market_news:'暂无市场新闻', err_market_news:'无法加载市场新闻',
+    fx_exact_label:'(精确)',
+    // Trading
+    trade_commission:'佣金', trade_grand_total:'总计',
+    trade_available:'可用:',
+    // Portfolio Performance
+    port_performance:'投资组合表现',
+    // Login / Register
+    login_sign_in:'登录', login_create_account:'创建账户',
+    login_username:'用户名', login_password:'密码',
+    login_username_ph:'输入用户名', login_password_ph:'输入密码',
+    reg_username_ph:'选择用户名', reg_password_ph:'至少6个字符',
+    reg_confirm_ph:'再次输入密码', reg_invite_ph:'输入邀请码',
+    reg_invite_label:'邀请码', reg_confirm_label:'确认密码',
+    err_login_fields:'请输入用户名和密码。',
+    err_login_failed:'登录失败。', err_connection:'连接错误。服务器是否正在运行？',
+    err_reg_fields:'请填写所有字段。', err_passwords_mismatch:'密码不匹配。',
+    err_password_short:'密码至少需要6个字符。',
+    err_invite_required:'邀请码为必填项。', err_reg_failed:'注册失败。',
+    // Confirm dialogs
+    confirm_delete_list:'删除列表「{name}」？',
+    confirm_delete_txn:'删除此交易？投资组合将根据剩余交易重新计算。',
+    confirm_delete_fund_txn:'删除此资金交易？投资组合将重新计算。',
+    // Other
+    loading:'加载中...', data_realtime:'实时数据 (Finnhub)',
+    edit_delete:'编辑/删除', customize_ma:'自定义均线周期',
+    add_watchlist:'添加到自选', remove_watchlist:'从自选移除',
+    set_price_alert:'设置价格提醒',
+    mean_target:'平均目标价', current_price:'当前价格',
+    info_prev_close:'前收盘价', info_change:'涨跌', info_change_pct:'涨跌幅',
+    edit_txn_title:'编辑交易', edit_fund_txn_title:'编辑资金交易',
+    btn_save_changes:'保存更改',
+    msg_imported:'已导入 {count} 笔交易',
+    msg_fund_set:'初始资金已设置为 ¥{amount}',
+    msg_txn_updated:'交易已更新 — 投资组合已重新计算',
+    msg_txn_deleted:'交易已删除 — 投资组合已重新计算',
+    msg_fund_txn_updated:'资金交易已更新 — 投资组合已重新计算',
+    msg_fund_txn_deleted:'资金交易已删除 — 投资组合已重新计算',
+    err_shares_price_positive:'股数和价格必须为正数',
+    err_amount_positive:'金额必须为正数',
+    err_update_txn:'更新交易失败',
+    err_delete_txn:'删除交易失败',
+    err_update_fund_txn:'更新资金交易失败',
+    err_delete_fund_txn:'删除资金交易失败',
+    alert_deleted:'提醒已删除',
+    err_no_csv:'请先粘贴CSV数据', err_no_valid_rows:'未找到有效行',
   }
 };
 
@@ -1481,6 +1709,10 @@ function applyTranslations() {
   // Placeholders
   document.querySelectorAll('[data-i18n-ph]').forEach(el => {
     el.placeholder = t(el.getAttribute('data-i18n-ph'));
+  });
+  // Titles
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.getAttribute('data-i18n-title'));
   });
   // Update search placeholder
   const searchEl = document.getElementById('stock-search');
@@ -1565,20 +1797,20 @@ async function doSignIn() {
   const password = document.getElementById('si-password').value;
   const errEl = document.getElementById('si-error');
   errEl.style.display = 'none';
-  if (!username || !password) { errEl.textContent = 'Please enter username and password.'; errEl.style.display = 'block'; return; }
+  if (!username || !password) { errEl.textContent = t('err_login_fields'); errEl.style.display = 'block'; return; }
   try {
     const res = await fetch(`${API}/api/login`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ username, password })
     });
     const data = await res.json();
-    if (!res.ok) { errEl.textContent = data.error || 'Login failed.'; errEl.style.display = 'block'; return; }
+    if (!res.ok) { errEl.textContent = data.error || t('err_login_failed'); errEl.style.display = 'block'; return; }
     authToken = data.token; authUser = data.username;
     localStorage.setItem('genrri_authToken', authToken);
     localStorage.setItem('genrri_authUser',  authUser);
     hideLoginScreen();
     initApp();
-  } catch(e) { errEl.textContent = 'Connection error. Is the server running?'; errEl.style.display = 'block'; }
+  } catch(e) { errEl.textContent = t('err_connection'); errEl.style.display = 'block'; }
 }
 
 async function doRegister() {
@@ -1588,23 +1820,23 @@ async function doRegister() {
   const invite_code = document.getElementById('reg-invite').value.trim();
   const errEl = document.getElementById('reg-error');
   errEl.style.display = 'none';
-  if (!username || !password || !confirm || !invite_code) { errEl.textContent = 'Please fill in all fields.'; errEl.style.display = 'block'; return; }
-  if (password !== confirm) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
-  if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
-  if (!invite_code) { errEl.textContent = 'Invite code is required.'; errEl.style.display = 'block'; return; }
+  if (!username || !password || !confirm || !invite_code) { errEl.textContent = t('err_reg_fields'); errEl.style.display = 'block'; return; }
+  if (password !== confirm) { errEl.textContent = t('err_passwords_mismatch'); errEl.style.display = 'block'; return; }
+  if (password.length < 6) { errEl.textContent = t('err_password_short'); errEl.style.display = 'block'; return; }
+  if (!invite_code) { errEl.textContent = t('err_invite_required'); errEl.style.display = 'block'; return; }
   try {
     const res = await fetch(`${API}/api/register`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ username, password, invite_code })
     });
     const data = await res.json();
-    if (!res.ok) { errEl.textContent = data.error || 'Registration failed.'; errEl.style.display = 'block'; return; }
+    if (!res.ok) { errEl.textContent = data.error || t('err_reg_failed'); errEl.style.display = 'block'; return; }
     authToken = data.token; authUser = data.username;
     localStorage.setItem('genrri_authToken', authToken);
     localStorage.setItem('genrri_authUser',  authUser);
     hideLoginScreen();
     initApp();
-  } catch(e) { errEl.textContent = 'Connection error. Is the server running?'; errEl.style.display = 'block'; }
+  } catch(e) { errEl.textContent = t('err_connection'); errEl.style.display = 'block'; }
 }
 
 async function doLogout() {
@@ -1840,7 +2072,7 @@ async function addPortfolio() {
   const fundInput = prompt(t('portfolio_fund_prompt') || 'Starting fund amount (e.g. 1000000):', '1000000');
   if (fundInput === null) return;
   const fundAmt = parseFloat(fundInput);
-  if (isNaN(fundAmt) || fundAmt <= 0) { showToast('Enter a valid fund amount', 'error'); return; }
+  if (isNaN(fundAmt) || fundAmt <= 0) { showToast(t('err_invalid_fund'), 'error'); return; }
   try {
     const res = await apiFetch('/api/portfolios', { method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ name: name.trim(), fund_amount: fundAmt }) });
@@ -1849,7 +2081,7 @@ async function addPortfolio() {
     currentPortfolioId = data.id;
     await loadPortfolios();
     loadPortfolio();
-  } catch(e) { showToast('Failed to create portfolio', 'error'); }
+  } catch(e) { showToast(t('err_create_portfolio'), 'error'); }
 }
 
 function showPfMenu(pid, event) {
@@ -1879,7 +2111,7 @@ async function renamePf(pid) {
     await apiFetch(`/api/portfolios/${pid}`, { method: 'PUT', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ name: name.trim() }) });
     await loadPortfolios();
-  } catch(e) { showToast('Failed to rename', 'error'); }
+  } catch(e) { showToast(t('err_rename_failed'), 'error'); }
 }
 
 async function deletePf(pid) {
@@ -1894,7 +2126,7 @@ async function deletePf(pid) {
     if (currentPortfolioId === pid) currentPortfolioId = portfolioList[0].id;
     await loadPortfolios();
     loadPortfolio();
-  } catch(e) { showToast('Failed to delete', 'error'); }
+  } catch(e) { showToast(t('err_delete_failed'), 'error'); }
 }
 
 async function loadPortfolio() {
@@ -2097,7 +2329,7 @@ async function loadMarketNews() {
     if (!res.ok) throw new Error('Failed');
     const news = await res.json();
     if (!news.length) {
-      el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text2)">No market news available</div>`;
+      el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text2)">${t('no_market_news')}</div>`;
       return;
     }
     el.innerHTML = `<div style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">${t('market_news')} · ${news.length} ${t('market_news_count')}</div>` +
@@ -2118,7 +2350,7 @@ async function loadMarketNews() {
       }).join('');
     marketNewsLoaded = true;
   } catch(e) {
-    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--red)">Could not load market news</div>`;
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--red)">${t('err_market_news')}</div>`;
   }
 }
 
@@ -2136,7 +2368,7 @@ function renderSortTabs() {
   customLists.forEach(l => {
     html += `<button class="sort-tab ${marketSort===l.id?'active':''}" onclick="setMarketSort('${l.id}')" style="position:relative;padding-right:28px">
       ${escHtml(l.name)}
-      <span onclick="event.stopPropagation();showListMenu('${l.id}',this)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:0 3px;font-size:15px;color:var(--text2)" title="Edit/Delete">⋮</span>
+      <span onclick="event.stopPropagation();showListMenu('${l.id}',this)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:0 3px;font-size:15px;color:var(--text2)" title="${t('edit_delete')}">⋮</span>
     </button>`;
   });
   html += `<button class="sort-tab" style="border-style:dashed;color:var(--accent)" onclick="openCreateList()">${t('sort_new_list')}</button>`;
@@ -2179,7 +2411,7 @@ function showListMenu(id, el) {
   const action = prompt(`List: "${list.name}"\n\nType "rename" to rename, "delete" to delete, or cancel.`);
   if (!action) return;
   if (action.trim().toLowerCase() === 'delete') {
-    if (!confirm(`Delete list "${list.name}"?`)) return;
+    if (!confirm(t('confirm_delete_list').replace('{name}', list.name))) return;
     customLists = customLists.filter(l => l.id !== id);
     saveCustomLists();
     if (marketSort === id) { marketSort = 'default'; searchStocks(true); }
@@ -2395,7 +2627,7 @@ function appendStockRows(stocks, reset) {
       <div class="stock-right">
         <div class="stock-price" id="price-${ticker}">${q ? fmtPrice(q.price, s.symbol) : '<div class="loading-dots"><span></span><span></span><span></span></div>'}</div>
         <div class="stock-change-badge ${q ? (q.change_pct >= 0 ? 'pos':'neg') : ''}" id="chg-${ticker}">${q ? `${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%` : ''}</div>
-        <button class="row-star ${starred?'on':''}" data-wl="${s.symbol}" onclick="toggleWatchlist('${s.symbol}',event)" title="${starred?'Remove from watchlist':'Add to watchlist'}">${starred?'★':'☆'}</button>
+        <button class="row-star ${starred?'on':''}" data-wl="${s.symbol}" onclick="toggleWatchlist('${s.symbol}',event)" title="${starred?t('remove_watchlist'):t('add_watchlist')}">${starred?'★':'☆'}</button>
       </div>`;
     grid.appendChild(div);
   });
@@ -2456,7 +2688,7 @@ async function openDetail(symbol) {
   document.getElementById('detail-symbol').textContent = symbol;
   document.getElementById('detail-name').textContent = currentStockInfo.name || symbol;
   document.getElementById('detail-sector').textContent = currentStockInfo.sector || '';
-  document.getElementById('detail-price').textContent = 'Loading...';
+  document.getElementById('detail-price').textContent = t('loading');
   document.getElementById('detail-change').textContent = '';
   // Sync active period buttons
   document.querySelectorAll('#line-periods .period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === currentPeriod));
@@ -2485,10 +2717,10 @@ function _applyQuoteUI(q) {
   changeEl.textContent = `${sign(q.change)}${fmtPrice(q.change, currentSymbol)} (${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%) ${t('today')}`;
   changeEl.className = `detail-change ${q.change >= 0 ? 'pos':'neg'}`;
   document.getElementById('detail-info-grid').innerHTML = `
-    <div class="info-item"><div class="info-label">Prev Close</div><div class="info-value">${fmtPrice(q.prev_close, currentSymbol)}</div></div>
-    <div class="info-item"><div class="info-label">Change</div><div class="info-value ${q.change>=0?'pos':'neg'}">${sign(q.change)}${fmtPrice(q.change, currentSymbol)}</div></div>
-    <div class="info-item"><div class="info-label">Change %</div><div class="info-value ${q.change_pct>=0?'pos':'neg'}">${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%</div></div>
-    <div class="info-item"><div class="info-label">Sector</div><div class="info-value">${currentStockInfo.sector||'-'}</div></div>`;
+    <div class="info-item"><div class="info-label">${t('info_prev_close')}</div><div class="info-value">${fmtPrice(q.prev_close, currentSymbol)}</div></div>
+    <div class="info-item"><div class="info-label">${t('info_change')}</div><div class="info-value ${q.change>=0?'pos':'neg'}">${sign(q.change)}${fmtPrice(q.change, currentSymbol)}</div></div>
+    <div class="info-item"><div class="info-label">${t('info_change_pct')}</div><div class="info-value ${q.change_pct>=0?'pos':'neg'}">${sign(q.change_pct)}${Math.abs(q.change_pct).toFixed(2)}%</div></div>
+    <div class="info-item"><div class="info-label">${t('info_sector')}</div><div class="info-value">${currentStockInfo.sector||'-'}</div></div>`;
   updateTradeSummary();
 }
 
@@ -2951,8 +3183,8 @@ function renderStockInfo(tab) {
         <div style="display:flex;align-items:center;gap:8px;font-size:12px">
           <span>${currencySymbol(currentSymbol)}${fmtNum(low)}</span>
           <div style="flex:1;height:6px;background:var(--surface2);border-radius:3px;position:relative;overflow:visible">
-            <div style="position:absolute;top:-3px;left:calc(${meanPct}% - 6px);width:12px;height:12px;background:var(--accent2);border-radius:50%;border:2px solid var(--surface)" title="Mean target"></div>
-            ${pricePct != null ? `<div style="position:absolute;top:-3px;left:calc(${pricePct}% - 5px);width:10px;height:10px;background:var(--accent);border-radius:50%;border:2px solid var(--surface)" title="Current price"></div>` : ''}
+            <div style="position:absolute;top:-3px;left:calc(${meanPct}% - 6px);width:12px;height:12px;background:var(--accent2);border-radius:50%;border:2px solid var(--surface)" title="${t('mean_target')}"></div>
+            ${pricePct != null ? `<div style="position:absolute;top:-3px;left:calc(${pricePct}% - 5px);width:10px;height:10px;background:var(--accent);border-radius:50%;border:2px solid var(--surface)" title="${t('current_price')}"></div>` : ''}
           </div>
           <span>${currencySymbol(currentSymbol)}${fmtNum(high)}</span>
         </div>
@@ -3396,7 +3628,7 @@ function updateTradeSummary() {
   if (tradeAction === 'buy') {
     if (isUSSymbol(currentSymbol)) {
       const usdCash = portfolio.cash_usd || 0;
-      document.getElementById('trade-avail').textContent = `Available: $${usdCash.toLocaleString('en-US', {minimumFractionDigits:2})}`;
+      document.getElementById('trade-avail').textContent = `${t('trade_available')} $${usdCash.toLocaleString('en-US', {minimumFractionDigits:2})}`;
     } else {
       document.getElementById('trade-avail').textContent = `${t('pos_avail_cash')} ¥${(portfolio.cash||0).toLocaleString()}`;
     }
@@ -3408,9 +3640,9 @@ function updateTradeSummary() {
 
 async function executeTrade() {
   const shares = parseFloat(document.getElementById('trade-shares').value);
-  if (!shares || shares <= 0) { showToast('Enter a valid number of shares', 'error'); return; }
+  if (!shares || shares <= 0) { showToast(t('err_invalid_shares'), 'error'); return; }
   const q = stockPrices[currentSymbol];
-  if (!q?.price) { showToast('Price not loaded yet', 'error'); return; }
+  if (!q?.price) { showToast(t('err_price_not_loaded'), 'error'); return; }
   const commission_pct = parseFloat(document.getElementById('trade-commission').value) || 0;
   const btn = document.getElementById('trade-btn');
   btn.disabled = true; btn.textContent = '...';
@@ -3681,12 +3913,12 @@ async function submitImport() {
   const shares = parseFloat(document.getElementById('pos-shares').value);
   const price = parseFloat(document.getElementById('pos-price').value);
 
-  if (!symbol) { showToast('Select a stock', 'error'); return; }
+  if (!symbol) { showToast(t('err_select_stock'), 'error'); return; }
 
   if (importMode === 'set') {
     // Set position directly
-    if (isNaN(shares) || shares < 0) { showToast('Enter a valid share count', 'error'); return; }
-    if (shares > 0 && (isNaN(price) || price <= 0)) { showToast('Enter a valid price', 'error'); return; }
+    if (isNaN(shares) || shares < 0) { showToast(t('err_invalid_share_count'), 'error'); return; }
+    if (shares > 0 && (isNaN(price) || price <= 0)) { showToast(t('err_invalid_price'), 'error'); return; }
     await apiFetch(`/api/holdings/set`, { method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ symbol, name, shares, avg_cost: price || 0, portfolio_id: currentPortfolioId }) });
     const portRes = await apiFetch(`/api/portfolio?portfolio_id=${currentPortfolioId}`);
@@ -3699,8 +3931,8 @@ async function submitImport() {
     const dateVal = document.getElementById('imp-date').value;
     const date = dateVal ? dateVal + ' 00:00:00' : '';
     const commission_pct = parseFloat(document.getElementById('imp-commission').value) || 0;
-    if (isNaN(shares) || shares <= 0) { showToast('Enter a valid share count', 'error'); return; }
-    if (isNaN(price) || price <= 0) { showToast('Enter a valid price', 'error'); return; }
+    if (isNaN(shares) || shares <= 0) { showToast(t('err_invalid_share_count'), 'error'); return; }
+    if (isNaN(price) || price <= 0) { showToast(t('err_invalid_price'), 'error'); return; }
     try {
       const res = await apiFetch(`/api/import-transaction`, { method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ symbol, name, action, shares, price, date, commission_pct, portfolio_id: currentPortfolioId }) });
@@ -3710,7 +3942,7 @@ async function submitImport() {
       portfolio = await portRes.json();
       document.getElementById('nav-balance').innerHTML = `<span data-i18n="nav_cash">${t('nav_cash')}</span>: <strong>${fmt(portfolio.cash)}</strong>`;
       showToast(`${action === 'buy' ? t('txn_bought') : t('txn_sold')} ${shares} × ${symbol} @ ¥${price.toLocaleString()}`);
-    } catch(e) { showToast('Failed to record transaction', 'error'); return; }
+    } catch(e) { showToast(t('err_record_txn'), 'error'); return; }
   }
 
   renderPortfolio();
@@ -3736,7 +3968,7 @@ async function removeHolding(symbol) {
 
 async function doDeposit() {
   const amount = parseFloat(document.getElementById('fund-op-amount').value);
-  if (isNaN(amount) || amount <= 0) { showToast('Enter a valid amount', 'error'); return; }
+  if (isNaN(amount) || amount <= 0) { showToast(t('err_invalid_amount'), 'error'); return; }
   const note = document.getElementById('fund-op-note').value.trim();
   try {
     const res = await apiFetch(`/api/portfolios/${currentPortfolioId}/deposit`, {
@@ -3747,14 +3979,14 @@ async function doDeposit() {
     if (data.error) { showToast(data.error, 'error'); return; }
     document.getElementById('fund-op-amount').value = '';
     document.getElementById('fund-op-note').value = '';
-    showToast(`Deposited ¥${amount.toLocaleString()}`);
+    showToast(t('msg_deposited').replace('{amount}', amount.toLocaleString()));
     renderPortfolio();
-  } catch(e) { showToast('Deposit failed', 'error'); }
+  } catch(e) { showToast(t('deposit_failed'), 'error'); }
 }
 
 async function doWithdraw() {
   const amount = parseFloat(document.getElementById('fund-op-amount').value);
-  if (isNaN(amount) || amount <= 0) { showToast('Enter a valid amount', 'error'); return; }
+  if (isNaN(amount) || amount <= 0) { showToast(t('err_invalid_amount'), 'error'); return; }
   const note = document.getElementById('fund-op-note').value.trim();
   try {
     const res = await apiFetch(`/api/portfolios/${currentPortfolioId}/withdraw`, {
@@ -3765,9 +3997,9 @@ async function doWithdraw() {
     if (data.error) { showToast(data.error, 'error'); return; }
     document.getElementById('fund-op-amount').value = '';
     document.getElementById('fund-op-note').value = '';
-    showToast(`Withdrew ¥${amount.toLocaleString()}`);
+    showToast(t('msg_withdrew').replace('{amount}', amount.toLocaleString()));
     renderPortfolio();
-  } catch(e) { showToast('Withdrawal failed', 'error'); }
+  } catch(e) { showToast(t('withdrawal_failed'), 'error'); }
 }
 
 function toggleFxExactMode() {
@@ -3810,10 +4042,10 @@ function updateFxPreview() {
     if (!amount) { el.textContent = ''; return; }
     if (direction === 'buy_usd') {
       const jpyCost = (amount * (liveRate + 0.25)).toFixed(0);
-      el.innerHTML = `Buy <strong>$${amount.toFixed(2)}</strong> → costs <strong>¥${Number(jpyCost).toLocaleString()}</strong> (rate: ${(liveRate + 0.25).toFixed(2)}, spread ±0.25)`;
+      el.innerHTML = `${t('fx_buy_usd')} <strong>$${amount.toFixed(2)}</strong> → <strong>¥${Number(jpyCost).toLocaleString()}</strong> (${t('fx_rate_label')} ${(liveRate + 0.25).toFixed(2)}, spread ±0.25)`;
     } else {
       const jpyReceive = (amount * (liveRate - 0.25)).toFixed(0);
-      el.innerHTML = `Sell <strong>$${amount.toFixed(2)}</strong> → receive <strong>¥${Number(jpyReceive).toLocaleString()}</strong> (rate: ${(liveRate - 0.25).toFixed(2)}, spread ±0.25)`;
+      el.innerHTML = `${t('fx_sell_usd')} <strong>$${amount.toFixed(2)}</strong> → <strong>¥${Number(jpyReceive).toLocaleString()}</strong> (${t('fx_rate_label')} ${(liveRate - 0.25).toFixed(2)}, spread ±0.25)`;
     }
   }
 }
@@ -3826,11 +4058,11 @@ async function doFxConvert() {
     const jpy = parseFloat(document.getElementById('fx-exact-jpy').value);
     const usd = parseFloat(document.getElementById('fx-exact-usd').value);
     const direction = document.getElementById('fx-exact-direction').value;
-    if (!jpy || jpy <= 0 || !usd || usd <= 0) { showToast('Enter valid JPY and USD amounts', 'error'); return; }
+    if (!jpy || jpy <= 0 || !usd || usd <= 0) { showToast(t('err_invalid_fx_amounts'), 'error'); return; }
     body = { direction, amount: usd, jpy_amount: jpy, amount_currency: 'usd' };
   } else {
     const amount = parseFloat(document.getElementById('fx-amount').value);
-    if (!amount || amount <= 0) { showToast('Enter a valid amount', 'error'); return; }
+    if (!amount || amount <= 0) { showToast(t('err_invalid_amount'), 'error'); return; }
     const direction = document.getElementById('fx-direction').value;
     body = { direction, amount, amount_currency: 'usd' };
   }
@@ -3841,7 +4073,7 @@ async function doFxConvert() {
       body: JSON.stringify(body)
     });
     const data = await res.json();
-    if (!res.ok) { showToast(data.error || 'Conversion failed', 'error'); return; }
+    if (!res.ok) { showToast(data.error || t('fx_convert_failed'), 'error'); return; }
     // Clear inputs
     if (exact) {
       document.getElementById('fx-exact-jpy').value = '';
@@ -3850,41 +4082,41 @@ async function doFxConvert() {
       document.getElementById('fx-amount').value = '';
     }
     document.getElementById('fx-preview').textContent = '';
-    const dirLabel = body.direction === 'buy_usd' ? 'Bought' : 'Sold';
-    showToast(`${dirLabel} $${data.usd_amount.toLocaleString()} at ¥${data.rate.toFixed(2)}${exact ? ' (exact)' : ''}`);
+    const dirLabel = body.direction === 'buy_usd' ? t('fx_bought') : t('fx_sold');
+    showToast(`${dirLabel} $${data.usd_amount.toLocaleString()} at ¥${data.rate.toFixed(2)}${exact ? ' ' + t('fx_exact_label') : ''}`);
     portfolio.cash = data.cash;
     portfolio.cash_usd = data.cash_usd;
     renderPortfolio();
-  } catch(e) { showToast('Conversion failed', 'error'); }
+  } catch(e) { showToast(t('fx_convert_failed'), 'error'); }
 }
 
 async function saveFundAmount() {
   const val = parseFloat(document.getElementById('s-fund-amount').value);
-  if (isNaN(val) || val <= 0) { showToast('Enter a valid amount', 'error'); return; }
+  if (isNaN(val) || val <= 0) { showToast(t('err_invalid_amount'), 'error'); return; }
   // Save per-portfolio fund amount
   await apiFetch(`/api/portfolios/${currentPortfolioId}/fund`, { method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ fund_amount: val }) });
   if (portfolio) portfolio.fund_amount = val;
   document.getElementById('s-fund-display').textContent = `¥${val.toLocaleString()}`;
-  showToast(`Starting fund set to ¥${val.toLocaleString()}`);
+  showToast(t('msg_fund_set').replace('{amount}', val.toLocaleString()));
   renderPortfolio();
 }
 
 async function saveCommissionPct() {
   const val = parseFloat(document.getElementById('s-commission-pct').value);
-  if (isNaN(val) || val < 0 || val > 100) { showToast('Enter 0–100', 'error'); return; }
+  if (isNaN(val) || val < 0 || val > 100) { showToast(t('err_commission_range'), 'error'); return; }
   appSettings.default_commission_pct = String(val);
   await apiFetch(`/api/settings`, { method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ default_commission_pct: String(val) }) });
   document.getElementById('s-commission-display').textContent = `${val}%`;
   // Update all commission inputs
   document.querySelectorAll('#trade-commission, #imp-commission, #csv-commission').forEach(el => { if (el) el.value = val; });
-  showToast(`Default commission set to ${val}%`);
+  showToast(`${t('msg_commission_set')} ${val}%`);
 }
 
 async function setCashBalance() {
   const val = parseFloat(document.getElementById('s-cash-amount').value);
-  if (isNaN(val) || val < 0) { showToast('Enter a valid amount', 'error'); return; }
+  if (isNaN(val) || val < 0) { showToast(t('err_invalid_amount'), 'error'); return; }
   const res = await apiFetch(`/api/cash`, { method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ amount: val, portfolio_id: currentPortfolioId }) });
   const data = await res.json();
@@ -3974,8 +4206,8 @@ async function saveAlert() {
   const refPrice = parseFloat(document.getElementById('alert-ref-price').value);
   const upPct = parseFloat(document.getElementById('alert-up-pct').value) || null;
   const downPct = parseFloat(document.getElementById('alert-down-pct').value) || null;
-  if (!refPrice || refPrice <= 0) { showToast('Invalid reference price', 'error'); return; }
-  if (!upPct && !downPct) { showToast('Set at least one threshold', 'error'); return; }
+  if (!refPrice || refPrice <= 0) { showToast(t('err_invalid_ref_price'), 'error'); return; }
+  if (!upPct && !downPct) { showToast(t('err_set_threshold'), 'error'); return; }
   const name = document.getElementById('detail-name')?.textContent || '';
   try {
     const res = await apiFetch('/api/alerts', {
@@ -3988,7 +4220,7 @@ async function saveAlert() {
     requestNotificationPermission();
     closeAlertModal();
     loadAlerts();
-  } catch(e) { showToast('Error creating alert', 'error'); }
+  } catch(e) { showToast(t('err_create_alert'), 'error'); }
 }
 
 async function loadAlerts() {
@@ -4099,7 +4331,7 @@ async function deleteAlert(id) {
     userAlerts = userAlerts.filter(a => a.id !== id);
     renderAlertsList();
     if (!userAlerts.length) document.getElementById('alerts-section').style.display = 'none';
-    showToast('Alert deleted');
+    showToast(t('alert_deleted'));
   } catch(e) {}
 }
 
@@ -4179,7 +4411,7 @@ function loadCSVFile(event) {
 
 async function importCSV() {
   const raw = document.getElementById('csv-input').value.trim();
-  if (!raw) { showToast('Paste CSV data first', 'error'); return; }
+  if (!raw) { showToast(t('err_no_csv'), 'error'); return; }
   const lines = raw.split('\n').filter(l => l.trim());
   const rows = [];
   const statusEl = document.getElementById('csv-status');
@@ -4194,7 +4426,7 @@ async function importCSV() {
     rows.push({ symbol, action: parts[1], shares: parseFloat(parts[2]), price: parseFloat(parts[3]), date: parts[4] || '', name: tickerDisplay(symbol) });
   }
 
-  if (!rows.length) { showToast('No valid rows found', 'error'); return; }
+  if (!rows.length) { showToast(t('err_no_valid_rows'), 'error'); return; }
   statusEl.textContent = `Importing ${rows.length} transactions...`;
 
   const commission_pct = parseFloat(document.getElementById('csv-commission').value) || 0;
@@ -4205,11 +4437,11 @@ async function importCSV() {
     });
     const data = await res.json();
     if (data.error) { showToast(data.error, 'error'); return; }
-    statusEl.textContent = `Imported ${data.imported} transactions` + (data.errors.length ? `, ${data.errors.length} errors` : '');
+    statusEl.textContent = t('msg_imported').replace('{count}', data.imported) + (data.errors.length ? `, ${data.errors.length} errors` : '');
     document.getElementById('csv-input').value = '';
-    showToast(`Imported ${data.imported} transactions`);
+    showToast(t('msg_imported').replace('{count}', data.imported));
     loadPortfolio();
-  } catch(e) { showToast('Import failed', 'error'); statusEl.textContent = ''; }
+  } catch(e) { showToast(t('err_import_failed'), 'error'); statusEl.textContent = ''; }
 }
 
 // ——— WATCHLIST (server-synced) ———————————————
@@ -4278,7 +4510,7 @@ async function saveEditTxn() {
     commission: parseFloat(document.getElementById('edit-txn-commission').value) || 0
   };
   if (!body.shares || body.shares <= 0 || !body.price || body.price <= 0) {
-    showToast('Shares and price must be positive', 'error');
+    showToast(t('err_shares_price_positive'), 'error');
     return;
   }
   try {
@@ -4286,27 +4518,27 @@ async function saveEditTxn() {
     const data = await res.json();
     if (data.error) { showToast(data.error, 'error'); return; }
     document.getElementById('edit-txn-modal').style.display = 'none';
-    showToast('Transaction updated — portfolio recalculated');
+    showToast(t('msg_txn_updated'));
     loadPortfolio();
     // Refresh whichever history view is visible
     if (document.getElementById('page-history')?.style.display !== 'none') loadHistory();
     const txnSection = document.getElementById('pf-txn-section');
     if (txnSection?.open) loadPortfolioTxnHistory();
-  } catch(e) { showToast('Failed to update transaction', 'error'); }
+  } catch(e) { showToast(t('err_update_txn'), 'error'); }
 }
 
 async function deleteTxn(id) {
-  if (!confirm('Delete this transaction? The portfolio will be recalculated from remaining transactions.')) return;
+  if (!confirm(t('confirm_delete_txn'))) return;
   try {
     const res = await apiFetch(`/api/transactions/${id}`, { method: 'DELETE' });
     const data = await res.json();
     if (data.error) { showToast(data.error, 'error'); return; }
-    showToast('Transaction deleted — portfolio recalculated');
+    showToast(t('msg_txn_deleted'));
     loadPortfolio();
     if (document.getElementById('page-history')?.style.display !== 'none') loadHistory();
     const txnSection = document.getElementById('pf-txn-section');
     if (txnSection?.open) loadPortfolioTxnHistory();
-  } catch(e) { showToast('Failed to delete transaction', 'error'); }
+  } catch(e) { showToast(t('err_delete_txn'), 'error'); }
 }
 
 function openEditFundModal(id, type, amount, note, date) {
@@ -4328,7 +4560,7 @@ async function saveEditFund() {
     date: document.getElementById('edit-fund-date').value
   };
   if (!body.amount || body.amount <= 0) {
-    showToast('Amount must be positive', 'error');
+    showToast(t('err_amount_positive'), 'error');
     return;
   }
   try {
@@ -4336,26 +4568,26 @@ async function saveEditFund() {
     const data = await res.json();
     if (data.error) { showToast(data.error, 'error'); return; }
     document.getElementById('edit-fund-modal').style.display = 'none';
-    showToast('Fund transaction updated — portfolio recalculated');
+    showToast(t('msg_fund_txn_updated'));
     loadPortfolio();
     if (document.getElementById('page-history')?.style.display !== 'none') loadHistory();
     const txnSection = document.getElementById('pf-txn-section');
     if (txnSection?.open) loadPortfolioTxnHistory();
-  } catch(e) { showToast('Failed to update fund transaction', 'error'); }
+  } catch(e) { showToast(t('err_update_fund_txn'), 'error'); }
 }
 
 async function deleteFundTxn(id) {
-  if (!confirm('Delete this fund transaction? The portfolio will be recalculated.')) return;
+  if (!confirm(t('confirm_delete_fund_txn'))) return;
   try {
     const res = await apiFetch(`/api/fund-transactions/${id}`, { method: 'DELETE' });
     const data = await res.json();
     if (data.error) { showToast(data.error, 'error'); return; }
-    showToast('Fund transaction deleted — portfolio recalculated');
+    showToast(t('msg_fund_txn_deleted'));
     loadPortfolio();
     if (document.getElementById('page-history')?.style.display !== 'none') loadHistory();
     const txnSection = document.getElementById('pf-txn-section');
     if (txnSection?.open) loadPortfolioTxnHistory();
-  } catch(e) { showToast('Failed to delete fund transaction', 'error'); }
+  } catch(e) { showToast(t('err_delete_fund_txn'), 'error'); }
 }
 
 function confirmReset() {
@@ -4424,7 +4656,7 @@ async function loadMarketTicker() {
     const mins = h * 60 + m;
     const isOpen = d >= 1 && d <= 5 && mins >= 570 && mins < 960; // 9:30-16:00 ET
     document.getElementById('market-status').textContent = isOpen ? `🟢 ${t('market_open')}` : `🔴 ${t('market_closed')}`;
-    document.getElementById('mh-data-delay').textContent = 'Real-time (Finnhub)';
+    document.getElementById('mh-data-delay').textContent = t('data_realtime');
   } else {
     const jst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
     const h = jst.getHours(), m = jst.getMinutes(), d = jst.getDay();
