@@ -1,6 +1,6 @@
 // Bump this version every time you deploy a significant update.
 // Changing it forces ALL browsers to drop the old cache immediately.
-const CACHE = 'genrri-v26';
+const CACHE = 'genrri-v64';
 const DATA_CACHE = 'genrri-data-v2';
 
 // Only cache third-party CDN assets (charts library etc.) — never the app HTML/JS.
@@ -10,7 +10,7 @@ const CDN_CACHE = [
 ];
 
 // API endpoints to cache for offline viewing (read-only GET endpoints)
-const CACHEABLE_API = ['/api/portfolio', '/api/transactions', '/api/watchlist', '/api/portfolio-history', '/api/settings'];
+const CACHEABLE_API = ['/api/portfolio', '/api/transactions', '/api/watchlist', '/api/portfolio-history', '/api/portfolio-history-intraday', '/api/settings'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -53,7 +53,8 @@ self.addEventListener('fetch', e => {
   if (url.includes('/api/')) return;
 
   // For the app HTML — always network first, only cache on success
-  if (url.endsWith('/') || url.includes('index.html') || url.includes('sw.js') || url.includes('manifest.json')) {
+  const pathname = new URL(url).pathname;
+  if (pathname === '/' || pathname.endsWith('/') || url.includes('index.html') || url.includes('sw.js') || url.includes('manifest.json')) {
     e.respondWith(
       fetch(e.request)
         .then(response => {

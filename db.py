@@ -358,6 +358,19 @@ def _init_db_pg():
         PRIMARY KEY (user_id, portfolio_id, date)
     )''')
 
+    c.execute('''CREATE TABLE IF NOT EXISTS portfolio_snapshots_intraday (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        portfolio_id TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        total_value DOUBLE PRECISION NOT NULL,
+        cash DOUBLE PRECISION NOT NULL,
+        invested DOUBLE PRECISION NOT NULL DEFAULT 0,
+        net_deposits DOUBLE PRECISION DEFAULT 0
+    )''')
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_intraday_snap
+        ON portfolio_snapshots_intraday (user_id, portfolio_id, timestamp)''')
+
     c.execute('''CREATE TABLE IF NOT EXISTS watchlist (
         user_id TEXT NOT NULL,
         symbol TEXT NOT NULL,
@@ -574,6 +587,20 @@ def _init_db_sqlite():
     except:
         pass
 
+    # Intraday portfolio snapshots (multiple per day, for intraday chart)
+    c.execute('''CREATE TABLE IF NOT EXISTS portfolio_snapshots_intraday (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        portfolio_id TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        total_value REAL NOT NULL,
+        cash REAL NOT NULL,
+        invested REAL NOT NULL DEFAULT 0,
+        net_deposits REAL DEFAULT 0
+    )''')
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_intraday_snap
+        ON portfolio_snapshots_intraday (user_id, portfolio_id, timestamp)''')
+
     # Migration: add cash_usd column to sub_portfolios (SBI-style dual currency)
     try:
         c.execute('ALTER TABLE sub_portfolios ADD COLUMN cash_usd REAL DEFAULT 0.0')
@@ -621,6 +648,31 @@ def _init_db_sqlite():
         except sqlite3.OperationalError:
             pass
 
+    # Migration: add kabu_order_id to transactions (Kabu Station live trading)
+    try:
+        c.execute('ALTER TABLE transactions ADD COLUMN kabu_order_id TEXT')
+    except (sqlite3.OperationalError, Exception):
+        pass
+
+    # Migration: add is_live flag to sub_portfolios (Real Account vs Simulation)
+    try:
+        c.execute('ALTER TABLE sub_portfolios ADD COLUMN is_live INTEGER DEFAULT 0')
+    except (sqlite3.OperationalError, Exception):
+        pass
+
+    # Tick history table for Kabu Station real-time candle building
+    c.execute('''CREATE TABLE IF NOT EXISTS tick_history (
+        symbol TEXT NOT NULL,
+        ts REAL NOT NULL,
+        price REAL NOT NULL,
+        volume INTEGER DEFAULT 0,
+        PRIMARY KEY (symbol, ts)
+    )''')
+    try:
+        c.execute('CREATE INDEX IF NOT EXISTS idx_tick_symbol_ts ON tick_history(symbol, ts)')
+    except (sqlite3.OperationalError, Exception):
+        pass
+
     # Fund transactions table
     c.execute('''CREATE TABLE IF NOT EXISTS fund_transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -658,3 +710,52 @@ def _init_db_sqlite():
 
     conn.commit()
     conn.close()
+
+
+# ═══ Tick History Helpers ════════════════════════════════════════
+
+def insert_ticks_batch(rows):
+    """Batch insert ticks. rows = list of (symbol, ts, price, volume).
+    Uses INSERT OR IGNORE to skip duplicates."""
+    if not rows:
+        return
+    conn = get_db()
+    try:
+        conn.executemany(
+            'INSERT OR IGNORE INTO tick_history (symbol, ts, price, volume) VALUES (?, ?, ?, ?)',
+            rows
+        )
+        conn.commit()
+    except Exception:
+        pass
+    finally:
+        conn.close()
+
+
+def get_ticks(symbol, after_ts=0):
+    """Get ticks for a symbol after a given timestamp. Returns list of (ts, price, volume)."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            'SELECT ts, price, volume FROM tick_history WHERE symbol = ? AND ts > ? ORDER BY ts',
+            (symbol, after_ts)
+        ).fetchall()
+        return [(r[0], r[1], r[2]) for r in rows]
+    except Exception:
+        return []
+    finally:
+        conn.close()
+
+
+def cleanup_old_ticks(days=3):
+    """Delete ticks older than N days to prevent DB bloat."""
+    import time
+    cutoff = time.time() - days * 86400
+    conn = get_db()
+    try:
+        conn.execute('DELETE FROM tick_history WHERE ts < ?', (cutoff,))
+        conn.commit()
+    except Exception:
+        pass
+    finally:
+        conn.close()

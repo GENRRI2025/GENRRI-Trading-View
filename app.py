@@ -23,6 +23,13 @@ try:
 except ImportError:
     HAS_ANTHROPIC = False
 
+try:
+    from kabu import KabuClient
+    import kabu_ws
+    HAS_KABU = True
+except ImportError:
+    HAS_KABU = False
+
 
 def fetch_google_news(query, max_items=10, lang='ja'):
     """Fetch news from Google News RSS for broader coverage."""
@@ -112,12 +119,38 @@ _STOCK_LIST_REFRESH_INTERVAL = 6 * 3600  # 6 hours
 _last_stock_refresh = None
 
 # ── Finnhub integration (real-time US quotes) ────────────────────
-FINNHUB_API_KEY = os.environ.get('FINNHUB_API_KEY', '')
+FINNHUB_API_KEY = os.environ.get('FINNHUB_API_KEY', 'd77gag1r01qp6afli200d77gag1r01qp6afli20g')
 _FINNHUB_BASE = 'https://finnhub.io/api/v1'
 _finnhub_call_times = []  # timestamps of recent calls for rate limiting
 _FINNHUB_RATE_LIMIT = 55  # stay under 60/min
 _US_STOCK_REFRESH_INTERVAL = 24 * 3600  # 24 hours
 _last_us_stock_refresh = None
+
+# ── Kabu Station integration (real-time JP quotes + live trading) ──
+KABU_API_PASSWORD = os.environ.get('KABU_API_PASSWORD', '')
+KABU_ORDER_PASSWORD = os.environ.get('KABU_ORDER_PASSWORD', '')
+_kabu_client = None  # lazy singleton
+KABU_PRICE_CACHE_TTL = 10  # 10 seconds for real-time data
+
+
+def _get_kabu_client():
+    """Get or create the Kabu Station client singleton."""
+    global _kabu_client
+    if not HAS_KABU:
+        return None
+    if _kabu_client is None:
+        _kabu_client = KabuClient()
+        if KABU_API_PASSWORD:
+            _kabu_client.set_passwords(KABU_API_PASSWORD, KABU_ORDER_PASSWORD)
+            try:
+                _kabu_client.authenticate()
+                kabu_ws.start()
+                print('[kabu] Auto-connected via env var', flush=True)
+                # Register watchlist symbols in background
+                threading.Thread(target=_register_kabu_watchlist, daemon=True).start()
+            except Exception as e:
+                print(f'[kabu] Auto-connect failed: {e}', flush=True)
+    return _kabu_client
 
 
 def _is_us_symbol(symbol):
@@ -260,7 +293,8 @@ def _fetch_jpx_stocks():
         with urllib.request.urlopen(req, timeout=20, context=ctx) as resp:
             data = resp.read()
 
-    tmp = os.path.join('/tmp', 'jpx_listed.xls')
+    import tempfile
+    tmp = os.path.join(tempfile.gettempdir(), 'jpx_listed.xls')
     with open(tmp, 'wb') as f:
         f.write(data)
 
@@ -433,6 +467,32 @@ def get_fund_totals(conn, user_id, portfolio_id):
         (user_id, portfolio_id)
     ).fetchone()
     return row['deposits'], row['withdrawals']
+
+
+def _detect_live_cash_flow(conn, uid, pid, current_total, total_pnl, realized_pnl):
+    """Detect deposits/withdrawals for live portfolio by comparing expected vs actual account value.
+    Kabu Station has no deposit/withdrawal API, so we infer cash flows from value changes.
+    """
+    sp = conn.execute('SELECT fund_amount FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
+    if not sp or not float(sp['fund_amount'] or 0):
+        return 0  # No baseline yet (first sync hasn't happened)
+    baseline = float(sp['fund_amount'])
+    # Expected total = baseline + unrealized P/L + realized P/L
+    expected_total = baseline + total_pnl + realized_pnl
+    cash_flow = current_total - expected_total
+    if abs(cash_flow) > 1000:  # Threshold ¥1000 to avoid rounding noise
+        flow_type = 'deposit' if cash_flow > 0 else 'withdrawal'
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        conn.execute(
+            'INSERT INTO fund_transactions (user_id, portfolio_id, type, amount, timestamp) VALUES (?, ?, ?, ?, ?)',
+            (uid, pid, flow_type, round(abs(cash_flow), 2), now)
+        )
+        # Update baseline so future checks don't re-detect the same flow
+        new_baseline = baseline + cash_flow
+        conn.execute('UPDATE sub_portfolios SET fund_amount = ? WHERE id = ? AND user_id = ?',
+                     (round(new_baseline, 2), pid, uid))
+        return round(cash_flow, 2)
+    return 0
 
 
 @app.route('/')
@@ -707,6 +767,7 @@ def _fetch_finnhub_quote(symbol):
         'change': change,
         'change_pct': change_pct,
         'prev_close': prev_close,
+        'volume': 0,
         'chart': []
     }
     PRICE_CACHE[symbol] = {'data': result, 'ts': datetime.now()}
@@ -722,6 +783,32 @@ def _fetch_single_quote(symbol, with_chart=False):
         if not with_chart:
             result.pop('chart', None)
         return result
+
+    # Try Kabu Station for JP stocks (real-time via PUSH or REST)
+    if not _is_us_symbol(symbol) and HAS_KABU:
+        kabu = _get_kabu_client()
+        if kabu and kabu.is_connected():
+            # Check PUSH data first (instant, no API call)
+            code, _ = KabuClient.to_kabu_symbol(symbol)
+            push = kabu_ws.get_push_data(code)
+            if push and push.get('CurrentPrice'):
+                result = {
+                    'symbol': symbol,
+                    'price': round(float(push['CurrentPrice']), 2),
+                    'change': round(float(push.get('ChangePreviousClose') or 0), 2),
+                    'change_pct': round(float(push.get('ChangePreviousClosePer') or 0), 2),
+                    'prev_close': round(float(push.get('PreviousClose') or 0), 2),
+                    'volume': int(push.get('TradingVolume') or 0),
+                    'source': 'kabu_push',
+                    'chart': []
+                }
+                PRICE_CACHE[symbol] = {'data': result, 'ts': now}
+                return result
+            # Fallback to REST board
+            board_quote = kabu.get_board_as_quote(symbol)
+            if 'error' not in board_quote and board_quote.get('price'):
+                PRICE_CACHE[symbol] = {'data': board_quote, 'ts': now}
+                return board_quote
 
     # Try Finnhub first for US stocks (real-time)
     if _is_us_symbol(symbol) and FINNHUB_API_KEY:
@@ -771,12 +858,19 @@ def _fetch_single_quote(symbol, with_chart=False):
                         'price': round(float(row['Close']), 2)
                     })
 
+        vol = 0
+        try:
+            vol = int(info.last_volume) if hasattr(info, 'last_volume') and info.last_volume else 0
+        except Exception:
+            pass
+
         result = {
             'symbol': symbol,
             'price': round(price, 2),
             'change': round(change, 2),
             'change_pct': round(change_pct, 2),
             'prev_close': round(prev_close, 2),
+            'volume': vol,
             'chart': chart_data
         }
         PRICE_CACHE[symbol] = {'data': result, 'ts': now}
@@ -866,12 +960,20 @@ def get_quotes_batch():
 
                         change = round(price - prev, 2)
                         change_pct = round((change / prev * 100) if prev else 0, 2)
+                        vol = 0
+                        try:
+                            vols = sym_df['Volume'].dropna()
+                            if len(vols) > 0:
+                                vol = int(vols.iloc[-1])
+                        except Exception:
+                            pass
                         result = {
                             'symbol': sym,
                             'price': price,
                             'change': change,
                             'change_pct': change_pct,
                             'prev_close': prev,
+                            'volume': vol,
                         }
                         results[sym] = result
                         PRICE_CACHE[sym] = {'data': {**result, 'chart': []}, 'ts': now}
@@ -893,12 +995,59 @@ def get_quotes_batch():
     return jsonify(results)
 
 
+# ── Sparkline data (5-day close prices for mini-charts) ──────────
+SPARK_CACHE = {}  # { symbol: { 'data': [float,...], 'ts': datetime } }
+SPARK_CACHE_TTL = 3600  # 1 hour
+
+@app.route('/api/sparklines')
+def get_sparklines():
+    """Return 5-day close prices for mini sparkline charts."""
+    symbols_str = request.args.get('symbols', '')
+    symbols = [s.strip() for s in symbols_str.split(',') if s.strip()][:30]
+    if not symbols:
+        return jsonify({})
+
+    now = datetime.now()
+    results = {}
+    to_fetch = []
+
+    for sym in symbols:
+        cached = SPARK_CACHE.get(sym)
+        if cached and (now - cached['ts']).total_seconds() < SPARK_CACHE_TTL:
+            results[sym] = cached['data']
+        else:
+            to_fetch.append(sym)
+
+    if to_fetch:
+        try:
+            import pandas as pd
+            tickers_str = ' '.join(to_fetch)
+            df = yf.download(tickers_str, period='5d', interval='1h',
+                           group_by='ticker', progress=False, threads=True)
+            for sym in to_fetch:
+                try:
+                    if len(to_fetch) == 1:
+                        sym_df = df
+                    else:
+                        sym_df = df[sym] if sym in df.columns.get_level_values(0) else None
+                    if sym_df is not None and not sym_df.empty:
+                        closes = sym_df['Close'].dropna().tolist()
+                        closes = [round(float(c), 2) for c in closes]
+                        if len(closes) > 1:
+                            results[sym] = closes
+                            SPARK_CACHE[sym] = {'data': closes, 'ts': now}
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    return jsonify(results)
 
 
 
 # ── Chart data cache ─────────────────────────────────────────────
 CHART_CACHE = {}        # { 'symbol:key': { 'data': [...], 'ts': datetime } }
-CHART_CACHE_TTL_INTRADAY = 7200    # 2 hours for intraday charts
+CHART_CACHE_TTL_INTRADAY = 300     # 5 minutes for intraday charts (yfinance ~15min delay, refresh often)
 CHART_CACHE_TTL_DAILY    = 28800   # 8 hours for daily/weekly/monthly charts
 
 CANDLE_CFG = {
@@ -976,6 +1125,8 @@ def _get_chart_cached(symbol, cache_key, yf_period, yf_interval, is_intraday):
     return []
 
 
+INTERVAL_SECONDS = {'1m': 60, '5m': 300, '15m': 900, '30m': 1800, '60m': 3600}
+
 @app.route('/api/history/<symbol>')
 def get_history(symbol):
     interval_req = request.args.get('interval', None)
@@ -989,6 +1140,25 @@ def get_history(symbol):
         cache_key = f"{symbol}:line:{period}"
 
     data = _get_chart_cached(symbol, cache_key, yf_period, yf_interval, is_intraday)
+
+    # Append real-time Kabu Station candles to fill the gap after delayed yfinance data
+    if is_intraday and data and not _is_us_symbol(symbol) and HAS_KABU:
+        try:
+            kabu = _get_kabu_client()
+            if kabu and kabu.is_connected():
+                code, _ = KabuClient.to_kabu_symbol(symbol)
+                # Determine interval in seconds
+                active_interval = interval_req or {'1d': '1m', '5d': '5m', '1mo': '60m'}.get(period, '5m')
+                int_sec = INTERVAL_SECONDS.get(active_interval, 300)
+                # Get last yfinance candle time
+                last_yf_time = data[-1]['time'] if data else 0
+                # Build candles from collected tick data
+                kabu_candles = kabu_ws.build_candles(code, interval_sec=int_sec, after_ts=last_yf_time)
+                if kabu_candles:
+                    data = data + kabu_candles
+        except Exception as e:
+            print(f'[chart] Kabu candle append error: {e}', flush=True)
+
     return jsonify(data)
 
 def _build_stock_info(symbol):
@@ -1222,6 +1392,149 @@ def _prefetch_background():
         print(f'[prefetch] Error: {e}', flush=True)
     finally:
         _prefetch_running = False
+
+
+# ── Background portfolio snapshots ────────────────────────────────
+_SNAPSHOT_INTERVAL = 15 * 60  # 15 minutes
+_snapshot_running = False
+
+
+def _take_all_snapshots():
+    """Compute and save portfolio snapshots for all users/portfolios."""
+    conn = get_db()
+    try:
+        portfolios = conn.execute(
+            'SELECT id, user_id, cash, fund_amount, COALESCE(is_live, 0) as is_live FROM sub_portfolios'
+        ).fetchall()
+
+        if not portfolios:
+            return
+
+        # For live portfolios, try Kabu once (shared across all live portfolios)
+        kabu_positions = None
+        kabu_wallet = None
+        if HAS_KABU:
+            kabu = _get_kabu_client()
+            if kabu and kabu.is_connected():
+                try:
+                    kabu_positions = kabu.get_positions()
+                    kabu_wallet = kabu.get_wallet_cash()
+                    if not isinstance(kabu_positions, list):
+                        kabu_positions = None
+                    if isinstance(kabu_wallet, dict) and 'error' in kabu_wallet:
+                        kabu_wallet = None
+                except Exception:
+                    kabu_positions = None
+                    kabu_wallet = None
+
+        now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        today = datetime.now().strftime('%Y-%m-%d')
+        count = 0
+
+        for pf in portfolios:
+            try:
+                pid = pf['id']
+                uid = pf['user_id']
+                is_live = pf['is_live']
+                db_cash = float(pf['cash'] or 0)
+                fund_amount = float(pf['fund_amount'] or 0)
+
+                total_value = 0
+                cash = 0
+                invested = 0
+
+                if is_live and kabu_positions is not None and kabu_wallet is not None:
+                    # Live portfolio: use Kabu data
+                    live_cash = float(kabu_wallet.get('StockAccountWallet') or 0)
+                    if live_cash == 0:
+                        for key in ('FreeMargin', 'CashBalance', 'BuyingPower'):
+                            val = kabu_wallet.get(key)
+                            if val:
+                                live_cash = float(val)
+                                break
+                    cash = live_cash
+                    total_valuation = 0
+                    for p in kabu_positions:
+                        qty = float(p.get('LeavesQty') or p.get('Qty') or 0)
+                        if qty <= 0:
+                            continue
+                        val = float(p.get('Valuation') or 0)
+                        total_valuation += val
+                    invested = total_valuation
+                    total_value = cash + invested
+
+                else:
+                    # Simulation portfolio (or live with Kabu offline): use PRICE_CACHE
+                    cash = db_cash
+                    holdings = conn.execute(
+                        'SELECT symbol, shares, avg_cost FROM holdings WHERE portfolio_id = ?', (pid,)
+                    ).fetchall()
+                    for h in holdings:
+                        sym = h['symbol']
+                        shares = float(h['shares'] or 0)
+                        avg_cost = float(h['avg_cost'] or 0)
+                        cached = PRICE_CACHE.get(sym)
+                        price = cached['data']['price'] if cached and cached['data'].get('price') else avg_cost
+                        invested += shares * price
+                    total_value = cash + invested
+
+                if total_value <= 0 and invested <= 0 and cash <= 0:
+                    continue  # Skip empty portfolios
+
+                net_deposits = fund_amount if fund_amount else 0
+
+                # Write daily snapshot (INSERT OR REPLACE — keeps latest value for today)
+                conn.execute(
+                    '''INSERT OR REPLACE INTO portfolio_snapshots
+                       (user_id, portfolio_id, date, total_value, cash, invested, net_deposits)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                    (uid, pid, today, round(total_value, 2), round(cash, 2), round(invested, 2), round(net_deposits, 2))
+                )
+
+                # Write intraday snapshot (INSERT — accumulates throughout the day)
+                conn.execute(
+                    '''INSERT INTO portfolio_snapshots_intraday
+                       (user_id, portfolio_id, timestamp, total_value, cash, invested, net_deposits)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                    (uid, pid, now_ts, round(total_value, 2), round(cash, 2), round(invested, 2), round(net_deposits, 2))
+                )
+                count += 1
+
+            except Exception as e:
+                print(f'[snapshot] Error for portfolio {pf["id"]}: {e}', flush=True)
+
+        # Prune intraday snapshots older than 7 days
+        cutoff = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
+        conn.execute('DELETE FROM portfolio_snapshots_intraday WHERE timestamp < ?', (cutoff,))
+
+        conn.commit()
+        if count > 0:
+            print(f'[snapshot] Saved snapshots for {count} portfolios', flush=True)
+
+    except Exception as e:
+        print(f'[snapshot] Error: {e}', flush=True)
+    finally:
+        conn.close()
+
+
+def _snapshot_background():
+    """Take portfolio snapshots for all users every 15 minutes."""
+    global _snapshot_running
+    if _snapshot_running:
+        return
+    _snapshot_running = True
+    import time as _time
+
+    _time.sleep(60)  # Wait 1 min for app + prefetch to start
+
+    print(f'[snapshot] Background snapshots started (every {_SNAPSHOT_INTERVAL}s)', flush=True)
+
+    while True:
+        try:
+            _take_all_snapshots()
+        except Exception as e:
+            print(f'[snapshot] Error: {e}', flush=True)
+        _time.sleep(_SNAPSHOT_INTERVAL)
 
 
 # ── Stock News ────────────────────────────────────────────────────
@@ -1578,33 +1891,194 @@ def get_portfolio():
     uid, err = get_auth_user()
     if err: return err
     conn = get_db()
-    ensure_user_portfolio(conn, uid)
+    try:
+        ensure_user_portfolio(conn, uid)
+        pid = get_portfolio_id(uid, request.args.get('portfolio_id'))
+        sp = conn.execute('SELECT cash, cash_usd, realized_pnl, COALESCE(is_live, 0) as is_live, fund_amount FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
+        if sp:
+            cash = sp['cash']
+            cash_usd = sp['cash_usd'] or 0.0
+            realized_pnl = sp['realized_pnl'] or 0.0
+            is_live = sp['is_live']
+            db_fund_amount = float(sp['fund_amount'] or 0)
+        else:
+            cash_row = conn.execute('SELECT cash FROM portfolio WHERE user_id = ?', (uid,)).fetchone()
+            cash = cash_row['cash'] if cash_row else 1000000.0
+            cash_usd = 0.0
+            realized_pnl = 0.0
+            is_live = 0
+            db_fund_amount = 0
+        fund_amount = get_fund_amount(conn, uid, pid)
+        if fund_amount == 0 and not is_live:
+            fund_amount = 1000000.0
+        total_deposits, total_withdrawals = get_fund_totals(conn, uid, pid)
+        net_deposits = total_deposits - total_withdrawals
+        if net_deposits == 0 and not is_live:
+            net_deposits = 1000000.0
+
+        # Get USDJPY rate for frontend total calculation
+        fx = PRICE_CACHE.get('USDJPY=X')
+        usdjpy_rate = fx['data']['price'] if fx and fx['data'].get('price') else 150.0
+
+        # ── Live portfolio: try Kabu Station for real-time data ──
+        if is_live and HAS_KABU:
+            kabu = _get_kabu_client()
+            if kabu and kabu.is_connected():
+                try:
+                    positions = kabu.get_positions()
+                    wallet = kabu.get_wallet_cash()
+                    if isinstance(positions, list) and isinstance(wallet, dict) and 'error' not in wallet:
+                        live_cash = float(wallet.get('StockAccountWallet') or 0)
+                        if live_cash == 0:
+                            for key in ('FreeMargin', 'CashBalance', 'BuyingPower'):
+                                val = wallet.get(key)
+                                if val:
+                                    live_cash = float(val)
+                                    break
+
+                        live_holdings = []
+                        total_invested = 0
+                        total_valuation = 0
+                        total_pnl = 0
+                        for p in positions:
+                            symbol = KabuClient.from_kabu_symbol(str(p.get('Symbol', '')), p.get('Exchange', 1))
+                            name = p.get('SymbolName', symbol)
+                            qty = float(p.get('LeavesQty') or p.get('Qty') or 0)
+                            avg_cost = float(p.get('Price') or 0)
+                            current_price = float(p.get('CurrentPrice') or 0)
+                            pnl = float(p.get('ProfitLoss') or 0)
+                            value = float(p.get('Valuation') or 0)
+                            if qty <= 0:
+                                continue
+                            cost = qty * avg_cost
+                            total_invested += cost
+                            total_valuation += value
+                            total_pnl += pnl
+                            live_holdings.append({
+                                'symbol': symbol, 'name': name, 'shares': qty,
+                                'avg_cost': avg_cost, 'current_price': current_price,
+                                'pnl': round(pnl, 2), 'value': round(value, 2),
+                                'portfolio_id': pid
+                            })
+
+                        total_value = live_cash + total_valuation
+
+                        # Auto-detect deposits/withdrawals by comparing expected vs actual value
+                        detected_flow = _detect_live_cash_flow(conn, uid, pid, total_value, total_pnl, realized_pnl)
+
+                        # Re-read baseline (may have been updated by cash flow detection)
+                        baseline = db_fund_amount
+                        if detected_flow:
+                            sp_updated = conn.execute('SELECT fund_amount FROM sub_portfolios WHERE id = ?', (pid,)).fetchone()
+                            baseline = float(sp_updated['fund_amount'] or 0) if sp_updated else db_fund_amount
+                        all_time_pnl = (total_value - baseline) if baseline else 0
+                        all_time_pct = (all_time_pnl / baseline * 100) if baseline else 0
+
+                        # Update DB cash to stay in sync (deferred commit — only after response is fully built)
+                        conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ? AND user_id = ?', (live_cash, pid, uid))
+                        conn.commit()
+
+                        return jsonify({
+                            'cash': round(live_cash, 2), 'cash_usd': 0, 'realized_pnl': round(realized_pnl, 2),
+                            'fund_amount': baseline, 'net_deposits': baseline,
+                            'total_deposits': baseline, 'total_withdrawals': 0,
+                            'usdjpy_rate': round(usdjpy_rate, 2),
+                            'holdings': live_holdings,
+                            'source': 'kabu_live',
+                            'total_value': round(total_value, 2),
+                            'total_invested': round(total_invested, 2),
+                            'total_valuation': round(total_valuation, 2),
+                            'total_pnl': round(total_pnl, 2),
+                            'all_time_pnl': round(all_time_pnl, 2),
+                            'all_time_pct': round(all_time_pct, 2)
+                        })
+                except Exception:
+                    pass  # Fall through to DB-based path
+
+        # ── Standard path: DB holdings (simulation accounts or Kabu offline) ──
+        holdings = [dict(r) for r in conn.execute('SELECT * FROM holdings WHERE user_id = ? AND portfolio_id = ?', (uid, pid)).fetchall()]
+
+        # For live accounts when Kabu is offline, enrich holdings with cached/Yahoo prices
+        source = 'local'
+        if is_live:
+            source = 'delayed'
+            for h in holdings:
+                quote = _fetch_single_quote(h['symbol'])
+                if quote and 'error' not in quote:
+                    h['current_price'] = quote.get('price', 0)
+                    h['pnl'] = round((quote.get('price', 0) - h['avg_cost']) * h['shares'], 2)
+                    h['value'] = round(quote.get('price', 0) * h['shares'], 2)
+
+        return jsonify({'cash': round(cash, 2), 'cash_usd': round(cash_usd, 2), 'realized_pnl': round(realized_pnl, 2), 'fund_amount': fund_amount,
+                        'total_deposits': total_deposits, 'total_withdrawals': total_withdrawals, 'net_deposits': net_deposits,
+                        'usdjpy_rate': round(usdjpy_rate, 2), 'holdings': holdings, 'source': source})
+    finally:
+        conn.close()
+
+@app.route('/api/portfolio/live-prices')
+def live_portfolio_prices():
+    """Fast price update for live portfolio holdings — used by frontend 5s polling."""
+    uid, err = get_auth_user()
+    if err: return err
     pid = get_portfolio_id(uid, request.args.get('portfolio_id'))
-    sp = conn.execute('SELECT cash, cash_usd, realized_pnl FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
-    if sp:
-        cash = sp['cash']
-        cash_usd = sp['cash_usd'] or 0.0
-        realized_pnl = sp['realized_pnl'] or 0.0
-    else:
-        cash_row = conn.execute('SELECT cash FROM portfolio WHERE user_id = ?', (uid,)).fetchone()
-        cash = cash_row['cash'] if cash_row else 1000000.0
-        cash_usd = 0.0
-        realized_pnl = 0.0
-    fund_amount = get_fund_amount(conn, uid, pid)
-    if fund_amount == 0:
-        fund_amount = 1000000.0
-    total_deposits, total_withdrawals = get_fund_totals(conn, uid, pid)
-    net_deposits = total_deposits - total_withdrawals
-    if net_deposits == 0:
-        net_deposits = 1000000.0
-    holdings = [dict(r) for r in conn.execute('SELECT * FROM holdings WHERE user_id = ? AND portfolio_id = ?', (uid, pid)).fetchall()]
-    # Get USDJPY rate for frontend total calculation
-    fx = PRICE_CACHE.get('USDJPY=X')
-    usdjpy_rate = fx['data']['price'] if fx and fx['data'].get('price') else 150.0
-    conn.close()
-    return jsonify({'cash': round(cash, 2), 'cash_usd': round(cash_usd, 2), 'realized_pnl': round(realized_pnl, 2), 'fund_amount': fund_amount,
-                    'total_deposits': total_deposits, 'total_withdrawals': total_withdrawals, 'net_deposits': net_deposits,
-                    'usdjpy_rate': round(usdjpy_rate, 2), 'holdings': holdings})
+
+    # Try Kabu Station first
+    if HAS_KABU:
+        kabu = _get_kabu_client()
+        if kabu and kabu.is_connected():
+            try:
+                positions = kabu.get_positions()
+                wallet = kabu.get_wallet_cash()
+                if isinstance(positions, list) and isinstance(wallet, dict) and 'error' not in wallet:
+                    cash = float(wallet.get('StockAccountWallet') or 0)
+                    if cash == 0:
+                        for key in ('FreeMargin', 'CashBalance', 'BuyingPower'):
+                            val = wallet.get(key)
+                            if val:
+                                cash = float(val)
+                                break
+                    prices = {}
+                    total_valuation = 0
+                    total_pnl = 0
+                    for p in positions:
+                        symbol = KabuClient.from_kabu_symbol(str(p.get('Symbol', '')), p.get('Exchange', 1))
+                        qty = float(p.get('LeavesQty') or p.get('Qty') or 0)
+                        if qty <= 0:
+                            continue
+                        cp = float(p.get('CurrentPrice') or 0)
+                        pnl = float(p.get('ProfitLoss') or 0)
+                        val = float(p.get('Valuation') or 0)
+                        total_valuation += val
+                        total_pnl += pnl
+                        prices[symbol] = {'price': cp, 'pnl': round(pnl, 2), 'value': round(val, 2)}
+                    return jsonify({'source': 'kabu_live', 'cash': round(cash, 2),
+                                    'total_value': round(cash + total_valuation, 2),
+                                    'total_pnl': round(total_pnl, 2), 'prices': prices})
+            except Exception:
+                pass
+
+    # Fallback: fetch from price cache (Yahoo/Finnhub) — uses PRICE_CACHE so no burst of API calls
+    conn = get_db()
+    try:
+        holdings = conn.execute('SELECT symbol, shares, avg_cost FROM holdings WHERE user_id = ? AND portfolio_id = ?', (uid, pid)).fetchall()
+        sp = conn.execute('SELECT cash FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
+        cash = sp['cash'] if sp else 0
+    finally:
+        conn.close()
+    prices = {}
+    total_valuation = 0
+    total_pnl = 0
+    for h in holdings:
+        quote = _fetch_single_quote(h['symbol'])
+        cp = quote.get('price', 0) if quote and 'error' not in quote else 0
+        val = cp * h['shares'] if cp else h['avg_cost'] * h['shares']
+        pnl = (cp - h['avg_cost']) * h['shares'] if cp else 0
+        total_valuation += val
+        total_pnl += pnl
+        prices[h['symbol']] = {'price': cp, 'pnl': round(pnl, 2), 'value': round(val, 2)}
+    return jsonify({'source': 'delayed', 'cash': round(cash, 2),
+                    'total_value': round(cash + total_valuation, 2),
+                    'total_pnl': round(total_pnl, 2), 'prices': prices})
 
 @app.route('/api/transactions')
 def get_transactions():
@@ -1613,6 +2087,16 @@ def get_transactions():
     conn = get_db()
     show_all = request.args.get('all', '').lower() in ('1', 'true')
     include_funds = request.args.get('include_funds', '').lower() in ('1', 'true')
+    filter_symbol = request.args.get('symbol', '').strip()
+
+    # Quick path: fetch trades for a single symbol (for chart markers)
+    if filter_symbol:
+        txns = [dict(r) for r in conn.execute(
+            'SELECT * FROM transactions WHERE user_id = ? AND symbol = ? ORDER BY timestamp ASC', (uid, filter_symbol)
+        ).fetchall()]
+        conn.close()
+        return jsonify(txns)
+
     if show_all:
         if include_funds:
             txns = [dict(r) for r in conn.execute(
@@ -1730,6 +2214,11 @@ def edit_transaction(txn_id):
     if not tx:
         conn.close()
         return jsonify({'error': 'Transaction not found'}), 404
+    # Block editing transactions in live portfolios
+    sp = conn.execute('SELECT COALESCE(is_live, 0) as is_live FROM sub_portfolios WHERE id = ?', (tx['portfolio_id'],)).fetchone()
+    if sp and sp['is_live']:
+        conn.close()
+        return jsonify({'error': 'Cannot edit transactions in a live account'}), 403
 
     data = request.json or {}
     shares = float(data.get('shares', tx['shares']))
@@ -1773,6 +2262,11 @@ def delete_transaction(txn_id):
     if not tx:
         conn.close()
         return jsonify({'error': 'Transaction not found'}), 404
+    # Block deleting transactions in live portfolios
+    sp = conn.execute('SELECT COALESCE(is_live, 0) as is_live FROM sub_portfolios WHERE id = ?', (tx['portfolio_id'],)).fetchone()
+    if sp and sp['is_live']:
+        conn.close()
+        return jsonify({'error': 'Cannot delete transactions in a live account'}), 403
 
     pid = tx['portfolio_id']
     conn.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
@@ -1799,10 +2293,44 @@ def trade():
         price = float(data['price'])
     except (KeyError, ValueError, TypeError):
         return jsonify({'error': 'Invalid shares or price'}), 400
+
+    # ── Kabu Station live trading branch ──
+    if HAS_KABU and not _is_us_symbol(symbol):
+        kabu = _get_kabu_client()
+        if kabu and kabu.is_connected() and not data.get('simulation_mode'):
+            if not data.get('live_trade'):
+                return jsonify({
+                    'error': 'Live trading requires confirmation',
+                    'requires_live_confirm': True,
+                    'kabu_connected': True
+                }), 400
+            # Place real order via Kabu Station
+            order_type = data.get('order_type', 'market')
+            limit_price = float(data.get('limit_price', 0)) if order_type == 'limit' else 0
+            result = kabu.send_order(
+                app_symbol=symbol,
+                side=action,
+                qty=int(shares),
+                price=limit_price,
+                order_type=order_type
+            )
+            if isinstance(result, dict) and 'error' in result:
+                return jsonify({'error': f'Kabu Station: {result["error"]}'}), 400
+            kabu_order_id = result.get('OrderId', '')
+            # Record in local DB for tracking (fall through to existing logic)
+            # Store kabu_order_id with the transaction
+            data['_kabu_order_id'] = kabu_order_id
+
+    # ── Original trade logic continues below ──
+    try:
+        shares = float(data['shares'])
+        price = float(data['price'])
+    except (KeyError, ValueError, TypeError):
+        return jsonify({'error': 'Invalid shares or price'}), 400
     if shares <= 0 or price <= 0:
         return jsonify({'error': 'Shares and price must be positive'}), 400
     total = round(shares * price, 2)
-    commission_pct = float(data.get('commission_pct', 0))
+    commission_pct = max(0.0, min(100.0, float(data.get('commission_pct', 0))))
     commission = round(total * commission_pct / 100, 2) if commission_pct > 0 else 0.0
     pid = get_portfolio_id(uid, data.get('portfolio_id'))
     is_us = _is_us_symbol(symbol)
@@ -1860,13 +2388,17 @@ def trade():
             conn.execute('UPDATE holdings SET shares = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (new_shares, uid, symbol, pid))
 
     trade_date = data.get('date', '').strip() or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    conn.execute('INSERT INTO transactions (user_id, symbol, name, action, shares, price, total, pnl, commission, timestamp, portfolio_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                (uid, symbol, name, action, shares, price, total, txn_pnl, commission, trade_date, pid))
+    kabu_oid = data.get('_kabu_order_id', '')
+    conn.execute('INSERT INTO transactions (user_id, symbol, name, action, shares, price, total, pnl, commission, timestamp, portfolio_id, kabu_order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                (uid, symbol, name, action, shares, price, total, txn_pnl, commission, trade_date, pid, kabu_oid or None))
     conn.commit()
     conn.close()
     # Rebuild snapshots so performance chart reflects the trade date accurately
     _backfill_snapshots_internal(uid, pid)
-    return jsonify({'success': True, 'cash': round(cash_jpy, 2), 'cash_usd': round(cash_usd, 2), 'commission': commission})
+    resp = {'success': True, 'cash': round(cash_jpy, 2), 'cash_usd': round(cash_usd, 2), 'commission': commission}
+    if kabu_oid:
+        resp['kabu_order_id'] = kabu_oid
+    return jsonify(resp)
 
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
@@ -1980,9 +2512,14 @@ def deposit_funds(pid):
         conn.close()
         return jsonify({'error': 'Portfolio not found'}), 404
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    is_live = conn.execute('SELECT COALESCE(is_live, 0) as is_live FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
     conn.execute('INSERT INTO fund_transactions (user_id, portfolio_id, type, amount, note, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
                  (uid, pid, 'deposit', amount, note, now))
-    conn.execute('UPDATE sub_portfolios SET cash = cash + ? WHERE id = ? AND user_id = ?', (amount, pid, uid))
+    # For live accounts, update baseline (fund_amount) instead of local cash — Kabu controls real cash
+    if is_live and is_live['is_live']:
+        conn.execute('UPDATE sub_portfolios SET fund_amount = fund_amount + ? WHERE id = ? AND user_id = ?', (amount, pid, uid))
+    else:
+        conn.execute('UPDATE sub_portfolios SET cash = cash + ? WHERE id = ? AND user_id = ?', (amount, pid, uid))
     conn.commit()
     new_cash = conn.execute('SELECT cash FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()['cash']
     conn.close()
@@ -2007,14 +2544,20 @@ def withdraw_funds(pid):
     if not sp:
         conn.close()
         return jsonify({'error': 'Portfolio not found'}), 404
+    is_live = conn.execute('SELECT COALESCE(is_live, 0) as is_live FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
     current_cash = sp['cash'] or 0
-    if amount > current_cash:
+    # Skip cash sufficiency check for live accounts (Kabu controls real cash)
+    if (not is_live or not is_live['is_live']) and amount > current_cash:
         conn.close()
         return jsonify({'error': f'Insufficient cash. Available: ¥{current_cash:,.0f}'}), 400
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     conn.execute('INSERT INTO fund_transactions (user_id, portfolio_id, type, amount, note, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
                  (uid, pid, 'withdrawal', amount, note, now))
-    conn.execute('UPDATE sub_portfolios SET cash = cash - ? WHERE id = ? AND user_id = ?', (amount, pid, uid))
+    # For live accounts, update baseline (fund_amount) instead of local cash
+    if is_live and is_live['is_live']:
+        conn.execute('UPDATE sub_portfolios SET fund_amount = CASE WHEN fund_amount - ? > 0 THEN fund_amount - ? ELSE 0 END WHERE id = ? AND user_id = ?', (amount, amount, pid, uid))
+    else:
+        conn.execute('UPDATE sub_portfolios SET cash = cash - ? WHERE id = ? AND user_id = ?', (amount, pid, uid))
     conn.commit()
     new_cash = conn.execute('SELECT cash FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()['cash']
     conn.close()
@@ -2277,7 +2820,7 @@ def list_portfolios():
     if err: return err
     conn = get_db()
     ensure_user_portfolio(conn, uid)
-    rows = conn.execute('SELECT id, name, cash, cash_usd, created_at FROM sub_portfolios WHERE user_id = ? ORDER BY created_at', (uid,)).fetchall()
+    rows = conn.execute('SELECT id, name, cash, cash_usd, created_at, COALESCE(is_live, 0) as is_live FROM sub_portfolios WHERE user_id = ? ORDER BY is_live DESC, created_at', (uid,)).fetchall()
     result = []
     for r in rows:
         d = dict(r)
@@ -2560,6 +3103,26 @@ def portfolio_history():
     return jsonify([dict(r) for r in rows])
 
 
+@app.route('/api/portfolio-history-intraday')
+def portfolio_history_intraday():
+    """Return intraday portfolio snapshots for today (or specified date).
+    Used for the 'Today' chart view showing intraday portfolio movement."""
+    uid, err = get_auth_user()
+    if err: return err
+    pid = get_portfolio_id(uid, request.args.get('portfolio_id'))
+    date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+    conn = get_db()
+    rows = conn.execute(
+        '''SELECT timestamp, total_value, cash, invested
+           FROM portfolio_snapshots_intraday
+           WHERE user_id = ? AND portfolio_id = ? AND timestamp LIKE ?
+           ORDER BY timestamp ASC''',
+        (uid, pid, f'{date}%')
+    ).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
 @app.route('/api/portfolio-snapshot', methods=['POST'])
 def save_portfolio_snapshot():
     """Save today's portfolio value snapshot (called by frontend daily)."""
@@ -2805,6 +3368,389 @@ def remove_watchlist(symbol):
     return jsonify({'success': True})
 
 
+# ══════════════════════════════════════════════════════════════════
+# ═══ KABU STATION API ROUTES ═════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/api/kabu/status')
+def kabu_status():
+    """Check Kabu Station connection status."""
+    kabu = _get_kabu_client()
+    available = KabuClient.is_available() if HAS_KABU else False
+    connected = kabu.is_connected() if kabu else False
+    ws_connected = kabu_ws.is_connected() if HAS_KABU else False
+    return jsonify({
+        'available': available,
+        'connected': connected,
+        'ws_connected': ws_connected,
+        'has_kabu': HAS_KABU
+    })
+
+
+def _register_kabu_watchlist():
+    """Register all watchlist + portfolio JP symbols for PUSH streaming."""
+    try:
+        kabu = _get_kabu_client()
+        if not kabu or not kabu.is_connected():
+            return
+        conn = get_db()
+        symbols = set()
+        # Get all holdings across all users (JP stocks only)
+        try:
+            rows = conn.execute('SELECT DISTINCT symbol FROM holdings WHERE symbol LIKE ?', ('%.T',)).fetchall()
+            for r in rows:
+                symbols.add(r[0])
+        except Exception:
+            pass
+        # Get all watchlist items (JP stocks only)
+        try:
+            rows = conn.execute('SELECT DISTINCT symbol FROM watchlist WHERE symbol LIKE ?', ('%.T',)).fetchall()
+            for r in rows:
+                symbols.add(r[0])
+        except Exception:
+            pass
+        conn.close()
+        # Cap at 50 (Kabu Station limit)
+        symbols = list(symbols)[:50]
+        if symbols:
+            kabu.register_symbols(symbols)
+            print(f'[kabu] Registered {len(symbols)} watchlist/portfolio symbols for PUSH', flush=True)
+    except Exception as e:
+        print(f'[kabu] Watchlist registration error: {e}', flush=True)
+
+
+@app.route('/api/kabu/connect', methods=['POST'])
+def kabu_connect():
+    """Authenticate with Kabu Station."""
+    if not HAS_KABU:
+        return jsonify({'error': 'Kabu Station module not available'}), 400
+    data = request.json or {}
+    api_pw = data.get('api_password', '').strip() or KABU_API_PASSWORD
+    order_pw = data.get('order_password', '').strip() or KABU_ORDER_PASSWORD
+    if not api_pw:
+        return jsonify({'error': 'API password required'}), 400
+
+    kabu = _get_kabu_client()
+    print(f'[kabu-connect] api_pw length={len(api_pw)}, first2={api_pw[:2] if len(api_pw)>=2 else "?"}, from_env={bool(KABU_API_PASSWORD)}', flush=True)
+    kabu.set_passwords(api_pw, order_pw)
+    try:
+        token = kabu.authenticate()
+        # Start WebSocket PUSH listener
+        kabu_ws.start()
+        # Register watchlist + portfolio symbols for PUSH streaming
+        threading.Thread(target=_register_kabu_watchlist, daemon=True).start()
+        return jsonify({'success': True, 'connected': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/api/kabu/register', methods=['POST'])
+def kabu_register():
+    """Register symbols for PUSH streaming."""
+    if not HAS_KABU:
+        return jsonify({'error': 'Kabu Station not available'}), 400
+    kabu = _get_kabu_client()
+    if not kabu or not kabu.is_connected():
+        return jsonify({'error': 'Not connected'}), 400
+    data = request.json or {}
+    symbols = data.get('symbols', [])
+    if not symbols:
+        return jsonify({'error': 'No symbols provided'}), 400
+    result = kabu.register_symbols(symbols)
+    if isinstance(result, dict) and 'error' in result:
+        return jsonify(result), 400
+    return jsonify({'success': True, 'registered': result})
+
+
+@app.route('/api/kabu/board/<path:symbol>')
+def kabu_board(symbol):
+    """Get full order book + price for a symbol."""
+    if not HAS_KABU:
+        return jsonify({'error': 'Kabu Station not available'}), 400
+    kabu = _get_kabu_client()
+    if not kabu or not kabu.is_connected():
+        return jsonify({'error': 'Not connected'}), 400
+
+    # Check PUSH data first (instant, no API call)
+    code, _ = KabuClient.to_kabu_symbol(symbol)
+    push = kabu_ws.get_push_data(code)
+    if push:
+        # Format push data like get_board_full
+        asks = push.get('_asks', [])
+        bids = push.get('_bids', [])
+        return jsonify({
+            'symbol': symbol,
+            'price': float(push.get('CurrentPrice') or 0),
+            'prev_close': float(push.get('PreviousClose') or 0),
+            'change': float(push.get('ChangePreviousClose') or 0),
+            'change_pct': float(push.get('ChangePreviousClosePer') or 0),
+            'open': float(push.get('OpeningPrice') or 0),
+            'high': float(push.get('HighPrice') or 0),
+            'low': float(push.get('LowPrice') or 0),
+            'volume': int(push.get('TradingVolume') or 0),
+            'vwap': float(push.get('VWAP') or 0),
+            'asks': asks,
+            'bids': bids,
+            'over_sell_qty': int(push.get('OverSellQty') or 0),
+            'under_buy_qty': int(push.get('UnderBuyQty') or 0),
+            'source': 'kabu_push'
+        })
+
+    # Fallback to REST
+    result = kabu.get_board_full(symbol)
+    if 'error' in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@app.route('/api/kabu/stream')
+def kabu_stream():
+    """SSE endpoint — streams real-time price + order book from PUSH data."""
+    if not HAS_KABU:
+        return 'Kabu Station not available', 400
+
+    symbol = request.args.get('symbol', '').strip()
+    if not symbol:
+        return 'Symbol required', 400
+
+    code, _ = KabuClient.to_kabu_symbol(symbol)
+
+    # Register symbol for PUSH if connected
+    kabu = _get_kabu_client()
+    if kabu and kabu.is_connected():
+        kabu.register_symbols([symbol])
+
+    def event_stream():
+        import queue
+        q = queue.Queue(maxsize=50)
+
+        def on_push(sym_code, data):
+            if sym_code == code:
+                try:
+                    q.put_nowait(data)
+                except queue.Full:
+                    pass
+
+        kabu_ws.add_callback(on_push)
+        try:
+            # Send initial data if available
+            initial = kabu_ws.get_push_data(code)
+            if initial:
+                yield f'data: {json.dumps(_format_sse_data(symbol, initial))}\n\n'
+
+            while True:
+                try:
+                    data = q.get(timeout=30)
+                    yield f'data: {json.dumps(_format_sse_data(symbol, data))}\n\n'
+                except queue.Empty:
+                    # Send keepalive comment
+                    yield ': keepalive\n\n'
+        except GeneratorExit:
+            pass
+        finally:
+            kabu_ws.remove_callback(on_push)
+
+    from flask import Response
+    return Response(event_stream(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+def _format_sse_data(symbol, push_data):
+    """Format push data for SSE event."""
+    asks = push_data.get('_asks', [])
+    bids = push_data.get('_bids', [])
+    return {
+        'symbol': symbol,
+        'price': float(push_data.get('CurrentPrice') or 0),
+        'prev_close': float(push_data.get('PreviousClose') or 0),
+        'change': float(push_data.get('ChangePreviousClose') or 0),
+        'change_pct': float(push_data.get('ChangePreviousClosePer') or 0),
+        'open': float(push_data.get('OpeningPrice') or 0),
+        'high': float(push_data.get('HighPrice') or 0),
+        'low': float(push_data.get('LowPrice') or 0),
+        'volume': int(push_data.get('TradingVolume') or 0),
+        'vwap': float(push_data.get('VWAP') or 0),
+        'asks': asks,
+        'bids': bids,
+        'over_sell_qty': int(push_data.get('OverSellQty') or 0),
+        'under_buy_qty': int(push_data.get('UnderBuyQty') or 0),
+        'ts': push_data.get('_ts', '')
+    }
+
+
+@app.route('/api/kabu/balance')
+def kabu_balance():
+    """Get real cash balance from Kabu Station."""
+    if not HAS_KABU:
+        return jsonify({'error': 'Kabu Station not available'}), 400
+    kabu = _get_kabu_client()
+    if not kabu or not kabu.is_connected():
+        return jsonify({'error': 'Not connected'}), 400
+    result = kabu.get_wallet_cash()
+    if isinstance(result, dict) and 'error' in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@app.route('/api/kabu/positions')
+def kabu_positions():
+    """Get real positions from Kabu Station."""
+    if not HAS_KABU:
+        return jsonify({'error': 'Kabu Station not available'}), 400
+    kabu = _get_kabu_client()
+    if not kabu or not kabu.is_connected():
+        return jsonify({'error': 'Not connected'}), 400
+    positions = kabu.get_positions()
+    if isinstance(positions, dict) and 'error' in positions:
+        return jsonify(positions), 400
+    # Format for frontend
+    formatted = []
+    for p in positions:
+        formatted.append({
+            'symbol': KabuClient.from_kabu_symbol(str(p.get('Symbol', '')), p.get('Exchange', 1)),
+            'name': p.get('SymbolName', ''),
+            'side': 'buy' if str(p.get('Side')) == '2' else 'sell',
+            'qty': p.get('LeavesQty', p.get('Qty', 0)),
+            'avg_cost': p.get('Price', 0),
+            'current_price': p.get('CurrentPrice', 0),
+            'pnl': p.get('ProfitLoss', 0),
+            'value': p.get('Valuation', 0)
+        })
+    return jsonify(formatted)
+
+
+@app.route('/api/kabu/orders')
+def kabu_orders():
+    """Get order list from Kabu Station."""
+    if not HAS_KABU:
+        return jsonify({'error': 'Kabu Station not available'}), 400
+    kabu = _get_kabu_client()
+    if not kabu or not kabu.is_connected():
+        return jsonify({'error': 'Not connected'}), 400
+    orders = kabu.get_orders()
+    if isinstance(orders, dict) and 'error' in orders:
+        return jsonify(orders), 400
+    return jsonify(orders)
+
+
+@app.route('/api/kabu/sync-portfolio', methods=['POST'])
+def kabu_sync_portfolio():
+    """Sync Kabu Station real account: create/update live portfolio, sync positions & cash."""
+    uid, err = get_auth_user()
+    if err: return err
+    if not HAS_KABU:
+        return jsonify({'error': 'Kabu Station not available'}), 400
+    kabu = _get_kabu_client()
+    if not kabu or not kabu.is_connected():
+        return jsonify({'error': 'Not connected'}), 400
+
+    conn = get_db()
+    ensure_user_portfolio(conn, uid)
+
+    # Find or create live portfolio
+    live_pid = f'live_{uid}'
+    live_pf = conn.execute('SELECT id FROM sub_portfolios WHERE id = ? AND user_id = ?', (live_pid, uid)).fetchone()
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    is_first_sync = not live_pf
+    if is_first_sync:
+        conn.execute('INSERT INTO sub_portfolios (id, user_id, name, cash, cash_usd, realized_pnl, fund_amount, is_live, created_at) VALUES (?, ?, ?, 0, 0, 0, 0, 1, ?)',
+                     (live_pid, uid, 'Real Account', now))
+
+    # Sync cash balance from Kabu wallet
+    cash_jpy = 0
+    try:
+        wallet = kabu.get_wallet_cash()
+        if isinstance(wallet, dict) and 'error' not in wallet:
+            # Kabu Station wallet/cash response: StockAccountWallet or similar
+            cash_jpy = float(wallet.get('StockAccountWallet', 0))
+            if cash_jpy == 0:
+                # Try alternative field names
+                for key in ('FreeMargin', 'CashBalance', 'BuyingPower'):
+                    if wallet.get(key):
+                        cash_jpy = float(wallet[key])
+                        break
+    except Exception:
+        pass
+    # Only update DB cash if we got a valid value (don't zero out on API failure)
+    if cash_jpy > 0 or is_first_sync:
+        conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ? AND user_id = ?', (cash_jpy, live_pid, uid))
+
+    # Sync positions from Kabu
+    positions = kabu.get_positions()
+    kabu_symbols = set()
+    synced = 0
+    if isinstance(positions, dict) and 'error' in positions:
+        # API error — don't wipe holdings, just sync cash
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'portfolio_id': live_pid, 'synced': 0, 'cash': cash_jpy,
+                        'warning': 'Could not fetch positions'})
+    if isinstance(positions, list):
+        for p in positions:
+            symbol = KabuClient.from_kabu_symbol(str(p.get('Symbol', '')), p.get('Exchange', 1))
+            name = p.get('SymbolName', symbol)
+            qty = float(p.get('LeavesQty', p.get('Qty', 0)))
+            avg_cost = float(p.get('Price', 0))
+            if qty <= 0:
+                continue
+            kabu_symbols.add(symbol)
+            existing = conn.execute(
+                'SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?',
+                (uid, symbol, live_pid)).fetchone()
+            if existing:
+                conn.execute(
+                    'UPDATE holdings SET shares = ?, avg_cost = ?, name = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?',
+                    (qty, avg_cost, name, uid, symbol, live_pid))
+            else:
+                conn.execute(
+                    'INSERT INTO holdings (user_id, symbol, name, shares, avg_cost, portfolio_id) VALUES (?, ?, ?, ?, ?, ?)',
+                    (uid, symbol, name, qty, avg_cost, live_pid))
+            synced += 1
+
+    # Remove holdings that no longer exist on Kabu Station
+    existing_holdings = conn.execute(
+        'SELECT symbol FROM holdings WHERE user_id = ? AND portfolio_id = ?', (uid, live_pid)).fetchall()
+    for h in existing_holdings:
+        if h['symbol'] not in kabu_symbols:
+            conn.execute('DELETE FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?',
+                        (uid, h['symbol'], live_pid))
+
+    # On first sync, record initial account value as baseline for "All Time" calculation
+    if is_first_sync and isinstance(positions, list):
+        total_valuation = sum(float(p.get('Valuation') or 0) for p in positions if float(p.get('LeavesQty') or p.get('Qty') or 0) > 0)
+        initial_value = cash_jpy + total_valuation
+        if initial_value > 0:
+            conn.execute('UPDATE sub_portfolios SET fund_amount = ? WHERE id = ? AND user_id = ?',
+                         (initial_value, live_pid, uid))
+
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True, 'portfolio_id': live_pid, 'synced': synced, 'cash': cash_jpy})
+
+# Legacy alias
+@app.route('/api/kabu/sync-positions', methods=['POST'])
+def kabu_sync_positions():
+    return kabu_sync_portfolio()
+
+
+@app.route('/api/kabu/cancel-order', methods=['POST'])
+def kabu_cancel_order():
+    """Cancel a live order on Kabu Station."""
+    if not HAS_KABU:
+        return jsonify({'error': 'Kabu Station not available'}), 400
+    kabu = _get_kabu_client()
+    if not kabu or not kabu.is_connected():
+        return jsonify({'error': 'Not connected'}), 400
+    data = request.json or {}
+    order_id = data.get('order_id', '').strip()
+    if not order_id:
+        return jsonify({'error': 'OrderId required'}), 400
+    result = kabu.cancel_order(order_id)
+    if isinstance(result, dict) and 'error' in result:
+        return jsonify(result), 400
+    return jsonify({'success': True, 'result': result})
+
+
 def _fix_initial_deposit_timestamps():
     """One-time fix: ensure 'Initial deposit' fund transactions have a timestamp
     earlier than all trade transactions so they sort to the bottom of history."""
@@ -2836,6 +3782,12 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     _fix_initial_deposit_timestamps()  # Fix initial deposit ordering
     _load_stock_info_cache()  # Load persisted stock info immediately
+    # Clean up old tick history (keep 3 days)
+    try:
+        from db import cleanup_old_ticks
+        cleanup_old_ticks(days=3)
+    except Exception:
+        pass
     # Pre-warm caches for portfolio holdings, watchlist, and indices (runs first)
     threading.Thread(target=_prefetch_background, daemon=True).start()
     # Auto-refresh stock list from JPX every 6 hours (detects new listings / delistings)
@@ -2843,4 +3795,6 @@ if __name__ == '__main__':
     # Auto-refresh US stock list from Finnhub every 24 hours
     if FINNHUB_API_KEY:
         threading.Thread(target=_us_stock_list_auto_refresh, daemon=True).start()
+    # Background portfolio snapshots every 15 minutes (for daily + intraday charts)
+    threading.Thread(target=_snapshot_background, daemon=True).start()
     app.run(debug=False, port=port, threaded=True)
