@@ -1444,7 +1444,7 @@ const LANG_DATA = {
     s_color_standard:'US / EU Style', s_color_standard_sub:'Green ↑ Red ↓',
     s_color_reverse:'CN / JP Style', s_color_reverse_sub:'Red ↑ Green ↓',
     s_fund:'Fund Settings', s_fund_desc:'Set the starting fund amount used when resetting the portfolio.',
-    s_fund_amount:'Starting Fund Amount', btn_save:'Save', fund_deposit_withdraw:'Deposit / Withdraw Funds',
+    s_fund_amount:'Starting Fund Amount', btn_save:'Save', fund_deposit_withdraw:'Deposit / Withdraw Funds', fund_deposit:'Deposit', fund_withdraw:'Withdrawal', record_cash_flow:'Record Cash Flow',
     s_fund_current:'Current reset value:', s_set_cash:'Set Cash Balance Directly',
     s_set_cash_desc:'Adjust your current cash without resetting holdings — useful for syncing with your real account.',
     s_set_cash_btn:'Set Cash',
@@ -1690,7 +1690,7 @@ const LANG_DATA = {
     s_color_standard:'米国・欧州式', s_color_standard_sub:'緑 ↑ 赤 ↓',
     s_color_reverse:'中国・日本式', s_color_reverse_sub:'赤 ↑ 緑 ↓',
     s_fund:'資金設定', s_fund_desc:'ポートフォリオをリセットするときの初期資金を設定します。',
-    s_fund_amount:'初期資金額', btn_save:'保存', fund_deposit_withdraw:'入金 / 出金',
+    s_fund_amount:'初期資金額', btn_save:'保存', fund_deposit_withdraw:'入金 / 出金', fund_deposit:'入金', fund_withdraw:'出金', record_cash_flow:'入出金記録',
     s_fund_current:'現在のリセット値:', s_set_cash:'現金残高を直接設定',
     s_set_cash_desc:'保有銘柄を変更せずに現金残高を調整できます。',
     s_set_cash_btn:'残高設定',
@@ -1928,7 +1928,7 @@ const LANG_DATA = {
     s_color_standard:'美国/欧洲风格', s_color_standard_sub:'绿 ↑ 红 ↓',
     s_color_reverse:'中国/日本风格', s_color_reverse_sub:'红 ↑ 绿 ↓',
     s_fund:'资金设置', s_fund_desc:'设置重置投资组合时的初始资金金额。',
-    s_fund_amount:'初始资金金额', btn_save:'保存', fund_deposit_withdraw:'存入 / 取出资金',
+    s_fund_amount:'初始资金金额', btn_save:'保存', fund_deposit_withdraw:'存入 / 取出资金', fund_deposit:'存入', fund_withdraw:'取出', record_cash_flow:'记录资金变动',
     s_fund_current:'当前重置值:', s_set_cash:'直接设置现金余额',
     s_set_cash_desc:'在不影响持仓的情况下调整现金余额，方便与真实账户同步。',
     s_set_cash_btn:'设置现金',
@@ -2325,7 +2325,7 @@ let portfolio = { cash: 1000000, holdings: [] };
 let activeSector = 'All';
 let appSettings = { fund_amount: '1000000', theme: 'dark' };
 let marketSort = 'default';
-let currentPortfolioId = 'main';
+let currentPortfolioId = localStorage.getItem('genrri_lastPortfolio') || 'main';
 let portfolioList = [];
 
 // ── Watchlist ──────────────────────────────────────────────────────────
@@ -2464,14 +2464,14 @@ function showToast(msg, type = 'success') {
 
 // ——— NAVIGATION —————————————————————————
 const ALL_PAGES = ['portfolio','market','detail','history','settings'];
-function showPage(name) {
+async function showPage(name) {
   ALL_PAGES.forEach(p => document.getElementById(`page-${p}`).classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById(`page-${name}`).classList.add('active');
   const tabs = ['portfolio','market','history','settings'];
   const idx = tabs.indexOf(name);
   if (idx >= 0) document.querySelectorAll('.nav-tab')[idx].classList.add('active');
-  if (name === 'portfolio') { loadPortfolios(); loadPortfolio(); }
+  if (name === 'portfolio') { await loadPortfolios(); loadPortfolio(); }
   if (name === 'market') loadMarket();
   if (name === 'history') loadHistory();
   if (name === 'settings') loadSettings();
@@ -2520,6 +2520,7 @@ function switchPortfolio(pid) {
   const badge = document.getElementById('portfolio-source-badge');
   if (badge) badge.style.display = 'none';
   currentPortfolioId = pid;
+  localStorage.setItem('genrri_lastPortfolio', pid);
   renderPortfolioSwitcher();
   // Reset portfolio-specific sections when switching
   const txnSection = document.getElementById('pf-txn-section');
@@ -2712,12 +2713,12 @@ async function loadPortfolio() {
     const fundSection = document.getElementById('pf-fund-section');
     if (fundSection) {
       if (isLive) {
-        // Show simplified deposit/withdrawal buttons for live account
-        fundSection.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span class="stat-label" style="font-size:10px">${t('record_cash_flow') || 'Record cash flow'}:</span>
-          <button class="period-btn" onclick="recordLiveCashFlow('deposit')">+ ${t('fund_deposit') || 'Deposit'}</button>
-          <button class="period-btn" onclick="recordLiveCashFlow('withdrawal')">- ${t('fund_withdraw') || 'Withdrawal'}</button>
-        </div>`;
+        // Show simplified deposit/withdrawal panel for live account (matching other panels)
+        fundSection.innerHTML = `<summary class="pf-ctrl-title"><span>${t('record_cash_flow') || 'Record Cash Flow'}</span></summary>
+          <div style="padding:16px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="s-btn" style="flex:1;background:var(--accent);color:#fff" onclick="recordLiveCashFlow('deposit')">+ ${t('fund_deposit') || 'Deposit'}</button>
+            <button class="s-btn" style="flex:1" onclick="recordLiveCashFlow('withdrawal')">- ${t('fund_withdraw') || 'Withdrawal'}</button>
+          </div>`;
         fundSection.style.display = '';
       } else {
         fundSection.style.display = '';
@@ -5752,9 +5753,8 @@ async function initApp() {
   // Set username display in settings
   const settingsUsernameEl = document.getElementById('settings-username');
   if (settingsUsernameEl) settingsUsernameEl.textContent = authUser;
+  await loadPortfolios();
   showPage('portfolio');
-  loadPortfolios();
-  loadPortfolio();
   loadAlerts();
   loadServerWatchlist();
   _updateMarketHeaderVisibility();
