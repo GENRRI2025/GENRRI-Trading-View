@@ -2355,46 +2355,57 @@ def trade():
     cash_jpy = sp['cash'] or 0
     cash_usd = sp['cash_usd'] or 0
 
+    # Check if this is a live trade (already executed on Kabu Station)
+    is_live_trade = bool(data.get('_kabu_order_id'))
+
     txn_pnl = 0.0
     if action == 'buy':
-        if is_us:
-            if cash_usd < total + commission:
-                conn.close()
-                return jsonify({'error': f'Insufficient USD. Available: ${cash_usd:,.2f}. Convert JPY→USD first.'}), 400
-            cash_usd -= total + commission
-            conn.execute('UPDATE sub_portfolios SET cash_usd = ? WHERE id = ?', (cash_usd, pid))
-        else:
-            if cash_jpy < total + commission:
-                conn.close()
-                return jsonify({'error': 'Insufficient funds'}), 400
-            cash_jpy -= total + commission
-            conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ?', (cash_jpy, pid))
-        existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
-        if existing:
-            new_shares = existing['shares'] + shares
-            new_avg = (existing['avg_cost'] * existing['shares'] + total) / new_shares
-            conn.execute('UPDATE holdings SET shares = ?, avg_cost = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?',
-                        (new_shares, new_avg, uid, symbol, pid))
-        else:
-            conn.execute('INSERT INTO holdings (user_id, symbol, name, shares, avg_cost, portfolio_id) VALUES (?, ?, ?, ?, ?, ?)',
-                        (uid, symbol, name, shares, price, pid))
+        if not is_live_trade:
+            # Simulation: check cash and update local balance
+            if is_us:
+                if cash_usd < total + commission:
+                    conn.close()
+                    return jsonify({'error': f'Insufficient USD. Available: ${cash_usd:,.2f}. Convert JPY→USD first.'}), 400
+                cash_usd -= total + commission
+                conn.execute('UPDATE sub_portfolios SET cash_usd = ? WHERE id = ?', (cash_usd, pid))
+            else:
+                if cash_jpy < total + commission:
+                    conn.close()
+                    return jsonify({'error': 'Insufficient funds'}), 400
+                cash_jpy -= total + commission
+                conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ?', (cash_jpy, pid))
+            # Update local holdings for simulation
+            existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
+            if existing:
+                new_shares = existing['shares'] + shares
+                new_avg = (existing['avg_cost'] * existing['shares'] + total) / new_shares
+                conn.execute('UPDATE holdings SET shares = ?, avg_cost = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?',
+                            (new_shares, new_avg, uid, symbol, pid))
+            else:
+                conn.execute('INSERT INTO holdings (user_id, symbol, name, shares, avg_cost, portfolio_id) VALUES (?, ?, ?, ?, ?, ?)',
+                            (uid, symbol, name, shares, price, pid))
+        # Live trades: skip cash/holdings update — Kabu Station manages the real state.
+        # Holdings will sync from Kabu on next portfolio sync.
     elif action == 'sell':
         existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
-        if not existing or existing['shares'] < shares:
-            conn.close()
-            return jsonify({'error': 'Insufficient shares'}), 400
-        txn_pnl = round((price - existing['avg_cost']) * shares - commission, 2)
-        if is_us:
-            cash_usd += total - commission
-            conn.execute('UPDATE sub_portfolios SET cash_usd = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_usd, txn_pnl, pid))
-        else:
-            cash_jpy += total - commission
-            conn.execute('UPDATE sub_portfolios SET cash = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_jpy, txn_pnl, pid))
-        new_shares = existing['shares'] - shares
-        if new_shares < 0.001:
-            conn.execute('DELETE FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid))
-        else:
-            conn.execute('UPDATE holdings SET shares = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (new_shares, uid, symbol, pid))
+        if existing:
+            txn_pnl = round((price - existing['avg_cost']) * shares - commission, 2)
+        if not is_live_trade:
+            # Simulation: check shares and update local balance
+            if not existing or existing['shares'] < shares:
+                conn.close()
+                return jsonify({'error': 'Insufficient shares'}), 400
+            if is_us:
+                cash_usd += total - commission
+                conn.execute('UPDATE sub_portfolios SET cash_usd = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_usd, txn_pnl, pid))
+            else:
+                cash_jpy += total - commission
+                conn.execute('UPDATE sub_portfolios SET cash = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_jpy, txn_pnl, pid))
+            new_shares = existing['shares'] - shares
+            if new_shares < 0.001:
+                conn.execute('DELETE FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid))
+            else:
+                conn.execute('UPDATE holdings SET shares = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (new_shares, uid, symbol, pid))
 
     trade_date = data.get('date', '').strip() or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     kabu_oid = data.get('_kabu_order_id', '')
@@ -3732,9 +3743,115 @@ def kabu_sync_portfolio():
             conn.execute('UPDATE sub_portfolios SET fund_amount = ? WHERE id = ? AND user_id = ?',
                          (initial_value, live_pid, uid))
 
+    # ── Sync order history from Kabu Station ──
+    # Import filled orders as transactions so they appear in trade history
+    orders_synced = 0
+    try:
+        orders = kabu.get_orders()
+        if isinstance(orders, list):
+            for order in orders:
+                kabu_oid = str(order.get('ID', ''))
+                if not kabu_oid:
+                    continue
+
+                # Only sync fully or partially filled orders (State: 5=done, 6=partial)
+                state = order.get('State', 0)
+                if state not in (5, 6):
+                    continue
+
+                # Skip if already synced (check by kabu_order_id)
+                existing_txn = conn.execute(
+                    'SELECT id FROM transactions WHERE kabu_order_id = ? AND user_id = ?',
+                    (kabu_oid, uid)
+                ).fetchone()
+                if existing_txn:
+                    continue
+
+                # Parse order details
+                order_symbol = str(order.get('Symbol', ''))
+                order_exchange = order.get('Exchange', 1)
+                symbol = KabuClient.from_kabu_symbol(order_symbol, order_exchange)
+                order_name = order.get('SymbolName', symbol)
+                order_side = order.get('Side', '')
+                # Side: '1' = sell, '2' = buy
+                action = 'buy' if str(order_side) == '2' else 'sell'
+
+                # Get execution details from order details (Details array has individual fills)
+                details = order.get('Details', [])
+                if isinstance(details, list) and details:
+                    for detail in details:
+                        exec_qty = float(detail.get('Qty') or 0)
+                        exec_price = float(detail.get('Price') or 0)
+                        exec_id = str(detail.get('SeqNum', detail.get('ID', '')))
+                        if exec_qty <= 0 or exec_price <= 0:
+                            continue
+
+                        # Use detail-level ID to avoid duplicates on partial fills
+                        detail_oid = f'{kabu_oid}_{exec_id}' if exec_id else kabu_oid
+                        existing_detail = conn.execute(
+                            'SELECT id FROM transactions WHERE kabu_order_id = ? AND user_id = ?',
+                            (detail_oid, uid)
+                        ).fetchone()
+                        if existing_detail:
+                            continue
+
+                        exec_total = round(exec_qty * exec_price, 2)
+
+                        # Calculate P/L for sells
+                        txn_pnl = 0.0
+                        if action == 'sell':
+                            held = conn.execute(
+                                'SELECT avg_cost FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?',
+                                (uid, symbol, live_pid)
+                            ).fetchone()
+                            if held:
+                                txn_pnl = round((exec_price - float(held['avg_cost'] or 0)) * exec_qty, 2)
+
+                        # Parse execution timestamp
+                        exec_time = detail.get('ExecutionDay') or order.get('RecvTime') or now
+                        # Kabu timestamps can be in various formats — normalize
+                        if isinstance(exec_time, str) and 'T' in exec_time:
+                            exec_time = exec_time.replace('T', ' ')[:19]
+
+                        conn.execute(
+                            'INSERT INTO transactions (user_id, symbol, name, action, shares, price, total, pnl, commission, timestamp, portfolio_id, kabu_order_id) '
+                            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)',
+                            (uid, symbol, order_name, action, exec_qty, exec_price, exec_total, txn_pnl, exec_time, live_pid, detail_oid)
+                        )
+                        orders_synced += 1
+                else:
+                    # No Details array — use top-level order data
+                    exec_qty = float(order.get('CumQty') or order.get('OrderQty') or 0)
+                    exec_price = float(order.get('Price') or 0)
+                    if exec_qty <= 0 or exec_price <= 0:
+                        continue
+                    exec_total = round(exec_qty * exec_price, 2)
+
+                    txn_pnl = 0.0
+                    if action == 'sell':
+                        held = conn.execute(
+                            'SELECT avg_cost FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?',
+                            (uid, symbol, live_pid)
+                        ).fetchone()
+                        if held:
+                            txn_pnl = round((exec_price - float(held['avg_cost'] or 0)) * exec_qty, 2)
+
+                    exec_time = order.get('RecvTime', now)
+                    if isinstance(exec_time, str) and 'T' in exec_time:
+                        exec_time = exec_time.replace('T', ' ')[:19]
+
+                    conn.execute(
+                        'INSERT INTO transactions (user_id, symbol, name, action, shares, price, total, pnl, commission, timestamp, portfolio_id, kabu_order_id) '
+                        'VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)',
+                        (uid, symbol, order_name, action, exec_qty, exec_price, exec_total, txn_pnl, exec_time, live_pid, kabu_oid)
+                    )
+                    orders_synced += 1
+    except Exception as e:
+        print(f'[kabu-sync] Order history sync error: {e}', flush=True)
+
     conn.commit()
     conn.close()
-    return jsonify({'success': True, 'portfolio_id': live_pid, 'synced': synced, 'cash': cash_jpy})
+    return jsonify({'success': True, 'portfolio_id': live_pid, 'synced': synced, 'orders_synced': orders_synced, 'cash': cash_jpy})
 
 # Legacy alias
 @app.route('/api/kabu/sync-positions', methods=['POST'])
