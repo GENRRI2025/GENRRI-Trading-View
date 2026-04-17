@@ -1901,6 +1901,15 @@ def get_portfolio():
             realized_pnl = sp['realized_pnl'] or 0.0
             is_live = sp['is_live']
             db_fund_amount = float(sp['fund_amount'] or 0)
+            # Guard: live accounts should never use the ¥1M default
+            if is_live and db_fund_amount == 1000000.0:
+                # Check if this is the unmodified default (no fund_transactions recorded)
+                has_funds = conn.execute(
+                    'SELECT COUNT(*) as c FROM fund_transactions WHERE user_id = ? AND portfolio_id = ?', (uid, pid)
+                ).fetchone()['c']
+                if has_funds == 0:
+                    db_fund_amount = 0
+                    conn.execute('UPDATE sub_portfolios SET fund_amount = 0 WHERE id = ? AND user_id = ?', (pid, uid))
         else:
             cash_row = conn.execute('SELECT cash FROM portfolio WHERE user_id = ?', (uid,)).fetchone()
             cash = cash_row['cash'] if cash_row else 1000000.0

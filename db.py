@@ -660,6 +660,13 @@ def _init_db_sqlite():
     except (sqlite3.OperationalError, Exception):
         pass
 
+    # Migration: fix live portfolios that inherited the ¥1M default fund_amount
+    # Live accounts should start at 0 — their baseline is set on first Kabu sync
+    try:
+        c.execute('UPDATE sub_portfolios SET fund_amount = 0 WHERE is_live = 1 AND fund_amount = 1000000.0')
+    except Exception:
+        pass
+
     # Tick history table for Kabu Station real-time candle building
     c.execute('''CREATE TABLE IF NOT EXISTS tick_history (
         symbol TEXT NOT NULL,
