@@ -692,14 +692,20 @@ def _init_db_sqlite():
     )''')
 
     # Migration: seed initial deposit for existing sub_portfolios that have no fund_transactions
-    existing_sps = c.execute('SELECT id, user_id, fund_amount FROM sub_portfolios').fetchall()
+    # Skip live portfolios — their baseline is set by Kabu sync, not a simulated deposit
+    existing_sps = c.execute('SELECT id, user_id, fund_amount, COALESCE(is_live, 0) as is_live FROM sub_portfolios').fetchall()
     for sp in existing_sps:
-        sp_id, sp_uid, sp_fund = sp[0], sp[1], sp[2]
+        sp_id, sp_uid, sp_fund, sp_live = sp[0], sp[1], sp[2], sp[3]
+        if sp_live:
+            continue  # Live portfolios don't get seeded deposits
         has_ft = c.execute('SELECT 1 FROM fund_transactions WHERE user_id = ? AND portfolio_id = ? LIMIT 1', (sp_uid, sp_id)).fetchone()
         if not has_ft:
             fund_val = sp_fund if sp_fund else 1000000.0
             c.execute('INSERT INTO fund_transactions (user_id, portfolio_id, type, amount, note, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
                       (sp_uid, sp_id, 'deposit', fund_val, 'Initial fund (migrated)', datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+
+    # Clean up: remove any bogus seeded deposits for live portfolios (from earlier bug)
+    c.execute("DELETE FROM fund_transactions WHERE note = 'Initial fund (migrated)' AND portfolio_id IN (SELECT id FROM sub_portfolios WHERE is_live = 1)")
 
     # Ensure default user exists
     c.execute("INSERT OR IGNORE INTO users (id, name, created_at) VALUES ('default', 'Default', ?)",
