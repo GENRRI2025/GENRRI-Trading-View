@@ -659,7 +659,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   grid-template-columns: 260px 1fr;
   gap: 14px;
   align-items: start;
-  padding-top: 6px;
+  padding-top: 0;
 }
 .main-content.mode-watchlists > .page { display: none !important; }
 .main-content.mode-watchlists > #page-watchlists { display: block !important; grid-column: 1; }
@@ -668,10 +668,10 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   .main-content.mode-watchlists { grid-template-columns: 1fr; }
   .main-content.mode-watchlists > #page-chart { grid-column: 1; grid-row: 2; }
 }
-.wl-tabs { display: flex; gap: 2px; margin: -4px 0 2px; overflow-x: auto; scrollbar-width: none; align-items: center; }
+.wl-tabs { display: flex; gap: 2px; margin: 0; overflow-x: auto; scrollbar-width: none; align-items: center; }
 .wl-tabs::-webkit-scrollbar { display: none; }
 .wl-tab {
-  padding: 5px 12px; background: transparent; border: none; color: var(--text2);
+  padding: 3px 12px; background: transparent; border: none; color: var(--text2);
   font-size: 12px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent;
   white-space: nowrap; transition: all 0.15s;
 }
@@ -682,7 +682,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .wl-tab.active .tab-menu, .wl-tab:hover .tab-menu { opacity: 1; }
 .wl-col-headers {
   display: grid; grid-template-columns: 1fr 72px 66px;
-  gap: 6px; padding: 4px 10px; border-bottom: 1px solid var(--border);
+  gap: 6px; padding: 2px 10px 3px; border-bottom: 1px solid var(--border);
   font-size: 10px; font-weight: 500; color: var(--text2);
   text-transform: uppercase; letter-spacing: 0.5px;
 }
@@ -1627,10 +1627,12 @@ function toggleSidebar() {
   sidebarCollapsed = !sidebarCollapsed;
   localStorage.setItem('genrri_sidebar_collapsed', sidebarCollapsed ? '1' : '0');
   document.getElementById('app').classList.toggle('sidebar-collapsed', sidebarCollapsed);
-  // Force chart reflow after the grid settles — multi-pass, covers CSS transitions
-  [30, 120, 300].forEach(d => setTimeout(() => {
+  // Force chart reflow via raf chain + delayed passes — catches the grid reflow
+  // whether the browser fires ResizeObserver or not.
+  requestAnimationFrame(() => requestAnimationFrame(forceChartResize));
+  [60, 180, 400].forEach(d => setTimeout(() => {
     forceChartResize();
-    window.dispatchEvent(new Event('resize'));  // also nudges any other libs listening
+    window.dispatchEvent(new Event('resize'));
   }, d));
 }
 function forceChartResize() {
@@ -1638,17 +1640,23 @@ function forceChartResize() {
   try {
     const container = document.getElementById('lw-chart');
     if (!container) return;
-    const rect = container.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      // Use chart.resize() explicitly — some versions don't shrink via applyOptions alone
-      if (typeof lwChart.resize === 'function') {
-        lwChart.resize(Math.round(rect.width), Math.round(rect.height));
-      } else {
-        lwChart.applyOptions({ width: Math.round(rect.width), height: Math.round(rect.height) });
-      }
+    // Temporarily shrink to 0 width so LWC recomputes from the real container size
+    // on the next frame — this is the only reliable way to make v4 SHRINK after a
+    // grid column collapse/expand.
+    if (typeof lwChart.resize === 'function') {
+      lwChart.resize(0, 0);
     }
-    if (typeof resizeDrawCanvas === 'function') resizeDrawCanvas();
-    if (typeof redrawCanvas === 'function') redrawCanvas();
+    requestAnimationFrame(() => {
+      if (!lwChart) return;
+      const rect = container.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const w = Math.round(rect.width), h = Math.round(rect.height);
+        if (typeof lwChart.resize === 'function') lwChart.resize(w, h);
+        else lwChart.applyOptions({ width: w, height: h });
+      }
+      if (typeof resizeDrawCanvas === 'function') resizeDrawCanvas();
+      if (typeof redrawCanvas === 'function') redrawCanvas();
+    });
   } catch(e) { console.warn('[chart] resize failed:', e); }
 }
 // Also handle window resize (which can miss certain grid changes)
@@ -2427,12 +2435,17 @@ function initLWChart() {
     timeScale: { borderColor: c.border, timeVisible: chartType==='candle' ? INTRADAY_CANDLE_INTERVALS.has(currentCandleInterval) : INTRADAY_LINE_PERIODS.has(currentPeriod), secondsVisible: false },
     handleScroll: true, handleScale: true,
   });
-  // ResizeObserver as backup (some browsers don't trigger autoSize on grid changes)
+  // ResizeObserver as backup (some browsers don't trigger autoSize on grid changes).
+  // Use chart.resize() — applyOptions alone won't SHRINK the chart in LWC v4.
   new ResizeObserver((entries) => {
     if (!lwChart) return;
     const rect = entries[0]?.contentRect;
-    if (rect && rect.width > 0) {
-      lwChart.applyOptions({ width: rect.width, height: rect.height });
+    if (rect && rect.width > 0 && rect.height > 0) {
+      const w = Math.round(rect.width), h = Math.round(rect.height);
+      try {
+        if (typeof lwChart.resize === 'function') lwChart.resize(w, h);
+        else lwChart.applyOptions({ width: w, height: h });
+      } catch(e) {}
     }
     resizeDrawCanvas(); redrawCanvas();
   }).observe(container);

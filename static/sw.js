@@ -1,6 +1,6 @@
 // Bump this version every time you deploy a significant update.
 // Changing it forces ALL browsers to drop the old cache immediately.
-const CACHE = 'genrri-v111';
+const CACHE = 'genrri-v112';
 const DATA_CACHE = 'genrri-data-v2';
 
 // Only cache third-party CDN assets (charts library etc.) — never the app HTML/JS.
