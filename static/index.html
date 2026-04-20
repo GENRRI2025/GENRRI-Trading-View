@@ -14,7 +14,7 @@
 <meta name="theme-color" content="#00d4aa">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <style>
@@ -34,10 +34,10 @@
   --text: #2c2416; --text2: #8a7e6b; --accent: #c48a3f; --accent2: #a0722e;
   --green: #2d8a4e; --red: #c44040; --chart-grid: #e8e2d4;
 }
-[data-theme="midnight"] {
-  --bg: #020c1b; --surface: #0a192f; --surface2: #112240; --border: #1d3557;
-  --text: #ccd6f6; --text2: #8892b0; --accent: #64ffda; --accent2: #57cbff;
-  --green: #64ffda; --red: #ff6b6b; --chart-grid: #1d3557;
+[data-theme="gold"] {
+  --bg: #0a0908; --surface: #15120c; --surface2: #1f1a10; --border: #3a2f14;
+  --text: #f5ecd1; --text2: #a89361; --accent: #d4af37; --accent2: #c9a227;
+  --green: #c9a227; --red: #e5534b; --chart-grid: #2a2210;
 }
 
 /* ——— COLOR CONVENTION (rising/falling) ——— */
@@ -86,7 +86,11 @@
 
 /* ——— BASE ————————————————————————————————— */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight: 400; min-height: 100vh; transition: background 0.3s, color 0.3s; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; font-variant-numeric: tabular-nums; }
+body { background: var(--bg); color: var(--text); font-family: 'Inter', 'Noto Sans SC', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif; font-weight: 400; min-height: 100vh; transition: background 0.3s, color 0.3s; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; font-variant-numeric: tabular-nums; letter-spacing: -0.003em; }
+/* Inherit font to all elements (buttons/inputs use system fonts by default) */
+button, input, textarea, select, optgroup { font-family: inherit; font-weight: inherit; }
+/* Consistent weight for Chinese/Japanese headings — prevents the "mixed thin/bold" look */
+h1, h2, h3, h4, h5, h6 { font-weight: 600; }
 ::selection { background: var(--accent); color: #000; }
 
 /* ——— PRICE FLASH ANIMATIONS ————————————— */
@@ -1112,9 +1116,9 @@ select.s-input { appearance: none; }
           <div class="swatch-preview"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#faf7f2;border:2px solid #e0d9c8"></span></div>
           <div class="swatch-label" style="background:#f3eedf;color:#2c2416" data-i18n="theme_sand">Sand</div>
         </div>
-        <div class="theme-swatch swatch-midnight" onclick="setTheme('midnight')" id="swatch-midnight">
-          <div class="swatch-preview"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#020c1b;border:2px solid #1d3557"></span></div>
-          <div class="swatch-label" style="background:#112240;color:#ccd6f6" data-i18n="theme_midnight">Midnight</div>
+        <div class="theme-swatch swatch-gold" onclick="setTheme('gold')" id="swatch-gold">
+          <div class="swatch-preview" style="background:#0a0908"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#d4af37;border:2px solid #3a2f14"></span></div>
+          <div class="swatch-label" style="background:#15120c;color:#d4af37" data-i18n="theme_gold">Black &amp; Gold</div>
         </div>
       </div>
 
@@ -1614,7 +1618,7 @@ const LANG_DATA = {
     // Table headers
     th_date:'Date', th_stock:'Stock', th_details:'Details', th_pnl:'P&L',
     // Theme swatches
-    theme_dark:'Dark', theme_light:'Light', theme_rose:'Lavender', theme_sand:'Sand', theme_midnight:'Midnight',
+    theme_dark:'Dark', theme_light:'Light', theme_rose:'Lavender', theme_sand:'Sand', theme_gold:'Black & Gold',
     // Watchlist banner
     wl_popular:'Popular Stocks', wl_positions_watchlist:'Positions & Watchlist',
     wl_your_positions:'Your Positions', wl_watchlist:'Watchlist', wl_held:'HELD',
@@ -1871,7 +1875,7 @@ const LANG_DATA = {
     btn_upload_csv:'CSVアップロード', btn_import_all:'全てインポート',
     commission_pct_label:'手数料 %',
     th_date:'日付', th_stock:'銘柄', th_details:'詳細', th_pnl:'損益',
-    theme_dark:'ダーク', theme_light:'ライト', theme_rose:'ラベンダー', theme_sand:'サンド', theme_midnight:'ミッドナイト',
+    theme_dark:'ダーク', theme_light:'ライト', theme_rose:'ラベンダー', theme_sand:'サンド', theme_gold:'ブラック＆ゴールド',
     wl_popular:'人気銘柄', wl_positions_watchlist:'保有・ウォッチリスト',
     wl_your_positions:'保有銘柄', wl_watchlist:'ウォッチリスト', wl_held:'保有中',
     filter_all_sectors:'全セクター', filter_all_markets:'全市場',
@@ -2123,7 +2127,7 @@ const LANG_DATA = {
     btn_upload_csv:'上传CSV', btn_import_all:'全部导入',
     commission_pct_label:'手续费 %',
     th_date:'日期', th_stock:'股票', th_details:'详情', th_pnl:'盈亏',
-    theme_dark:'深色', theme_light:'浅色', theme_rose:'薰衣草', theme_sand:'沙色', theme_midnight:'午夜',
+    theme_dark:'深色', theme_light:'浅色', theme_rose:'薰衣草', theme_sand:'沙色', theme_gold:'黑金',
     wl_popular:'热门股票', wl_positions_watchlist:'持仓与关注',
     wl_your_positions:'你的持仓', wl_watchlist:'关注列表', wl_held:'持有',
     filter_all_sectors:'全部行业', filter_all_markets:'全部市场',
@@ -5102,8 +5106,10 @@ async function setCashBalance() {
 }
 
 async function setTheme(theme) {
-  // Migrate removed themes to dark
-  const validThemes = ['dark','light','rose','sand','midnight'];
+  // Migrate removed themes (rose → light, midnight → gold) to current options
+  if (theme === 'midnight') theme = 'gold';
+  if (theme === 'rose') theme = 'light';
+  const validThemes = ['dark','light','sand','gold'];
   if (!validThemes.includes(theme)) theme = 'dark';
   appSettings.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
@@ -5794,8 +5800,13 @@ async function initApp() {
     const r = await apiFetch(`/api/settings`);
     appSettings = await r.json();
     if (appSettings.theme) {
-      document.documentElement.setAttribute('data-theme', appSettings.theme);
-      localStorage.setItem('theme', appSettings.theme);
+      // Migrate removed themes so saved 'midnight'/'rose' still work
+      let savedTheme = appSettings.theme;
+      if (savedTheme === 'midnight') savedTheme = 'gold';
+      if (savedTheme === 'rose') savedTheme = 'light';
+      appSettings.theme = savedTheme;
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      localStorage.setItem('theme', savedTheme);
     }
   } catch(e) {}
   // Set username display in settings
@@ -5843,9 +5854,14 @@ function startMarketTicker() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(()=>{});
   }
-  // Restore theme immediately from localStorage to avoid flash
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+  // Restore theme immediately from localStorage to avoid flash (migrate removed themes)
+  let savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'midnight') savedTheme = 'gold';
+  if (savedTheme === 'rose') savedTheme = 'light';
+  if (savedTheme) {
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    localStorage.setItem('theme', savedTheme);
+  }
 
   // Apply saved color mode early so charts render correctly
   const savedColorMode = localStorage.getItem('color_mode');
