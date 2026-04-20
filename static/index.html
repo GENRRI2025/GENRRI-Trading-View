@@ -523,7 +523,7 @@ select.s-input { appearance: none; }
     </button>
   </div>
   <div class="nav-right">
-    <span id="kabu-live-badge" style="display:none;background:#00d4aa;color:#000;font-size:10px;font-weight:500;padding:2px 8px;border-radius:6px;letter-spacing:1px;animation:kabu-pulse 2s infinite">LIVE</span>
+    <span id="kabu-live-badge" style="background:var(--border);color:var(--text2);font-size:10px;font-weight:500;padding:2px 8px;border-radius:6px;letter-spacing:1px" title="" data-i18n="badge_delayed">DELAYED</span>
     <div class="nav-balance" id="nav-balance"><span data-i18n="nav_cash">Cash</span>: <strong>¥-</strong></div>
   </div>
 </nav>
@@ -993,8 +993,9 @@ select.s-input { appearance: none; }
         </div>
       </div>
       <div>
-        <!-- Kabu Station Order Book — right next to chart -->
-        <div class="order-book" id="kabu-order-book" style="display:none">
+        <!-- Kabu Station Order Book — right next to chart. Always rendered for .T stocks;
+             shows a "delayed/unavailable" overlay when Kabu is offline. -->
+        <div class="order-book" id="kabu-order-book" style="display:none;position:relative">
           <div class="ob-header">
             <span class="ob-title" data-i18n="order_book">ORDER BOOK</span>
             <span class="kabu-live-tag" id="ob-live-tag">LIVE</span>
@@ -1013,6 +1014,11 @@ select.s-input { appearance: none; }
             <div class="ob-footer-item"><span class="ob-footer-label">Low</span><span class="ob-footer-val" id="ob-low">-</span></div>
             <div class="ob-footer-item"><span class="ob-footer-label" data-i18n="info_over_sell">Over Sell</span><span class="ob-footer-val" id="ob-over-sell">-</span></div>
             <div class="ob-footer-item"><span class="ob-footer-label" data-i18n="info_under_buy">Under Buy</span><span class="ob-footer-val" id="ob-under-buy">-</span></div>
+          </div>
+          <!-- Overlay shown when Kabu is offline — obscures stale/empty book without removing it -->
+          <div id="ob-offline-overlay" style="display:none;position:absolute;inset:0;background:color-mix(in srgb, var(--card) 82%, transparent);backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);border-radius:inherit;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;text-align:center;padding:12px;pointer-events:none">
+            <div style="font-size:12px;color:var(--text2);font-weight:500" data-i18n="ob_offline_title">Real-time depth unavailable</div>
+            <div style="font-size:11px;color:var(--text2);opacity:0.8" data-i18n="ob_offline_sub">Connect Kabu Station for live order book</div>
           </div>
         </div>
         <div class="trade-panel">
@@ -1629,6 +1635,12 @@ const LANG_DATA = {
     kabu_api_pw:'API Password', kabu_order_pw:'Order Password',
     kabu_connect:'Connect', kabu_connecting:'Connecting...',
     kabu_connected:'Connected', kabu_not_connected:'Not connected',
+    badge_live:'LIVE', badge_delayed:'DELAYED',
+    badge_live_hint:'Real-time data via Kabu Station',
+    badge_delayed_hint:'Using 15-min delayed Yahoo Finance data. Connect Kabu Station for real-time.',
+    ob_offline_title:'Real-time depth unavailable',
+    ob_offline_sub:'Connect Kabu Station for live order book',
+    trade_live_offline_hint:'Connect Kabu Station to enable live trading',
     kabu_err_auth:'Kabu Station: wrong API password or session expired. Re-enter password or restart Kabu Station.',
     kabu_err_auth_failed:'Authentication failed. Please check your API password.',
     kabu_err_unreachable:'Cannot reach Kabu Station. Please ensure the desktop app is running.',
@@ -1876,6 +1888,12 @@ const LANG_DATA = {
     kabu_api_pw:'APIパスワード', kabu_order_pw:'注文パスワード',
     kabu_connect:'接続', kabu_connecting:'接続中...',
     kabu_connected:'接続済み', kabu_not_connected:'未接続',
+    badge_live:'ライブ', badge_delayed:'遅延',
+    badge_live_hint:'kabuステーション経由のリアルタイムデータ',
+    badge_delayed_hint:'Yahoo Finance（15分遅延）のデータを表示中。リアルタイム表示にはkabuステーション接続が必要です。',
+    ob_offline_title:'リアルタイム板情報は利用できません',
+    ob_offline_sub:'リアルタイム板を見るにはkabuステーションに接続してください',
+    trade_live_offline_hint:'実盘取引を有効にするにはkabuステーションに接続してください',
     kabu_err_auth:'kabuステーション：APIパスワードが違うか、セッションが切れました。パスワードを入力し直すか、kabuステーションを再起動してください。',
     kabu_err_auth_failed:'認証に失敗しました。APIパスワードをご確認ください。',
     kabu_err_unreachable:'kabuステーションに接続できません。デスクトップアプリが起動していることを確認してください。',
@@ -2122,6 +2140,12 @@ const LANG_DATA = {
     kabu_api_pw:'API密码', kabu_order_pw:'下单密码',
     kabu_connect:'连接', kabu_connecting:'连接中...',
     kabu_connected:'已连接', kabu_not_connected:'未连接',
+    badge_live:'实时', badge_delayed:'延迟',
+    badge_live_hint:'通过kabuStation获取实时数据',
+    badge_delayed_hint:'当前显示Yahoo Finance延迟15分钟数据。连接kabuStation可获取实时行情。',
+    ob_offline_title:'实时盘口不可用',
+    ob_offline_sub:'连接kabuStation以查看实时盘口',
+    trade_live_offline_hint:'连接kabuStation后方可进行实盘交易',
     kabu_err_auth:'kabuStation: API密码错误或会话已过期。请重新输入密码或重启kabuStation。',
     kabu_err_auth_failed:'认证失败，请检查API密码。',
     kabu_err_unreachable:'无法连接到kabuStation，请确认桌面应用已开启。',
@@ -5841,6 +5865,11 @@ let _kabuSSE = null; // current EventSource for streaming
 let tradeMode = 'sim'; // 'sim' or 'live'
 
 function setTradeMode(mode) {
+  // Block switching to live mode when Kabu is offline
+  if (mode === 'live' && !kabuConnected) {
+    showToast(t('trade_live_offline_hint') || 'Connect Kabu Station to enable live trading', 'error');
+    return;
+  }
   tradeMode = mode;
   const simBtn = document.getElementById('tmode-sim');
   const liveBtn = document.getElementById('tmode-live');
@@ -5854,10 +5883,25 @@ function setTradeMode(mode) {
 function _updateTradeModeToggle() {
   const toggle = document.getElementById('trade-mode-toggle');
   if (!toggle) return;
-  // Show toggle only when Kabu is connected and viewing a JP stock
   const isJP = currentSymbol && currentSymbol.endsWith('.T');
-  toggle.style.display = (kabuConnected && isJP) ? 'flex' : 'none';
-  if (!kabuConnected || !isJP) tradeMode = 'sim'; // reset to sim when not applicable
+  // Show toggle for any JP stock; Live button is disabled when Kabu offline.
+  toggle.style.display = isJP ? 'flex' : 'none';
+  const liveBtn = document.getElementById('tmode-live');
+  if (liveBtn) {
+    if (kabuConnected) {
+      liveBtn.disabled = false;
+      liveBtn.style.opacity = '';
+      liveBtn.style.cursor = '';
+      liveBtn.title = '';
+    } else {
+      liveBtn.disabled = true;
+      liveBtn.style.opacity = '0.5';
+      liveBtn.style.cursor = 'not-allowed';
+      liveBtn.title = t('trade_live_offline_hint') || 'Connect Kabu Station to enable live trading';
+    }
+  }
+  // If Kabu is offline or we're on a non-JP stock, force simulation mode.
+  if (!kabuConnected || !isJP) tradeMode = 'sim';
 }
 
 async function _syncKabuPortfolio() {
@@ -5887,9 +5931,45 @@ async function checkKabuStatus() {
 }
 
 function updateKabuUI() {
-  // Nav bar badge
+  // Nav bar badge — always visible; reflects LIVE vs DELAYED state
   const badge = document.getElementById('kabu-live-badge');
-  if (badge) badge.style.display = kabuConnected ? 'inline' : 'none';
+  if (badge) {
+    badge.style.display = 'inline';
+    if (kabuConnected) {
+      badge.textContent = t('badge_live') || 'LIVE';
+      badge.style.background = '#00d4aa';
+      badge.style.color = '#000';
+      badge.style.animation = 'kabu-pulse 2s infinite';
+      badge.title = t('badge_live_hint') || 'Real-time data via Kabu Station';
+    } else {
+      badge.textContent = t('badge_delayed') || 'DELAYED';
+      badge.style.background = 'var(--border)';
+      badge.style.color = 'var(--text2)';
+      badge.style.animation = 'none';
+      badge.title = t('badge_delayed_hint') || 'Using 15-min delayed Yahoo Finance data. Connect Kabu Station for real-time.';
+    }
+  }
+  // Detail page badge — reflects same state
+  const detailTag = document.getElementById('detail-live-tag');
+  if (detailTag && detailTag.style.display !== 'none') {
+    detailTag.textContent = kabuConnected ? (t('badge_live') || 'LIVE') : (t('badge_delayed') || 'DELAYED');
+    detailTag.style.background = kabuConnected ? '#00d4aa' : 'var(--border)';
+    detailTag.style.color = kabuConnected ? '#000' : 'var(--text2)';
+    detailTag.style.animation = kabuConnected ? 'kabu-pulse 2s infinite' : 'none';
+  }
+  // Order book badge — same state. Also update the offline overlay.
+  const obTag = document.getElementById('ob-live-tag');
+  if (obTag) {
+    obTag.textContent = kabuConnected ? (t('badge_live') || 'LIVE') : (t('badge_delayed') || 'DELAYED');
+    obTag.style.background = kabuConnected ? '#00d4aa' : 'var(--border)';
+    obTag.style.color = kabuConnected ? '#000' : 'var(--text2)';
+    obTag.style.animation = kabuConnected ? 'kabu-pulse 2s infinite' : 'none';
+  }
+  const obOverlay = document.getElementById('ob-offline-overlay');
+  const obPanel = document.getElementById('kabu-order-book');
+  if (obOverlay && obPanel && obPanel.style.display === 'block') {
+    obOverlay.style.display = kabuConnected ? 'none' : 'flex';
+  }
   // Update data delay indicator
   const delayEl = document.getElementById('mh-data-delay');
   if (delayEl) {
@@ -5945,6 +6025,12 @@ function renderOrderBook(data) {
   const panel = document.getElementById('kabu-order-book');
   if (!panel || !data) return;
   panel.style.display = 'block';
+
+  // If no depth data at all, fall back to placeholder rows
+  if ((!data.asks || data.asks.length === 0) && (!data.bids || data.bids.length === 0)) {
+    _renderEmptyOrderBook();
+    return;
+  }
 
   const asks = (data.asks || []).slice().reverse(); // highest ask at top
   const bids = data.bids || [];
@@ -6210,38 +6296,106 @@ function stopKabuStream() {
   if (_kabuSSE) { _kabuSSE.close(); _kabuSSE = null; }
 }
 
+// Cache of last-seen order book per symbol — used as fallback when Kabu goes offline
+const _obCache = {};
+
+// Helper: show/hide the "offline" overlay on the order book
+function _setOrderBookOverlay(showOverlay) {
+  const overlay = document.getElementById('ob-offline-overlay');
+  const liveTag = document.getElementById('ob-live-tag');
+  if (overlay) overlay.style.display = showOverlay ? 'flex' : 'none';
+  if (liveTag) {
+    liveTag.textContent = showOverlay ? (t('badge_delayed') || 'DELAYED') : (t('badge_live') || 'LIVE');
+    liveTag.style.background = showOverlay ? 'var(--border)' : '#00d4aa';
+    liveTag.style.color = showOverlay ? 'var(--text2)' : '#000';
+    liveTag.style.animation = showOverlay ? 'none' : 'kabu-pulse 2s infinite';
+  }
+}
+
+// Helper: render placeholder rows when we have no live depth data at all
+function _renderEmptyOrderBook() {
+  const placeholder = [];
+  for (let i = 1; i <= 10; i++) {
+    placeholder.push({ price: 0, qty: 0, _cum: 0 });
+  }
+  function renderPlaceholder(container, side) {
+    if (!container) return;
+    container.innerHTML = placeholder.map((_, i) => `
+      <div class="ob-row">
+        <div class="ob-lvl">${i + 1}</div>
+        <div class="ob-price" style="color:var(--text2)">—</div>
+        <div class="ob-qty" style="color:var(--text2)">—</div>
+        <div class="ob-cum" style="color:var(--text2)">—</div>
+      </div>`).join('');
+  }
+  renderPlaceholder(document.getElementById('ob-asks'), 'ask');
+  renderPlaceholder(document.getElementById('ob-bids'), 'bid');
+  const ids = ['ob-spread', 'ob-spread-detail', 'ob-volume', 'ob-vwap', 'ob-high', 'ob-low', 'ob-over-sell', 'ob-under-buy'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
+}
+
 // ── Load order book on stock detail open ────────────────────────
 async function loadKabuBoard(symbol) {
   console.log('[kabu] loadKabuBoard:', symbol, 'connected:', kabuConnected);
-  if (!kabuConnected || !symbol || symbol.indexOf('.T') === -1) {
+  const isJP = symbol && symbol.indexOf('.T') !== -1;
+  const panel = document.getElementById('kabu-order-book');
+  const liveTag = document.getElementById('detail-live-tag');
+
+  // For non-JP stocks: hide order book entirely (no Japanese depth data ever)
+  if (!isJP) {
     hideOrderBook();
-    document.getElementById('detail-live-tag').style.display = 'none';
+    if (liveTag) liveTag.style.display = 'none';
     return;
   }
-  document.getElementById('detail-live-tag').style.display = 'inline-flex';
-  _kabuActiveSymbol = symbol; // Mark early so Yahoo doesn't overwrite during initial load
-  try {
-    const res = await apiFetch(`/api/kabu/board/${encodeURIComponent(symbol)}`);
-    const data = await res.json();
-    if (!data.error) {
-      renderOrderBook(data);
-      if (data.price) {
-        _updateKabuStatsStrip(data);
-        _updateKabuInfoGrid(data);
-        // Also update the price display with Kabu's real-time data
-        document.getElementById('detail-price').textContent = fmt(data.price);
-        const chg = data.change || 0, chgPct = data.change_pct || 0;
-        const s = chg >= 0 ? '+' : '-';
-        const cls = chg >= 0 ? 'pos' : 'neg';
-        const changeEl = document.getElementById('detail-change');
-        changeEl.innerHTML = `<span class="detail-change-abs ${cls}">${s}${fmt(chg)}</span><span class="detail-change-pct ${cls}">${s}${Math.abs(chgPct).toFixed(2)}%</span>`;
-        changeEl.className = 'detail-change ' + cls;
-        stockPrices[data.symbol] = { price: data.price, change: chg, change_pct: chgPct, prev_close: data.prev_close };
+
+  // JP stock: always show the panel frame. Content = live Kabu → cached → placeholder.
+  if (panel) panel.style.display = 'block';
+  if (liveTag) {
+    liveTag.style.display = 'inline-flex';
+    liveTag.textContent = kabuConnected ? (t('badge_live') || 'LIVE') : (t('badge_delayed') || 'DELAYED');
+    liveTag.style.background = kabuConnected ? '#00d4aa' : 'var(--border)';
+    liveTag.style.color = kabuConnected ? '#000' : 'var(--text2)';
+    liveTag.style.animation = kabuConnected ? 'kabu-pulse 2s infinite' : 'none';
+  }
+
+  _kabuActiveSymbol = symbol;
+
+  if (kabuConnected) {
+    try {
+      const res = await apiFetch(`/api/kabu/board/${encodeURIComponent(symbol)}`);
+      const data = await res.json();
+      if (!data.error) {
+        _obCache[symbol] = data; // remember for offline fallback
+        _setOrderBookOverlay(false);
+        renderOrderBook(data);
+        if (data.price) {
+          _updateKabuStatsStrip(data);
+          _updateKabuInfoGrid(data);
+          document.getElementById('detail-price').textContent = fmt(data.price);
+          const chg = data.change || 0, chgPct = data.change_pct || 0;
+          const s = chg >= 0 ? '+' : '-';
+          const cls = chg >= 0 ? 'pos' : 'neg';
+          const changeEl = document.getElementById('detail-change');
+          changeEl.innerHTML = `<span class="detail-change-abs ${cls}">${s}${fmt(chg)}</span><span class="detail-change-pct ${cls}">${s}${Math.abs(chgPct).toFixed(2)}%</span>`;
+          changeEl.className = 'detail-change ' + cls;
+          stockPrices[data.symbol] = { price: data.price, change: chg, change_pct: chgPct, prev_close: data.prev_close };
+        }
+      } else {
+        // Kabu returned error — fall back to cache if we have it
+        if (_obCache[symbol]) { renderOrderBook(_obCache[symbol]); _setOrderBookOverlay(true); }
+        else { _renderEmptyOrderBook(); _setOrderBookOverlay(true); }
       }
+    } catch(e) {
+      if (_obCache[symbol]) { renderOrderBook(_obCache[symbol]); _setOrderBookOverlay(true); }
+      else { _renderEmptyOrderBook(); _setOrderBookOverlay(true); }
     }
-  } catch(e) {}
-  // Start streaming for real-time updates
-  startKabuStream(symbol);
+    startKabuStream(symbol);
+  } else {
+    // Kabu offline — show cached depth if we have it, else empty placeholder. Overlay ON.
+    if (_obCache[symbol]) renderOrderBook(_obCache[symbol]);
+    else _renderEmptyOrderBook();
+    _setOrderBookOverlay(true);
+  }
 }
 
 // ── Live Trade Confirmation Dialog ──────────────────────────────
