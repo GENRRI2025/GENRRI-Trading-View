@@ -501,6 +501,288 @@ select.s-input { appearance: none; }
   .ind-btn { flex-shrink: 0; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ═══ FUTU-STYLE APP SHELL (sidebar + main + detail panel) ═══ */
+/* ═══════════════════════════════════════════════════════════ */
+
+/* Hide the old top nav & market-header — replaced by new shell */
+.shell-enabled .nav, .shell-enabled .market-header { display: none !important; }
+.shell-enabled body { padding-bottom: 0; }
+
+/* 3-column grid desktop */
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr 380px;
+  grid-template-rows: 1fr auto;
+  min-height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+.app-shell.sidebar-collapsed { grid-template-columns: 60px 1fr 380px; }
+.app-shell.detail-hidden { grid-template-columns: 220px 1fr; }
+.app-shell.sidebar-collapsed.detail-hidden { grid-template-columns: 60px 1fr; }
+
+/* Sidebar */
+.shell-sidebar {
+  grid-column: 1; grid-row: 1 / -1;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.shell-sidebar-header {
+  padding: 16px 14px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.shell-sidebar-logo { font-weight: 700; font-size: 16px; letter-spacing: 1.5px; color: var(--accent); }
+.shell-sidebar-logo img { height: 24px; object-fit: contain; display: block; }
+.app-shell.sidebar-collapsed .shell-sidebar-logo { display: none; }
+.shell-sidebar-toggle {
+  background: transparent; border: none; color: var(--text2); cursor: pointer;
+  padding: 4px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.shell-sidebar-toggle:hover { background: var(--surface2); color: var(--text); }
+.shell-sidebar-toggle svg { width: 16px; height: 16px; }
+
+.shell-sidebar-nav {
+  flex: 1; padding: 12px 8px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.shell-sidebar-nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 8px; cursor: pointer;
+  color: var(--text2); font-size: 13px; font-weight: 500;
+  background: transparent; border: none; text-align: left; width: 100%;
+  transition: all 0.15s;
+}
+.shell-sidebar-nav-item:hover { background: var(--surface2); color: var(--text); }
+.shell-sidebar-nav-item.active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.shell-sidebar-nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+.app-shell.sidebar-collapsed .shell-sidebar-nav-item { justify-content: center; padding: 10px; }
+.app-shell.sidebar-collapsed .shell-sidebar-nav-item span { display: none; }
+
+.shell-sidebar-footer {
+  padding: 12px; border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.shell-connection-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: 999px;
+  background: var(--surface2); font-size: 10px;
+  color: var(--text2); letter-spacing: 0.5px; font-weight: 500;
+  cursor: pointer;
+}
+.shell-connection-pill.live { background: color-mix(in srgb, var(--green) 20%, transparent); color: var(--green); }
+.shell-connection-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.shell-connection-pill.live .dot { animation: kabu-pulse 2s infinite; }
+.app-shell.sidebar-collapsed .shell-connection-pill span:not(.dot) { display: none; }
+
+/* Main column */
+.shell-main {
+  grid-column: 2; grid-row: 1;
+  overflow-y: auto; overflow-x: hidden;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+}
+.shell-main-header {
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--bg) 95%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding: 12px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.shell-main-header .mh-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.shell-main-header .mh-spacer { flex: 1; }
+.shell-main-content { padding: 16px 20px 24px; }
+
+/* Market indices strip (top of main header) */
+.index-strip {
+  display: flex; gap: 12px; padding: 4px 20px 8px;
+  border-bottom: 1px solid var(--border); overflow-x: auto; background: var(--surface);
+  -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+}
+.index-strip-item {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 10px; border-radius: 6px; flex-shrink: 0;
+  cursor: pointer; transition: background 0.15s;
+}
+.index-strip-item:hover { background: var(--surface2); }
+.index-strip-label { font-size: 10px; color: var(--text2); font-weight: 500; letter-spacing: 0.5px; }
+.index-strip-value { font-size: 12px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.index-strip-change { font-size: 11px; font-variant-numeric: tabular-nums; }
+
+/* Detail panel (right) */
+.shell-detail {
+  grid-column: 3; grid-row: 1 / -1;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.detail-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px 20px; height: 100%; color: var(--text2);
+  text-align: center; gap: 10px;
+}
+.detail-empty svg { width: 48px; height: 48px; opacity: 0.3; }
+.detail-header {
+  padding: 16px; border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.detail-header-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.detail-symbol-badge {
+  background: var(--surface2); color: var(--text2);
+  padding: 2px 7px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+.detail-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.detail-close-btn {
+  margin-left: auto; background: transparent; border: none; color: var(--text2);
+  cursor: pointer; padding: 4px; border-radius: 4px; display: flex;
+}
+.detail-close-btn:hover { background: var(--surface2); color: var(--text); }
+.detail-price-row { display: flex; align-items: baseline; gap: 10px; margin-top: 4px; }
+.detail-price-main { font-size: 22px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.detail-price-change { font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.detail-price-change.pos { color: var(--up); }
+.detail-price-change.neg { color: var(--down); }
+.detail-tabs {
+  display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--border);
+  overflow-x: auto; scrollbar-width: none;
+}
+.detail-tabs::-webkit-scrollbar { display: none; }
+.detail-tab {
+  background: transparent; border: none; color: var(--text2);
+  padding: 10px 12px; font-size: 12px; font-weight: 500;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+}
+.detail-tab:hover { color: var(--text); }
+.detail-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.detail-body { flex: 1; overflow-y: auto; padding: 12px; }
+.detail-actions {
+  padding: 12px; border-top: 1px solid var(--border);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.detail-actions .da-btn {
+  padding: 10px; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; transition: filter 0.15s;
+}
+.detail-actions .da-btn:hover { filter: brightness(1.1); }
+.detail-actions .da-buy { background: var(--up); color: #fff; }
+.detail-actions .da-sell { background: var(--down); color: #fff; }
+
+/* Markets home page layout */
+.markets-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 1100px) { .markets-grid { grid-template-columns: 1fr; } }
+
+.mk-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden;
+}
+.mk-panel-header {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.mk-panel-title { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0.3px; }
+.mk-panel-subtitle { font-size: 11px; color: var(--text2); font-weight: 400; }
+.mk-panel-tabs { display: flex; gap: 4px; }
+.mk-panel-tab {
+  padding: 4px 10px; border-radius: 6px; border: none; background: transparent;
+  color: var(--text2); font-size: 11px; font-weight: 500; cursor: pointer;
+}
+.mk-panel-tab.active { background: var(--surface2); color: var(--text); }
+.mk-panel-body { padding: 4px 0; max-height: 360px; overflow-y: auto; }
+.mk-panel-body::-webkit-scrollbar { width: 6px; }
+.mk-panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.mover-row {
+  display: grid; grid-template-columns: 70px 1fr auto auto;
+  gap: 10px; align-items: center;
+  padding: 8px 16px; font-size: 12px; cursor: pointer; transition: background 0.1s;
+}
+.mover-row:hover { background: var(--surface2); }
+.mover-sym { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.mover-price { font-variant-numeric: tabular-nums; color: var(--text); text-align: right; }
+.mover-chg {
+  font-variant-numeric: tabular-nums; font-weight: 500;
+  padding: 2px 8px; border-radius: 4px; min-width: 62px; text-align: right;
+}
+.mover-chg.pos { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+.mover-chg.neg { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
+
+/* Sector heat map */
+.heatmap-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 4px; padding: 8px;
+}
+.heat-tile {
+  border-radius: 6px; padding: 10px 12px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 3px;
+  transition: transform 0.15s;
+  min-height: 56px;
+}
+.heat-tile:hover { transform: scale(1.02); }
+.heat-tile-sector { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.95); line-height: 1.2; }
+.heat-tile-change { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.95); font-variant-numeric: tabular-nums; }
+
+/* Index card (top of Markets page) */
+.mk-index-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.mk-index-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; cursor: pointer; transition: border-color 0.15s;
+}
+.mk-index-card:hover { border-color: var(--accent); }
+.mk-index-name { font-size: 11px; color: var(--text2); font-weight: 500; letter-spacing: 0.3px; }
+.mk-index-price { font-size: 20px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; color: var(--text); }
+.mk-index-change { font-size: 12px; margin-top: 2px; font-variant-numeric: tabular-nums; font-weight: 500; }
+
+/* Mobile: collapse to bottom nav + drawer detail */
+@media (max-width: 900px) {
+  .app-shell, .app-shell.sidebar-collapsed, .app-shell.detail-hidden {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 1fr auto;
+    max-height: none;
+  }
+  .shell-sidebar {
+    grid-column: 1; grid-row: 2;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    border-right: none; border-top: 1px solid var(--border);
+    flex-direction: row;
+  }
+  .shell-sidebar-header, .shell-sidebar-footer { display: none; }
+  .shell-sidebar-nav {
+    flex-direction: row; gap: 2px; padding: 6px 8px; flex: 1; overflow-x: auto;
+  }
+  .shell-sidebar-nav-item {
+    flex-direction: column; padding: 6px 4px; gap: 3px; font-size: 10px;
+    flex: 1; justify-content: center; text-align: center;
+  }
+  .shell-sidebar-nav-item span { display: inline !important; font-size: 10px; }
+  .shell-sidebar-nav-item svg { width: 18px; height: 18px; }
+  .shell-main {
+    grid-column: 1; grid-row: 1;
+    padding-bottom: 66px;
+  }
+  /* Detail panel becomes slide-up drawer on mobile */
+  .shell-detail {
+    position: fixed; top: auto; bottom: 0; left: 0; right: 0;
+    height: 80vh; z-index: 40; border-left: none; border-top: 1px solid var(--border);
+    border-top-left-radius: 16px; border-top-right-radius: 16px;
+    box-shadow: 0 -6px 30px rgba(0,0,0,0.3);
+    transform: translateY(100%); transition: transform 0.25s ease;
+  }
+  .shell-detail.mobile-open { transform: translateY(0); }
+  .detail-empty { display: none; }
+}
+
+@media (max-width: 640px) {
+  .index-strip { padding: 4px 10px; }
+  .shell-main-content { padding: 12px 12px 20px; }
+}
 </style>
 </head>
 <body>
@@ -532,6 +814,176 @@ select.s-input { appearance: none; }
     <div class="nav-balance" id="nav-balance"><span data-i18n="nav_cash">Cash</span>: <strong>¥-</strong></div>
   </div>
 </nav>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     NEW FUTU-STYLE APP SHELL (sidebar + main + detail panel)
+     Activated when <html> has class 'shell-enabled'. Defaults to ON.
+     Progressive enhancement: old <nav> and pages are reused in new shell.
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="app-shell" id="app-shell" style="display:none">
+  <!-- LEFT SIDEBAR -->
+  <aside class="shell-sidebar">
+    <div class="shell-sidebar-header">
+      <div class="shell-sidebar-logo">
+        <img src="/static/logo-text.png?v=2" alt="GENRRI"/>
+      </div>
+      <button class="shell-sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+    </div>
+    <nav class="shell-sidebar-nav">
+      <button class="shell-sidebar-nav-item active" data-route="markets" onclick="navigateRoute('markets')" title="Markets">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="3" x2="9" y2="21"/><rect x="6" y="7" width="6" height="9" rx="1"/><line x1="17" y1="3" x2="17" y2="21"/><rect x="14" y="4" width="6" height="9" rx="1"/></svg>
+        <span data-i18n="nav_market">Markets</span>
+      </button>
+      <button class="shell-sidebar-nav-item" data-route="watchlists" onclick="navigateRoute('watchlists')" title="Watchlists">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span data-i18n="nav_watchlists">Watchlists</span>
+      </button>
+      <button class="shell-sidebar-nav-item" data-route="portfolio" onclick="navigateRoute('portfolio')" title="Portfolio">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="5" width="4" height="16"/><rect x="17" y="2" width="4" height="19"/></svg>
+        <span data-i18n="nav_portfolio">Portfolio</span>
+      </button>
+      <button class="shell-sidebar-nav-item" data-route="history" onclick="navigateRoute('history')" title="History">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 15.5"/></svg>
+        <span data-i18n="nav_history">Transactions</span>
+      </button>
+      <button class="shell-sidebar-nav-item" data-route="settings" onclick="navigateRoute('settings')" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span data-i18n="nav_settings">Settings</span>
+      </button>
+    </nav>
+    <div class="shell-sidebar-footer">
+      <div class="shell-connection-pill" id="shell-conn-pill" onclick="navigateRoute('settings')" title="Kabu Station connection status">
+        <span class="dot"></span>
+        <span data-i18n="badge_delayed">DELAYED</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN COLUMN -->
+  <main class="shell-main" id="shell-main">
+    <!-- Index strip at the very top -->
+    <div class="index-strip" id="shell-index-strip">
+      <div class="index-strip-item" onclick="selectStock('^N225')"><span class="index-strip-label">Nikkei 225</span><span class="index-strip-value" id="si-n225">—</span><span class="index-strip-change" id="si-n225-c">—</span></div>
+      <div class="index-strip-item" onclick="selectStock('^TPX')"><span class="index-strip-label">TOPIX</span><span class="index-strip-value" id="si-topix">—</span><span class="index-strip-change" id="si-topix-c">—</span></div>
+      <div class="index-strip-item" onclick="selectStock('^GSPC')"><span class="index-strip-label">S&amp;P 500</span><span class="index-strip-value" id="si-sp">—</span><span class="index-strip-change" id="si-sp-c">—</span></div>
+      <div class="index-strip-item" onclick="selectStock('^DJI')"><span class="index-strip-label">Dow</span><span class="index-strip-value" id="si-dj">—</span><span class="index-strip-change" id="si-dj-c">—</span></div>
+      <div class="index-strip-item" onclick="selectStock('^IXIC')"><span class="index-strip-label">Nasdaq</span><span class="index-strip-value" id="si-nq">—</span><span class="index-strip-change" id="si-nq-c">—</span></div>
+      <div class="index-strip-item" onclick="selectStock('USDJPY=X')"><span class="index-strip-label">USD/JPY</span><span class="index-strip-value" id="si-usdjpy">—</span><span class="index-strip-change" id="si-usdjpy-c">—</span></div>
+    </div>
+
+    <!-- Page header (breadcrumbs / actions) -->
+    <div class="shell-main-header">
+      <div class="mh-title" id="shell-page-title" data-i18n="nav_market">Markets</div>
+      <div class="mh-spacer"></div>
+      <div id="shell-header-extras"></div>
+    </div>
+
+    <!-- Main content — routed pages -->
+    <div class="shell-main-content" id="shell-main-content">
+      <!-- Markets home -->
+      <div id="shell-page-markets" class="shell-page">
+        <div class="mk-index-row" id="mk-index-cards"></div>
+        <div class="markets-grid">
+          <div class="mk-panel">
+            <div class="mk-panel-header">
+              <div>
+                <div class="mk-panel-title" data-i18n="mk_top_gainers">Top Gainers</div>
+                <div class="mk-panel-subtitle" id="mk-gainers-sub" data-i18n="mk_curated_note">Nikkei 225 / S&amp;P 500 universe · cached 5 min</div>
+              </div>
+              <div class="mk-panel-tabs">
+                <button class="mk-panel-tab active" onclick="setMoversRegion('jp')" id="mk-tab-jp">JP</button>
+                <button class="mk-panel-tab" onclick="setMoversRegion('us')" id="mk-tab-us">US</button>
+              </div>
+            </div>
+            <div class="mk-panel-body" id="mk-gainers-body"></div>
+          </div>
+          <div class="mk-panel">
+            <div class="mk-panel-header">
+              <div>
+                <div class="mk-panel-title" data-i18n="mk_top_losers">Top Losers</div>
+                <div class="mk-panel-subtitle" data-i18n="mk_curated_note">Nikkei 225 / S&amp;P 500 universe · cached 5 min</div>
+              </div>
+            </div>
+            <div class="mk-panel-body" id="mk-losers-body"></div>
+          </div>
+          <div class="mk-panel" style="grid-column:1/-1">
+            <div class="mk-panel-header">
+              <div class="mk-panel-title" data-i18n="mk_sector_heatmap">Sector Heat Map</div>
+              <div class="mk-panel-subtitle" data-i18n="mk_sector_note">Average change by sector</div>
+            </div>
+            <div id="mk-heatmap-body"><div class="heatmap-grid" id="mk-heatmap-grid"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Watchlists page — uses existing watchlist data for now -->
+      <div id="shell-page-watchlists" class="shell-page" style="display:none">
+        <div class="mk-panel">
+          <div class="mk-panel-header">
+            <div class="mk-panel-title" data-i18n="nav_watchlists">Watchlists</div>
+            <div class="mk-panel-subtitle" id="wl-list-name">Default</div>
+          </div>
+          <div class="mk-panel-body" id="shell-watchlist-body"></div>
+        </div>
+      </div>
+
+      <!-- Portfolio page — existing logic gets mounted here -->
+      <div id="shell-page-portfolio" class="shell-page" style="display:none">
+        <div id="shell-portfolio-mount"></div>
+      </div>
+
+      <!-- History page -->
+      <div id="shell-page-history" class="shell-page" style="display:none">
+        <div id="shell-history-mount"></div>
+      </div>
+
+      <!-- Settings page -->
+      <div id="shell-page-settings" class="shell-page" style="display:none">
+        <div id="shell-settings-mount"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- RIGHT DETAIL PANEL -->
+  <aside class="shell-detail" id="shell-detail">
+    <div class="detail-empty" id="shell-detail-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="3" x2="9" y2="21"/><rect x="6" y="7" width="6" height="9" rx="1"/><line x1="17" y1="3" x2="17" y2="21"/><rect x="14" y="4" width="6" height="9" rx="1"/></svg>
+      <div style="font-size:13px;font-weight:500;color:var(--text)" data-i18n="dp_empty_title">Select a stock</div>
+      <div style="font-size:11px" data-i18n="dp_empty_sub">Click any stock to see its details here.</div>
+    </div>
+    <div id="shell-detail-content" style="display:none;height:100%;display:flex;flex-direction:column">
+      <div class="detail-header">
+        <div class="detail-header-row">
+          <span class="detail-symbol-badge" id="dp-symbol">—</span>
+          <span class="detail-name" id="dp-name">—</span>
+          <button class="detail-close-btn" onclick="closeDetailPanel()" title="Close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="detail-price-row">
+          <span class="detail-price-main" id="dp-price">—</span>
+          <span class="detail-price-change" id="dp-change">—</span>
+        </div>
+      </div>
+      <div class="detail-tabs">
+        <button class="detail-tab active" data-tab="quote" onclick="setDetailTab('quote')" data-i18n="dp_tab_quote">Quote</button>
+        <button class="detail-tab" data-tab="book" onclick="setDetailTab('book')" data-i18n="dp_tab_book">Order Book</button>
+        <button class="detail-tab" data-tab="news" onclick="setDetailTab('news')" data-i18n="dp_tab_news">News</button>
+        <button class="detail-tab" data-tab="financials" onclick="setDetailTab('financials')" data-i18n="dp_tab_financials">Financials</button>
+        <button class="detail-tab" data-tab="ai" onclick="setDetailTab('ai')" data-i18n="dp_tab_ai">AI</button>
+      </div>
+      <div class="detail-body" id="dp-body"></div>
+      <div class="detail-actions">
+        <button class="da-btn da-buy" onclick="openQuickTrade('buy')" data-i18n="trade_buy">Buy</button>
+        <button class="da-btn da-sell" onclick="openQuickTrade('sell')" data-i18n="trade_sell">Sell</button>
+      </div>
+    </div>
+  </aside>
+</div>
+<!-- END NEW APP SHELL -->
+
 
 <div class="market-header">
   <div class="market-item" id="mh-index-jp">Nikkei 225 <strong id="nk-price">-</strong> <span id="nk-change">-</span></div>
@@ -6469,6 +6921,617 @@ function showLiveTradeConfirmation(symbol, name, action, shares, price) {
 }
 
 // (Kabu auto-reconnect is now inside initApp() directly)
+
+
+// ═══════════════════════════════════════════════════════════════
+// ═══ FUTU-STYLE APP SHELL LAYER ═══════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// This layer progressively enhances the existing app with a Futu-style
+// sidebar + main + detail panel layout. It reuses every existing API,
+// state var, and page — nothing breaks. Toggle with localStorage.shell_enabled.
+
+// Add i18n keys used by the new shell (merge into existing LANG_DATA)
+(function _shellAddI18n() {
+  const extras = {
+    en: {
+      nav_watchlists: 'Watchlists',
+      mk_top_gainers: 'Top Gainers',
+      mk_top_losers: 'Top Losers',
+      mk_sector_heatmap: 'Sector Heat Map',
+      mk_curated_note: 'Nikkei 225 / S&P 500 universe · cached 5 min',
+      mk_sector_note: 'Average change by sector',
+      mk_no_data: 'Data loading… check back in a few minutes',
+      mk_movers_pending: 'Market movers refresh every 5 min',
+      dp_empty_title: 'Select a stock',
+      dp_empty_sub: 'Click any stock to see details here.',
+      dp_tab_quote: 'Quote',
+      dp_tab_book: 'Order Book',
+      dp_tab_news: 'News',
+      dp_tab_financials: 'Financials',
+      dp_tab_ai: 'AI',
+      dp_open_full: 'Open full detail page',
+      dp_day_range: 'Day Range',
+      dp_52wk_range: '52-Week Range',
+      dp_volume: 'Volume',
+      dp_avg_volume: 'Avg Volume',
+      dp_market_cap: 'Market Cap',
+      dp_pe_ratio: 'P/E',
+      dp_dividend: 'Dividend Yield',
+      dp_sector: 'Sector',
+      dp_loading_news: 'Loading news…',
+      dp_no_news: 'No recent news',
+      dp_financials_hint: 'Click "Open full detail page" for complete financials',
+      dp_ai_hint: 'AI analysis available on the full detail page',
+    },
+    ja: {
+      nav_watchlists: 'ウォッチリスト',
+      mk_top_gainers: '値上がり上位',
+      mk_top_losers: '値下がり上位',
+      mk_sector_heatmap: 'セクターヒートマップ',
+      mk_curated_note: '日経225 / S&P 500銘柄 · 5分毎更新',
+      mk_sector_note: 'セクター別平均変化率',
+      mk_no_data: 'データ読込中… 数分後に再確認してください',
+      mk_movers_pending: 'マーケット情報は5分毎に更新されます',
+      dp_empty_title: '銘柄を選択',
+      dp_empty_sub: '銘柄をクリックすると詳細が表示されます。',
+      dp_tab_quote: '気配',
+      dp_tab_book: '板情報',
+      dp_tab_news: 'ニュース',
+      dp_tab_financials: '財務',
+      dp_tab_ai: 'AI',
+      dp_open_full: '詳細ページを開く',
+      dp_day_range: '当日レンジ',
+      dp_52wk_range: '52週レンジ',
+      dp_volume: '出来高',
+      dp_avg_volume: '平均出来高',
+      dp_market_cap: '時価総額',
+      dp_pe_ratio: 'PER',
+      dp_dividend: '配当利回り',
+      dp_sector: 'セクター',
+      dp_loading_news: 'ニュース読込中…',
+      dp_no_news: '最新ニュースなし',
+      dp_financials_hint: '詳細ページで完全な財務データを表示',
+      dp_ai_hint: 'AI分析は詳細ページで利用可能',
+    },
+    zh: {
+      nav_watchlists: '自选股',
+      mk_top_gainers: '涨幅榜',
+      mk_top_losers: '跌幅榜',
+      mk_sector_heatmap: '板块热图',
+      mk_curated_note: '日经225 / 标普500范围 · 5分钟缓存',
+      mk_sector_note: '各板块平均涨跌幅',
+      mk_no_data: '数据加载中… 请稍后再查看',
+      mk_movers_pending: '市场数据每5分钟刷新',
+      dp_empty_title: '请选择股票',
+      dp_empty_sub: '点击任意股票查看详情。',
+      dp_tab_quote: '行情',
+      dp_tab_book: '盘口',
+      dp_tab_news: '新闻',
+      dp_tab_financials: '财务',
+      dp_tab_ai: 'AI',
+      dp_open_full: '打开完整详情页',
+      dp_day_range: '当日区间',
+      dp_52wk_range: '52周区间',
+      dp_volume: '成交量',
+      dp_avg_volume: '平均成交量',
+      dp_market_cap: '市值',
+      dp_pe_ratio: '市盈率',
+      dp_dividend: '股息率',
+      dp_sector: '行业',
+      dp_loading_news: '正在加载新闻…',
+      dp_no_news: '暂无近期新闻',
+      dp_financials_hint: '完整财务数据请打开详情页',
+      dp_ai_hint: 'AI分析请在详情页查看',
+    },
+  };
+  try {
+    if (typeof LANG_DATA !== 'undefined') {
+      for (const lang of ['en', 'ja', 'zh']) {
+        if (LANG_DATA[lang]) Object.assign(LANG_DATA[lang], extras[lang] || {});
+      }
+    }
+  } catch (e) { console.warn('[shell] i18n merge failed:', e); }
+})();
+
+// ═══ SHELL STATE & ROUTING ═════════════════════════════════════
+let _shellEnabled = localStorage.getItem('shell_enabled') !== '0'; // default ON
+let _shellRoute = localStorage.getItem('shell_last_route') || 'markets';
+let _shellSidebarCollapsed = localStorage.getItem('shell_sidebar_collapsed') === '1';
+let _shellCurrentDetailSymbol = null;
+let _shellMoversRegion = 'jp';
+let _shellDetailTab = 'quote';
+
+// Activate the shell: hide old top nav, show new 3-column layout
+function activateShell() {
+  if (!_shellEnabled) return;
+  document.documentElement.classList.add('shell-enabled');
+  const shell = document.getElementById('app-shell');
+  if (shell) shell.style.display = 'grid';
+  if (_shellSidebarCollapsed) shell?.classList.add('sidebar-collapsed');
+
+  // Move existing pages into the shell's mount points so they render correctly
+  _shellMountExistingPages();
+
+  // Navigate to last route
+  navigateRoute(_shellRoute);
+
+  // Initial data load
+  setTimeout(() => { loadMarketMovers(); loadMarketHeatmap(); loadShellIndices(); }, 100);
+
+  // Refresh market data every 5 min
+  setInterval(() => { if (_shellRoute === 'markets') { loadMarketMovers(); loadMarketHeatmap(); } }, 5 * 60 * 1000);
+  setInterval(loadShellIndices, 60 * 1000);
+}
+
+// Move the existing portfolio/history/settings pages into the shell.
+// Force them visible — their inner logic still uses .active toggling which
+// we override here by also setting inline display.
+function _shellMountExistingPages() {
+  const mounts = [
+    ['page-portfolio', 'shell-portfolio-mount'],
+    ['page-history', 'shell-history-mount'],
+    ['page-settings', 'shell-settings-mount'],
+  ];
+  for (const [srcId, dstId] of mounts) {
+    const src = document.getElementById(srcId);
+    const dst = document.getElementById(dstId);
+    if (src && dst && !dst.contains(src)) {
+      src.classList.add('active');
+      src.style.display = 'block';
+      dst.appendChild(src);
+    }
+  }
+  // Market page: keep its inner detail sub-page accessible but the page itself
+  // is hidden (we use our new Markets Home on the shell).
+  const pMarket = document.getElementById('page-market');
+  if (pMarket) pMarket.style.display = 'none';
+  const pDetail = document.getElementById('page-detail');
+  if (pDetail) pDetail.style.display = 'none';
+  // Override showPage so it doesn't clobber our layout
+  if (!window._origShowPage && typeof window.showPage === 'function') {
+    window._origShowPage = window.showPage;
+    window.showPage = async function shellShowPage(name) {
+      // Map legacy page names to shell routes
+      const routeMap = { portfolio: 'portfolio', market: 'markets', history: 'history', settings: 'settings', detail: 'detail' };
+      const route = routeMap[name] || 'markets';
+      if (route === 'detail') {
+        // Legacy detail page — temporarily reveal it in the existing container
+        // by falling back to the original behavior (full-page detail view)
+        document.getElementById('shell-page-markets').style.display = 'none';
+        document.getElementById('shell-main-content').style.display = 'none';
+        return window._origShowPage(name);
+      }
+      // Re-enable shell content area in case detail page hid it
+      const content = document.getElementById('shell-main-content');
+      if (content) content.style.display = '';
+      return navigateRoute(route);
+    };
+  }
+  // Intercept openDetail: populate the shell's right panel INSTEAD of navigating
+  // to the full-page detail view. Users can still click "Open full detail" from
+  // the panel to reach the original deep-detail page.
+  if (!window._origOpenDetail && typeof window.openDetail === 'function') {
+    window._origOpenDetail = window.openDetail;
+    window.openDetail = function shellOpenDetail(symbol) {
+      // If we're already on a deep detail page, keep old behavior
+      selectStock(symbol);
+    };
+  }
+  // Wire up "Open full detail" button to legacy behavior
+  window.openFullDetail = function(symbol) {
+    if (typeof window._origOpenDetail === 'function') {
+      return window._origOpenDetail(symbol);
+    }
+  };
+}
+
+// Hash-based router
+function navigateRoute(route) {
+  _shellRoute = route;
+  localStorage.setItem('shell_last_route', route);
+  // Toggle sidebar active states
+  document.querySelectorAll('.shell-sidebar-nav-item').forEach(b => {
+    b.classList.toggle('active', b.dataset.route === route);
+  });
+  // Toggle shell pages
+  document.querySelectorAll('.shell-page').forEach(p => { p.style.display = 'none'; });
+  const target = document.getElementById(`shell-page-${route}`);
+  if (target) target.style.display = '';
+  // Update header title
+  const titleMap = {
+    markets: t('nav_market') || 'Markets',
+    watchlists: t('nav_watchlists') || 'Watchlists',
+    portfolio: t('nav_portfolio') || 'Portfolio',
+    history: t('nav_history') || 'Transactions',
+    settings: t('nav_settings') || 'Settings',
+  };
+  const titleEl = document.getElementById('shell-page-title');
+  if (titleEl) titleEl.textContent = titleMap[route] || route;
+  // For existing-backed pages, trigger their load functions
+  if (route === 'portfolio' && typeof loadPortfolios === 'function') { loadPortfolios().then(() => loadPortfolio?.()); }
+  if (route === 'history' && typeof loadHistory === 'function') { loadHistory(); }
+  if (route === 'settings' && typeof loadSettings === 'function') { loadSettings(); }
+  if (route === 'watchlists') { loadShellWatchlist(); }
+  if (route === 'markets') {
+    const gainers = document.getElementById('mk-gainers-body');
+    // Only reload if empty, otherwise we already have data
+    if (!gainers || !gainers.children.length) { loadMarketMovers(); loadMarketHeatmap(); }
+  }
+  // Mobile: close detail drawer when navigating
+  const detail = document.getElementById('shell-detail');
+  if (detail && window.innerWidth < 900) detail.classList.remove('mobile-open');
+}
+
+function toggleSidebar() {
+  _shellSidebarCollapsed = !_shellSidebarCollapsed;
+  localStorage.setItem('shell_sidebar_collapsed', _shellSidebarCollapsed ? '1' : '0');
+  document.getElementById('app-shell')?.classList.toggle('sidebar-collapsed', _shellSidebarCollapsed);
+}
+
+// ═══ MARKETS HOME DATA LOADERS ═════════════════════════════════
+async function loadShellIndices() {
+  // Reuse existing market ticker data where available; else fetch quotes
+  const pairs = [
+    ['^N225', 'si-n225', 'si-n225-c'],
+    ['^TPX', 'si-topix', 'si-topix-c'],
+    ['^GSPC', 'si-sp', 'si-sp-c'],
+    ['^DJI', 'si-dj', 'si-dj-c'],
+    ['^IXIC', 'si-nq', 'si-nq-c'],
+    ['USDJPY=X', 'si-usdjpy', 'si-usdjpy-c'],
+  ];
+  const results = await Promise.all(pairs.map(async ([sym]) => {
+    try {
+      const res = await apiFetch(`/api/quote/${encodeURIComponent(sym)}`);
+      return await res.json();
+    } catch(e) { return null; }
+  }));
+  for (let i = 0; i < pairs.length; i++) {
+    const [, valId, chgId] = pairs[i];
+    const data = results[i];
+    const valEl = document.getElementById(valId);
+    const chgEl = document.getElementById(chgId);
+    if (!data || data.error) continue;
+    if (valEl) valEl.textContent = data.price != null ? data.price.toLocaleString(undefined, {maximumFractionDigits: 2}) : '—';
+    if (chgEl) {
+      const chg = data.change_pct || 0;
+      chgEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+      chgEl.className = 'index-strip-change ' + (chg >= 0 ? 'pos' : 'neg');
+      chgEl.style.color = chg >= 0 ? 'var(--up)' : 'var(--down)';
+    }
+  }
+  // Duplicate the index strip into index cards at top of Markets page
+  const cards = document.getElementById('mk-index-cards');
+  if (cards) {
+    cards.innerHTML = pairs.map(([sym, valId, chgId], i) => {
+      const d = results[i];
+      const name = {'^N225':'Nikkei 225','^TPX':'TOPIX','^GSPC':'S&P 500','^DJI':'Dow Jones','^IXIC':'Nasdaq','USDJPY=X':'USD/JPY'}[sym];
+      const price = d?.price != null ? d.price.toLocaleString(undefined,{maximumFractionDigits:2}) : '—';
+      const chg = d?.change_pct || 0;
+      const cls = chg >= 0 ? 'pos' : 'neg';
+      const sign_ = chg >= 0 ? '+' : '';
+      return `<div class="mk-index-card" onclick="selectStock('${sym}')">
+        <div class="mk-index-name">${name}</div>
+        <div class="mk-index-price">${price}</div>
+        <div class="mk-index-change" style="color:var(--${chg>=0?'up':'down'})">${sign_}${chg.toFixed(2)}%</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function setMoversRegion(region) {
+  _shellMoversRegion = region;
+  document.getElementById('mk-tab-jp')?.classList.toggle('active', region === 'jp');
+  document.getElementById('mk-tab-us')?.classList.toggle('active', region === 'us');
+  loadMarketMovers();
+  loadMarketHeatmap();
+}
+
+async function loadMarketMovers() {
+  const gainersBody = document.getElementById('mk-gainers-body');
+  const losersBody = document.getElementById('mk-losers-body');
+  try {
+    const res = await apiFetch(`/api/market/movers?region=${_shellMoversRegion}`);
+    const data = await res.json();
+    function renderList(items, container) {
+      if (!container) return;
+      if (!items || !items.length) {
+        container.innerHTML = `<div style="padding:30px 16px;color:var(--text2);font-size:12px;text-align:center">${t('mk_no_data') || 'Data loading…'}</div>`;
+        return;
+      }
+      container.innerHTML = items.map(it => {
+        const cls = it.change_pct >= 0 ? 'pos' : 'neg';
+        const sign_ = it.change_pct >= 0 ? '+' : '';
+        return `<div class="mover-row" onclick="selectStock('${it.symbol}')">
+          <span class="mover-sym">${it.symbol}</span>
+          <span></span>
+          <span class="mover-price">${it.price.toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+          <span class="mover-chg ${cls}">${sign_}${it.change_pct.toFixed(2)}%</span>
+        </div>`;
+      }).join('');
+    }
+    renderList(data.gainers, gainersBody);
+    renderList(data.losers, losersBody);
+  } catch(e) {
+    console.warn('[shell] movers load failed:', e);
+  }
+}
+
+async function loadMarketHeatmap() {
+  const grid = document.getElementById('mk-heatmap-grid');
+  if (!grid) return;
+  try {
+    const res = await apiFetch(`/api/market/heatmap?region=${_shellMoversRegion}`);
+    const data = await res.json();
+    if (!data.sectors || !data.sectors.length) {
+      grid.innerHTML = `<div style="padding:30px;color:var(--text2);font-size:12px;grid-column:1/-1;text-align:center">${t('mk_no_data') || 'Loading…'}</div>`;
+      return;
+    }
+    grid.innerHTML = data.sectors.map(s => {
+      // Color intensity from -3% to +3%
+      const chg = s.avg_change_pct || 0;
+      const clamped = Math.max(-3, Math.min(3, chg));
+      const alpha = Math.abs(clamped) / 3 * 0.85 + 0.15; // 0.15 to 1.0
+      const bg = chg >= 0
+        ? `color-mix(in srgb, var(--up) ${Math.round(alpha*100)}%, var(--surface2))`
+        : `color-mix(in srgb, var(--down) ${Math.round(alpha*100)}%, var(--surface2))`;
+      const sign_ = chg >= 0 ? '+' : '';
+      const title = `${s.sector} · ${s.count} stock${s.count !== 1 ? 's' : ''}`;
+      return `<div class="heat-tile" style="background:${bg}" title="${title}">
+        <div class="heat-tile-sector">${s.sector}</div>
+        <div class="heat-tile-change">${sign_}${chg.toFixed(2)}%</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    console.warn('[shell] heatmap load failed:', e);
+  }
+}
+
+// ═══ WATCHLIST PAGE (uses existing /api/watchlist) ════════════════
+async function loadShellWatchlist() {
+  const body = document.getElementById('shell-watchlist-body');
+  if (!body) return;
+  try {
+    const res = await apiFetch('/api/watchlist');
+    const items = await res.json();
+    if (!items || !items.length) {
+      body.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--text2);font-size:13px">Your watchlist is empty. Click ⭐ on any stock to add it.</div>`;
+      return;
+    }
+    // Fetch quotes in parallel (use cached quotes where possible)
+    const quotes = await Promise.all(items.map(async it => {
+      try {
+        const r = await apiFetch(`/api/quote/${encodeURIComponent(it.symbol)}`);
+        return { ...it, quote: await r.json() };
+      } catch(e) { return { ...it, quote: null }; }
+    }));
+    body.innerHTML = quotes.map(it => {
+      const q = it.quote || {};
+      const price = q.price != null ? q.price.toLocaleString(undefined, {maximumFractionDigits: 2}) : '—';
+      const chg = q.change_pct || 0;
+      const cls = chg >= 0 ? 'pos' : 'neg';
+      const sign_ = chg >= 0 ? '+' : '';
+      return `<div class="mover-row" onclick="selectStock('${it.symbol}')">
+        <span class="mover-sym">${it.symbol}</span>
+        <span style="font-size:11px;color:var(--text2)">${it.name || ''}</span>
+        <span class="mover-price">${price}</span>
+        <span class="mover-chg ${cls}">${sign_}${chg.toFixed(2)}%</span>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = `<div style="padding:30px;color:var(--text2);font-size:12px;text-align:center">Failed to load watchlist</div>`;
+  }
+}
+
+// ═══ RIGHT DETAIL PANEL ═════════════════════════════════════════
+async function selectStock(symbol) {
+  if (!symbol) return;
+  _shellCurrentDetailSymbol = symbol;
+  document.getElementById('shell-detail-empty').style.display = 'none';
+  document.getElementById('shell-detail-content').style.display = 'flex';
+  document.getElementById('dp-symbol').textContent = symbol.replace('.T', '').replace('=X', '').replace('^', '');
+  document.getElementById('dp-name').textContent = '—';
+  // Mobile: open drawer
+  if (window.innerWidth < 900) {
+    document.getElementById('shell-detail')?.classList.add('mobile-open');
+  }
+  // Load quote
+  try {
+    const res = await apiFetch(`/api/quote/${encodeURIComponent(symbol)}`);
+    const q = await res.json();
+    if (!q.error) {
+      document.getElementById('dp-price').textContent = q.price != null ? q.price.toLocaleString(undefined,{maximumFractionDigits:2}) : '—';
+      const chg = q.change || 0, chgPct = q.change_pct || 0;
+      const cls = chg >= 0 ? 'pos' : 'neg';
+      const sign_ = chg >= 0 ? '+' : '';
+      const chgEl = document.getElementById('dp-change');
+      chgEl.textContent = `${sign_}${chg.toFixed(2)} (${sign_}${chgPct.toFixed(2)}%)`;
+      chgEl.className = 'detail-price-change ' + cls;
+    }
+  } catch(e) {}
+  // Load name from stock info
+  try {
+    const r = await apiFetch(`/api/stock-info/${encodeURIComponent(symbol)}`);
+    const info = await r.json();
+    if (info && !info.error) {
+      document.getElementById('dp-name').textContent = info.longName || info.name || symbol;
+    }
+  } catch(e) {}
+  // Render initial tab
+  setDetailTab(_shellDetailTab);
+}
+
+function closeDetailPanel() {
+  _shellCurrentDetailSymbol = null;
+  document.getElementById('shell-detail-empty').style.display = 'flex';
+  document.getElementById('shell-detail-content').style.display = 'none';
+  document.getElementById('shell-detail')?.classList.remove('mobile-open');
+}
+
+function setDetailTab(tab) {
+  _shellDetailTab = tab;
+  document.querySelectorAll('.detail-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  const body = document.getElementById('dp-body');
+  if (!body || !_shellCurrentDetailSymbol) return;
+  const sym = _shellCurrentDetailSymbol;
+  if (tab === 'quote') {
+    _renderDetailQuote(sym, body);
+  } else if (tab === 'book') {
+    _renderDetailBook(sym, body);
+  } else if (tab === 'news') {
+    _renderDetailNews(sym, body);
+  } else if (tab === 'financials') {
+    _renderDetailFinancials(sym, body);
+  } else if (tab === 'ai') {
+    body.innerHTML = `<div style="padding:30px 12px;color:var(--text2);font-size:12px;text-align:center">${t('dp_ai_hint') || 'AI analysis available on the full detail page'}<br><br><button class="s-btn" onclick="openFullDetail('${sym}')" style="padding:8px 16px;font-size:12px">${t('dp_open_full') || 'Open full detail page'}</button></div>`;
+  }
+}
+
+async function _renderDetailQuote(symbol, body) {
+  body.innerHTML = `<div style="color:var(--text2);font-size:12px;text-align:center;padding:20px">Loading…</div>`;
+  try {
+    const r = await apiFetch(`/api/stock-info/${encodeURIComponent(symbol)}`);
+    const info = await r.json();
+    const rows = [];
+    if (info.sector) rows.push([t('dp_sector') || 'Sector', info.sector]);
+    if (info.industry) rows.push(['Industry', info.industry]);
+    if (info.marketCap) rows.push([t('dp_market_cap') || 'Market Cap', fmtBigNum(info.marketCap)]);
+    if (info.trailingPE) rows.push([t('dp_pe_ratio') || 'P/E', info.trailingPE.toFixed(2)]);
+    if (info.dividendYield) rows.push([t('dp_dividend') || 'Dividend Yield', (info.dividendYield * 100).toFixed(2) + '%']);
+    if (info.fiftyTwoWeekHigh && info.fiftyTwoWeekLow) rows.push([t('dp_52wk_range') || '52-Week Range', `${info.fiftyTwoWeekLow.toFixed(2)} – ${info.fiftyTwoWeekHigh.toFixed(2)}`]);
+    if (info.volume) rows.push([t('dp_volume') || 'Volume', info.volume.toLocaleString()]);
+    if (info.averageVolume) rows.push([t('dp_avg_volume') || 'Avg Volume', info.averageVolume.toLocaleString()]);
+    if (info.beta != null) rows.push(['Beta', info.beta.toFixed(2)]);
+    const rowsHtml = rows.map(([k, v]) => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">${k}</span><span style="color:var(--text);font-variant-numeric:tabular-nums">${v}</span></div>`).join('');
+    const summary = info.longBusinessSummary ? `<div style="font-size:11px;color:var(--text2);margin-top:12px;line-height:1.5;max-height:120px;overflow-y:auto">${info.longBusinessSummary}</div>` : '';
+    body.innerHTML = `<div>${rowsHtml}</div>${summary}<div style="text-align:center;margin-top:16px"><button class="s-btn" onclick="openFullDetail('${symbol}')" style="padding:6px 14px;font-size:11px">${t('dp_open_full') || 'Open full detail'}</button></div>`;
+  } catch(e) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:12px;text-align:center;padding:20px">Failed to load</div>`;
+  }
+}
+
+async function _renderDetailBook(symbol, body) {
+  if (!symbol.endsWith('.T')) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:12px;text-align:center;padding:30px 12px">Order book is only available for Japanese stocks (.T symbols).<br>US level-2 data requires a paid feed.</div>`;
+    return;
+  }
+  body.innerHTML = `<div style="color:var(--text2);font-size:12px;text-align:center;padding:20px">Loading order book…</div>`;
+  try {
+    const r = await apiFetch(`/api/kabu/board/${encodeURIComponent(symbol)}`);
+    const data = await r.json();
+    if (data.error) {
+      body.innerHTML = `<div style="color:var(--text2);font-size:12px;text-align:center;padding:30px 12px">${data.error}<br><br>Connect Kabu Station for real-time order book.</div>`;
+      return;
+    }
+    const asks = (data.asks || []).slice().reverse();
+    const bids = data.bids || [];
+    const maxQty = Math.max(...asks.map(a => a.qty || 0), ...bids.map(b => b.qty || 0), 1);
+    const askRows = asks.slice(-10).map(a => {
+      const pct = Math.round((a.qty / maxQty) * 100);
+      return `<div style="position:relative;display:grid;grid-template-columns:1fr 1fr;padding:3px 6px;font-size:11px;font-variant-numeric:tabular-nums"><div style="position:absolute;right:0;top:0;bottom:0;width:${pct}%;background:color-mix(in srgb,var(--down) 18%, transparent);border-radius:3px"></div><span style="position:relative;color:var(--down);font-weight:500">${a.price.toLocaleString()}</span><span style="position:relative;text-align:right">${a.qty.toLocaleString()}</span></div>`;
+    }).join('');
+    const bidRows = bids.slice(0, 10).map(b => {
+      const pct = Math.round((b.qty / maxQty) * 100);
+      return `<div style="position:relative;display:grid;grid-template-columns:1fr 1fr;padding:3px 6px;font-size:11px;font-variant-numeric:tabular-nums"><div style="position:absolute;right:0;top:0;bottom:0;width:${pct}%;background:color-mix(in srgb,var(--up) 18%, transparent);border-radius:3px"></div><span style="position:relative;color:var(--up);font-weight:500">${b.price.toLocaleString()}</span><span style="position:relative;text-align:right">${b.qty.toLocaleString()}</span></div>`;
+    }).join('');
+    body.innerHTML = `<div style="font-size:10px;color:var(--text2);padding:4px 6px;letter-spacing:.5px">PRICE · QTY</div>${askRows}<div style="text-align:center;padding:6px;font-weight:600;color:var(--text);border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin:3px 0">${data.price ? data.price.toLocaleString() : '—'}</div>${bidRows}`;
+  } catch(e) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:12px;text-align:center;padding:20px">Failed to load</div>`;
+  }
+}
+
+async function _renderDetailNews(symbol, body) {
+  body.innerHTML = `<div style="color:var(--text2);font-size:12px;text-align:center;padding:20px">${t('dp_loading_news') || 'Loading news…'}</div>`;
+  try {
+    const r = await apiFetch(`/api/news/${encodeURIComponent(symbol)}`);
+    const data = await r.json();
+    const items = Array.isArray(data) ? data : (data.news || data.items || []);
+    if (!items.length) {
+      body.innerHTML = `<div style="color:var(--text2);font-size:12px;text-align:center;padding:30px">${t('dp_no_news') || 'No recent news'}</div>`;
+      return;
+    }
+    body.innerHTML = items.slice(0, 10).map(n => `
+      <a href="${n.link || n.url || '#'}" target="_blank" rel="noopener" style="display:block;padding:10px 0;border-bottom:1px solid var(--border);text-decoration:none;color:inherit">
+        <div style="font-size:12px;color:var(--text);line-height:1.4">${n.title || n.headline || ''}</div>
+        <div style="font-size:10px;color:var(--text2);margin-top:4px">${n.source || n.publisher || ''} · ${n.date || n.datetime || ''}</div>
+      </a>
+    `).join('');
+  } catch(e) {
+    body.innerHTML = `<div style="color:var(--text2);font-size:12px;text-align:center;padding:20px">Failed to load news</div>`;
+  }
+}
+
+function _renderDetailFinancials(symbol, body) {
+  body.innerHTML = `<div style="color:var(--text2);font-size:12px;text-align:center;padding:30px 12px">${t('dp_financials_hint') || 'Click "Open full detail page" for complete financials'}<br><br><button class="s-btn" onclick="openFullDetail('${symbol}')" style="padding:8px 16px;font-size:12px">${t('dp_open_full') || 'Open full detail page'}</button></div>`;
+}
+
+function openFullDetail(symbol) {
+  // Navigate to the legacy detail page
+  if (typeof goToDetail === 'function') {
+    goToDetail(symbol);
+  } else if (typeof showPage === 'function') {
+    // fallback
+    showPage('detail');
+  }
+}
+
+function openQuickTrade(action) {
+  if (!_shellCurrentDetailSymbol) return;
+  // Route to full detail page; user can execute trade there
+  openFullDetail(_shellCurrentDetailSymbol);
+  setTimeout(() => {
+    const tab = document.getElementById(action === 'buy' ? 'tab-buy' : 'tab-sell');
+    if (tab) tab.click();
+  }, 200);
+}
+
+function fmtBigNum(n) {
+  if (!n) return '—';
+  if (n >= 1e12) return (n / 1e12).toFixed(2) + 'T';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(2) + 'K';
+  return String(n);
+}
+
+// Hook into existing Kabu UI update to mirror state in sidebar pill
+(function _shellHookKabu() {
+  const origUpdate = window.updateKabuUI;
+  if (!origUpdate) {
+    // Try later
+    setTimeout(_shellHookKabu, 500);
+    return;
+  }
+  window.updateKabuUI = function() {
+    try { origUpdate.apply(this, arguments); } catch(e) {}
+    const pill = document.getElementById('shell-conn-pill');
+    if (pill) {
+      if (window.kabuConnected) {
+        pill.classList.add('live');
+        pill.querySelector('span:last-child').textContent = t('badge_live') || 'LIVE';
+      } else {
+        pill.classList.remove('live');
+        pill.querySelector('span:last-child').textContent = t('badge_delayed') || 'DELAYED';
+      }
+    }
+  };
+})();
+
+// Boot the shell after initApp runs
+(function _shellBoot() {
+  // Run after initApp has had a chance to mount everything
+  const runBoot = () => {
+    if (typeof initApp !== 'function') { setTimeout(runBoot, 300); return; }
+    // Wait until the existing app is set up
+    setTimeout(() => {
+      activateShell();
+    }, 400);
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runBoot);
+  } else {
+    runBoot();
+  }
+})();
 </script>
 </body>
 </html>
