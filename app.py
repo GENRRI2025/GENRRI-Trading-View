@@ -1540,6 +1540,198 @@ def _snapshot_background():
         _time.sleep(_SNAPSHOT_INTERVAL)
 
 
+# ── Market Movers (top gainers/losers) + Sector Heat Map ──────────
+# Curated universe to stay within Yahoo rate limits (~8 batch calls per refresh).
+_MOVERS_INTERVAL = 300  # 5 minutes
+_MOVERS_CACHE = {
+    'jp': {'gainers': [], 'losers': [], 'ts': None, 'universe_size': 0},
+    'us': {'gainers': [], 'losers': [], 'ts': None, 'universe_size': 0},
+}
+_HEATMAP_CACHE = {'jp': {'sectors': [], 'ts': None}, 'us': {'sectors': [], 'ts': None}}
+_movers_running = False
+
+# Nikkei 225 constituents (as of 2026 — subset suffices; covers ~80% of market cap)
+NIKKEI_225_TICKERS = [
+    '7203.T','9984.T','6758.T','8306.T','6861.T','7974.T','9432.T','8316.T','9433.T','4063.T',
+    '6098.T','8035.T','6367.T','8058.T','6501.T','7267.T','6702.T','4519.T','6594.T','4502.T',
+    '9983.T','7741.T','6273.T','4543.T','6954.T','7832.T','4568.T','6981.T','9022.T','4901.T',
+    '7751.T','8031.T','8766.T','7269.T','6301.T','8001.T','5108.T','8053.T','9434.T','6752.T',
+    '4452.T','4503.T','2914.T','6971.T','7011.T','6146.T','6503.T','8267.T','4911.T','6723.T',
+    '7832.T','9020.T','4523.T','7733.T','9101.T','9613.T','8601.T','8591.T','6674.T','4005.T',
+    '1925.T','5401.T','7276.T','5802.T','4507.T','3382.T','7182.T','6988.T','8802.T','8801.T',
+    '4506.T','8308.T','7202.T','6178.T','9501.T','9502.T','4578.T','4689.T','5020.T','4042.T',
+    '9766.T','6770.T','6506.T','6326.T','6367.T','7004.T','7012.T','7013.T','7261.T','7270.T',
+    '7309.T','7731.T','7762.T','7912.T','8002.T','8015.T','8031.T','8331.T','8411.T','8725.T',
+    '8750.T','8804.T','8830.T','9007.T','9008.T','9009.T','9021.T','9062.T','9064.T','9104.T',
+    '9107.T','9147.T','9202.T','9301.T','9531.T','9532.T','9602.T','9735.T','9735.T','9843.T',
+    '9989.T','1332.T','1605.T','1721.T','1801.T','1802.T','1803.T','1808.T','1812.T','1928.T',
+    '1963.T','2002.T','2269.T','2282.T','2371.T','2413.T','2432.T','2501.T','2502.T','2503.T',
+    '2531.T','2768.T','2801.T','2802.T','2871.T','3086.T','3099.T','3101.T','3103.T','3105.T',
+    '3289.T','3401.T','3402.T','3405.T','3407.T','3436.T','3659.T','3863.T','3861.T','3864.T',
+    '4004.T','4021.T','4061.T','4183.T','4188.T','4208.T','4272.T','4324.T','4443.T','4452.T',
+    '4504.T','4523.T','4528.T','4543.T','4544.T','4568.T','4631.T','4631.T','4661.T','4676.T',
+    '4704.T','4751.T','4755.T','4911.T','5019.T','5020.T','5101.T','5108.T','5201.T','5202.T',
+    '5214.T','5232.T','5233.T','5301.T','5332.T','5333.T','5411.T','5541.T','5631.T','5703.T',
+    '5706.T','5707.T','5711.T','5713.T','5714.T','5801.T','5803.T','5831.T','5901.T','6098.T',
+    '6103.T','6113.T','6178.T','6273.T','6302.T','6305.T','6326.T','6361.T','6367.T','6471.T',
+    '6472.T','6473.T','6479.T','6501.T','6503.T','6504.T','6506.T','6594.T','6645.T','6674.T',
+]
+NIKKEI_225_TICKERS = list(dict.fromkeys(NIKKEI_225_TICKERS))  # dedupe
+
+# S&P 500 top liquid names (subset of 100 is enough for "movers" feature)
+SP500_TOP_TICKERS = [
+    'AAPL','MSFT','NVDA','GOOGL','GOOG','AMZN','META','TSLA','BRK-B','JPM',
+    'V','UNH','XOM','JNJ','WMT','MA','PG','AVGO','HD','CVX',
+    'MRK','ABBV','LLY','COST','KO','PEP','ADBE','BAC','CRM','MCD',
+    'TMO','CSCO','NFLX','ACN','ABT','WFC','AMD','CMCSA','DIS','DHR',
+    'LIN','VZ','TXN','NKE','NEE','QCOM','PM','PFE','RTX','MS',
+    'UNP','INTC','IBM','LOW','AMGN','ORCL','INTU','BMY','HON','GS',
+    'COP','DE','CAT','T','SBUX','AXP','SPGI','AMT','BKNG','MDT',
+    'GE','BLK','ISRG','UPS','LMT','SYK','GILD','CVS','ADI','CI',
+    'SCHW','TJX','MDLZ','MO','REGN','VRTX','ELV','ETN','C','ZTS',
+    'LRCX','SO','PANW','ADP','TMUS','BSX','SLB','MU','ICE','EQIX',
+]
+
+
+def _movers_refresh():
+    """Batch-fetch the curated universe via yf.download, compute top gainers/losers
+    and per-sector aggregates. Writes to _MOVERS_CACHE and _HEATMAP_CACHE."""
+    global _MOVERS_CACHE, _HEATMAP_CACHE
+    from datetime import datetime as _dt
+
+    def _fetch_universe(tickers, region_label):
+        if not tickers:
+            return []
+        results = []
+        batch_size = 100
+        for i in range(0, len(tickers), batch_size):
+            batch = tickers[i:i + batch_size]
+            try:
+                df = yf.download(' '.join(batch), period='5d', interval='1d',
+                                 group_by='ticker', progress=False, threads=True)
+                for sym in batch:
+                    try:
+                        sym_df = df if len(batch) == 1 else (df[sym] if sym in df.columns.get_level_values(0) else None)
+                        if sym_df is None or sym_df.empty:
+                            continue
+                        closes = sym_df['Close'].dropna()
+                        if len(closes) < 2:
+                            continue
+                        price = float(closes.iloc[-1])
+                        prev = float(closes.iloc[-2])
+                        change = price - prev
+                        change_pct = (change / prev * 100) if prev else 0
+                        results.append({
+                            'symbol': sym,
+                            'price': round(price, 2),
+                            'change': round(change, 2),
+                            'change_pct': round(change_pct, 2),
+                            'prev_close': round(prev, 2),
+                        })
+                    except Exception:
+                        pass
+            except Exception as e:
+                print(f'[movers] batch error ({region_label}): {e}', flush=True)
+        return results
+
+    now = _dt.now()
+
+    # JP universe
+    jp_results = _fetch_universe(NIKKEI_225_TICKERS, 'jp')
+    if jp_results:
+        sorted_by_pct = sorted(jp_results, key=lambda r: r['change_pct'], reverse=True)
+        _MOVERS_CACHE['jp'] = {
+            'gainers': sorted_by_pct[:10],
+            'losers': list(reversed(sorted_by_pct[-10:])),
+            'ts': now.isoformat(),
+            'universe_size': len(jp_results),
+        }
+        # Heat map: aggregate by sector using STOCK_INFO_CACHE
+        _HEATMAP_CACHE['jp'] = _compute_heatmap(jp_results)
+
+    # US universe
+    us_results = _fetch_universe(SP500_TOP_TICKERS, 'us')
+    if us_results:
+        sorted_by_pct = sorted(us_results, key=lambda r: r['change_pct'], reverse=True)
+        _MOVERS_CACHE['us'] = {
+            'gainers': sorted_by_pct[:10],
+            'losers': list(reversed(sorted_by_pct[-10:])),
+            'ts': now.isoformat(),
+            'universe_size': len(us_results),
+        }
+        _HEATMAP_CACHE['us'] = _compute_heatmap(us_results)
+
+    print(f'[movers] Refreshed: JP={len(jp_results)} US={len(us_results)}', flush=True)
+
+
+def _compute_heatmap(results):
+    """Group results by sector (from STOCK_INFO_CACHE) and compute aggregates."""
+    sectors = {}
+    for r in results:
+        sym = r['symbol']
+        # Look up sector from cached stock info (populated lazily elsewhere)
+        cached_info = STOCK_INFO_CACHE.get(sym, {}).get('data') if STOCK_INFO_CACHE.get(sym) else None
+        sector = (cached_info or {}).get('sector') or 'Unknown'
+        if sector not in sectors:
+            sectors[sector] = {'sector': sector, 'stocks': [], 'change_sum': 0.0, 'count': 0}
+        sectors[sector]['stocks'].append(r)
+        sectors[sector]['change_sum'] += r['change_pct']
+        sectors[sector]['count'] += 1
+
+    out = []
+    for s in sectors.values():
+        avg = (s['change_sum'] / s['count']) if s['count'] else 0
+        top = sorted(s['stocks'], key=lambda x: x['change_pct'], reverse=True)[:3]
+        bottom = sorted(s['stocks'], key=lambda x: x['change_pct'])[:3]
+        out.append({
+            'sector': s['sector'],
+            'count': s['count'],
+            'avg_change_pct': round(avg, 2),
+            'top_stocks': top,
+            'bottom_stocks': bottom,
+        })
+    # Sort by count desc (biggest sectors first)
+    out.sort(key=lambda x: x['count'], reverse=True)
+    return {'sectors': out, 'ts': datetime.now().isoformat()}
+
+
+def _movers_background():
+    """Daemon thread: refresh movers + heatmap every 5 minutes."""
+    global _movers_running
+    if _movers_running:
+        return
+    _movers_running = True
+    import time as _time
+    _time.sleep(90)  # Let prefetch complete first so STOCK_INFO_CACHE is populated
+    print(f'[movers] Background thread started (every {_MOVERS_INTERVAL}s)', flush=True)
+    while True:
+        try:
+            _movers_refresh()
+        except Exception as e:
+            print(f'[movers] Error: {e}', flush=True)
+        _time.sleep(_MOVERS_INTERVAL)
+
+
+@app.route('/api/market/movers')
+def market_movers():
+    """Top gainers and losers from curated universe.
+    Query: ?region=jp|us (default jp)."""
+    region = request.args.get('region', 'jp').lower()
+    if region not in ('jp', 'us'):
+        region = 'jp'
+    return jsonify(_MOVERS_CACHE.get(region, {'gainers': [], 'losers': [], 'ts': None}))
+
+
+@app.route('/api/market/heatmap')
+def market_heatmap():
+    """Sector heat map for curated universe.
+    Query: ?region=jp|us (default jp)."""
+    region = request.args.get('region', 'jp').lower()
+    if region not in ('jp', 'us'):
+        region = 'jp'
+    return jsonify(_HEATMAP_CACHE.get(region, {'sectors': [], 'ts': None}))
+
+
 # ── Stock News ────────────────────────────────────────────────────
 NEWS_CACHE = {}      # { symbol: { 'result': ..., 'ts': datetime } }
 NEWS_CACHE_TTL = 1800  # 30 minutes
@@ -3391,6 +3583,152 @@ def remove_watchlist(symbol):
     return jsonify({'success': True})
 
 
+# ── Named watchlists (multiple groups per user) ──────────────────
+@app.route('/api/watchlists', methods=['GET'])
+def list_named_watchlists():
+    """List user's named watchlists with item counts."""
+    uid, err = get_auth_user()
+    if err: return err
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT id, name, sort_order, created_at FROM watchlists WHERE user_id = ? ORDER BY sort_order ASC, id ASC',
+        (uid,)
+    ).fetchall()
+    result = []
+    for r in rows:
+        count_row = conn.execute(
+            'SELECT COUNT(*) as c FROM watchlist_items WHERE list_id = ?', (r['id'],)
+        ).fetchone()
+        result.append({
+            'id': r['id'],
+            'name': r['name'],
+            'sort_order': r['sort_order'] or 0,
+            'created_at': r['created_at'],
+            'symbol_count': count_row['c'] if count_row else 0
+        })
+    conn.close()
+    return jsonify(result)
+
+
+@app.route('/api/watchlists', methods=['POST'])
+def create_named_watchlist():
+    """Create a new named watchlist."""
+    uid, err = get_auth_user()
+    if err: return err
+    data = request.json or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'Name required'}), 400
+    conn = get_db()
+    max_order = conn.execute(
+        'SELECT COALESCE(MAX(sort_order), -1) as m FROM watchlists WHERE user_id = ?', (uid,)
+    ).fetchone()['m']
+    conn.execute(
+        'INSERT INTO watchlists (user_id, name, sort_order, created_at) VALUES (?, ?, ?, ?)',
+        (uid, name, (max_order or -1) + 1, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    )
+    conn.commit()
+    new_id = conn.execute('SELECT id FROM watchlists WHERE user_id = ? ORDER BY id DESC LIMIT 1', (uid,)).fetchone()['id']
+    conn.close()
+    return jsonify({'success': True, 'id': new_id, 'name': name})
+
+
+@app.route('/api/watchlists/<int:list_id>', methods=['PUT'])
+def rename_named_watchlist(list_id):
+    """Rename a watchlist."""
+    uid, err = get_auth_user()
+    if err: return err
+    data = request.json or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'Name required'}), 400
+    conn = get_db()
+    result = conn.execute(
+        'UPDATE watchlists SET name = ? WHERE id = ? AND user_id = ?', (name, list_id, uid)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/api/watchlists/<int:list_id>', methods=['DELETE'])
+def delete_named_watchlist(list_id):
+    """Delete a watchlist and all its items."""
+    uid, err = get_auth_user()
+    if err: return err
+    conn = get_db()
+    # Make sure it belongs to the user
+    row = conn.execute('SELECT id FROM watchlists WHERE id = ? AND user_id = ?', (list_id, uid)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({'error': 'Not found'}), 404
+    conn.execute('DELETE FROM watchlist_items WHERE list_id = ? AND user_id = ?', (list_id, uid))
+    conn.execute('DELETE FROM watchlists WHERE id = ? AND user_id = ?', (list_id, uid))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/api/watchlists/<int:list_id>/symbols', methods=['GET'])
+def get_watchlist_symbols(list_id):
+    """Get all symbols in a named watchlist."""
+    uid, err = get_auth_user()
+    if err: return err
+    conn = get_db()
+    # Verify ownership
+    owned = conn.execute('SELECT id FROM watchlists WHERE id = ? AND user_id = ?', (list_id, uid)).fetchone()
+    if not owned:
+        conn.close()
+        return jsonify({'error': 'Not found'}), 404
+    rows = conn.execute(
+        'SELECT symbol, added_at FROM watchlist_items WHERE list_id = ? AND user_id = ? ORDER BY added_at ASC',
+        (list_id, uid)
+    ).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/watchlists/<int:list_id>/symbols', methods=['POST'])
+def add_watchlist_symbol(list_id):
+    """Add a symbol to a named watchlist."""
+    uid, err = get_auth_user()
+    if err: return err
+    data = request.json or {}
+    symbol = (data.get('symbol') or '').strip()
+    if not symbol:
+        return jsonify({'error': 'Symbol required'}), 400
+    conn = get_db()
+    owned = conn.execute('SELECT id FROM watchlists WHERE id = ? AND user_id = ?', (list_id, uid)).fetchone()
+    if not owned:
+        conn.close()
+        return jsonify({'error': 'Not found'}), 404
+    try:
+        conn.execute(
+            'INSERT INTO watchlist_items (list_id, user_id, symbol, added_at) VALUES (?, ?, ?, ?)',
+            (list_id, uid, symbol, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        )
+        conn.commit()
+    except Exception:
+        pass  # already in list — idempotent
+    conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/api/watchlists/<int:list_id>/symbols/<path:symbol>', methods=['DELETE'])
+def remove_watchlist_symbol(list_id, symbol):
+    """Remove a symbol from a named watchlist."""
+    uid, err = get_auth_user()
+    if err: return err
+    conn = get_db()
+    conn.execute(
+        'DELETE FROM watchlist_items WHERE list_id = ? AND user_id = ? AND symbol = ?',
+        (list_id, uid, symbol)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+
 # ══════════════════════════════════════════════════════════════════
 # ═══ KABU STATION API ROUTES ═════════════════════════════════════
 # ══════════════════════════════════════════════════════════════════
@@ -3941,4 +4279,6 @@ if __name__ == '__main__':
         threading.Thread(target=_us_stock_list_auto_refresh, daemon=True).start()
     # Background portfolio snapshots every 15 minutes (for daily + intraday charts)
     threading.Thread(target=_snapshot_background, daemon=True).start()
+    # Background market movers + heatmap refresh every 5 minutes
+    threading.Thread(target=_movers_background, daemon=True).start()
     app.run(debug=False, port=port, threaded=True)

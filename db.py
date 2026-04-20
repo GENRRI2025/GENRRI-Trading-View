@@ -379,6 +379,26 @@ def _init_db_pg():
         PRIMARY KEY (user_id, symbol)
     )''')
 
+    # Named watchlists (PG)
+    c.execute('''CREATE TABLE IF NOT EXISTS watchlists (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+    )''')
+    try:
+        c.execute('ALTER TABLE watchlist ADD COLUMN list_id INTEGER DEFAULT NULL')
+    except Exception:
+        conn.rollback()
+    c.execute('''CREATE TABLE IF NOT EXISTS watchlist_items (
+        list_id INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
+        symbol TEXT NOT NULL,
+        added_at TEXT NOT NULL,
+        PRIMARY KEY (list_id, symbol)
+    )''')
+
     c.execute('''CREATE TABLE IF NOT EXISTS price_alerts (
         id SERIAL PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -627,6 +647,29 @@ def _init_db_sqlite():
         name TEXT NOT NULL DEFAULT '',
         added_at TEXT NOT NULL,
         PRIMARY KEY (user_id, symbol)
+    )''')
+
+    # Named watchlists (user-defined groups, like "JP Tech", "US Growth")
+    c.execute('''CREATE TABLE IF NOT EXISTS watchlists (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+    )''')
+    # Migration: add list_id column to watchlist (NULL = default "All" list)
+    try:
+        c.execute('ALTER TABLE watchlist ADD COLUMN list_id INTEGER DEFAULT NULL')
+    except (sqlite3.OperationalError, Exception):
+        pass
+    # Link table: many-to-many between symbols and named lists
+    # (a symbol can belong to multiple named lists simultaneously)
+    c.execute('''CREATE TABLE IF NOT EXISTS watchlist_items (
+        list_id INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
+        symbol TEXT NOT NULL,
+        added_at TEXT NOT NULL,
+        PRIMARY KEY (list_id, symbol)
     )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS price_alerts (
