@@ -1280,6 +1280,342 @@ def get_stock_info(symbol):
         return jsonify({'error': str(e)}), 500
 
 
+# ═══════════════════════════════════════════════════════════════════
+# ═══ FINANCIAL STATEMENTS / ANALYST / CORPORATE ACTIONS / HOLDERS ═══
+# ═══════════════════════════════════════════════════════════════════
+# All backed by yfinance. Heavily cached (60 min) since fundamentals
+# only change quarterly. Disk persistence would be nice-to-have later.
+FUNDAMENTALS_CACHE = {}       # { (kind, symbol): { data, ts } }
+FUNDAMENTALS_CACHE_TTL = 3600  # 60 minutes
+
+def _cached_fundamentals(kind, symbol, builder):
+    """Generic cache wrapper for fundamentals endpoints."""
+    now = datetime.now()
+    key = (kind, symbol)
+    cached = FUNDAMENTALS_CACHE.get(key)
+    if cached and (now - cached['ts']).total_seconds() < FUNDAMENTALS_CACHE_TTL:
+        return cached['data']
+    try:
+        data = builder()
+        FUNDAMENTALS_CACHE[key] = {'data': data, 'ts': now}
+        return data
+    except Exception as e:
+        if cached:
+            return cached['data']  # stale-on-error
+        raise
+
+def _df_to_periods(df, max_periods=8):
+    """Convert a yfinance financials DataFrame (rows=line items, cols=dates)
+    into [{period:'YYYY-MM-DD', values:{line_item: number, ...}}, ...].
+    Newest first, limited to max_periods.
+    """
+    if df is None or df.empty:
+        return []
+    out = []
+    # Columns are Timestamps, newest first in yfinance
+    cols = list(df.columns)[:max_periods]
+    for col in cols:
+        period = col.strftime('%Y-%m-%d') if hasattr(col, 'strftime') else str(col)
+        values = {}
+        for idx in df.index:
+            v = df.at[idx, col]
+            try:
+                if v is None:
+                    continue
+                # pandas NaN check
+                import math
+                fv = float(v)
+                if math.isnan(fv) or math.isinf(fv):
+                    continue
+                values[str(idx)] = fv
+            except Exception:
+                continue
+        out.append({'period': period, 'values': values})
+    return out
+
+
+@app.route('/api/financials/<symbol>')
+def get_financials(symbol):
+    """Income Statement / Balance Sheet / Cash Flow — quarterly + annual."""
+    def build():
+        ticker = yf.Ticker(symbol)
+        return {
+            'symbol': symbol,
+            'income_quarterly': _df_to_periods(getattr(ticker, 'quarterly_income_stmt', None)),
+            'income_annual':    _df_to_periods(getattr(ticker, 'income_stmt', None), max_periods=5),
+            'balance_quarterly':_df_to_periods(getattr(ticker, 'quarterly_balance_sheet', None)),
+            'balance_annual':   _df_to_periods(getattr(ticker, 'balance_sheet', None), max_periods=5),
+            'cashflow_quarterly': _df_to_periods(getattr(ticker, 'quarterly_cashflow', None)),
+            'cashflow_annual':    _df_to_periods(getattr(ticker, 'cashflow', None), max_periods=5),
+        }
+    try:
+        return jsonify(_cached_fundamentals('financials', symbol, build))
+    except Exception as e:
+        return jsonify({'error': str(e), 'symbol': symbol,
+                        'income_quarterly': [], 'income_annual': [],
+                        'balance_quarterly': [], 'balance_annual': [],
+                        'cashflow_quarterly': [], 'cashflow_annual': []}), 200
+
+
+@app.route('/api/analyst/<symbol>')
+def get_analyst(symbol):
+    """Analyst ratings, price targets, upgrades/downgrades, earnings/revenue estimates."""
+    def build():
+        ticker = yf.Ticker(symbol)
+        info = ticker.info if hasattr(ticker, 'info') else {}
+
+        # Recommendations summary — DataFrame with period / strongBuy / buy / hold / sell / strongSell
+        recs = []
+        try:
+            df = ticker.recommendations
+            if df is not None and not df.empty:
+                # yfinance returns either with date index or with 'period' column; handle both
+                df_reset = df.reset_index() if df.index.name else df.copy()
+                for _, row in df_reset.head(4).iterrows():
+                    rec = {}
+                    for k in ['period', 'strongBuy', 'buy', 'hold', 'sell', 'strongSell']:
+                        if k in row and row[k] is not None:
+                            try:
+                                rec[k] = int(row[k]) if k != 'period' else str(row[k])
+                            except Exception:
+                                rec[k] = row[k] if k == 'period' else 0
+                    if rec:
+                        recs.append(rec)
+        except Exception:
+            pass
+
+        # Upgrades / downgrades
+        upgrades = []
+        try:
+            df = ticker.upgrades_downgrades
+            if df is not None and not df.empty:
+                df_reset = df.reset_index()
+                for _, row in df_reset.head(15).iterrows():
+                    item = {}
+                    gd = row.get('GradeDate') if 'GradeDate' in row else row.get('index')
+                    if gd is not None:
+                        item['date'] = gd.strftime('%Y-%m-%d') if hasattr(gd, 'strftime') else str(gd)
+                    for k_src, k_dst in [('Firm', 'firm'), ('ToGrade', 'toGrade'),
+                                         ('FromGrade', 'fromGrade'), ('Action', 'action')]:
+                        if k_src in row and row[k_src] is not None:
+                            item[k_dst] = str(row[k_src])
+                    if item:
+                        upgrades.append(item)
+        except Exception:
+            pass
+
+        # Earnings estimate (forward quarters)
+        earnings_est = []
+        try:
+            df = ticker.earnings_estimate
+            if df is not None and not df.empty:
+                for idx, row in df.iterrows():
+                    item = {'period': str(idx)}
+                    for k in ['avg', 'low', 'high', 'numberOfAnalysts', 'yearAgoEps', 'growth']:
+                        v = row.get(k)
+                        if v is not None:
+                            try:
+                                import math
+                                fv = float(v)
+                                if not (math.isnan(fv) or math.isinf(fv)):
+                                    item[k] = fv
+                            except Exception:
+                                pass
+                    earnings_est.append(item)
+        except Exception:
+            pass
+
+        # Revenue estimate
+        revenue_est = []
+        try:
+            df = ticker.revenue_estimate
+            if df is not None and not df.empty:
+                for idx, row in df.iterrows():
+                    item = {'period': str(idx)}
+                    for k in ['avg', 'low', 'high', 'numberOfAnalysts', 'yearAgoRevenue', 'growth']:
+                        v = row.get(k)
+                        if v is not None:
+                            try:
+                                import math
+                                fv = float(v)
+                                if not (math.isnan(fv) or math.isinf(fv)):
+                                    item[k] = fv
+                            except Exception:
+                                pass
+                    revenue_est.append(item)
+        except Exception:
+            pass
+
+        return {
+            'symbol': symbol,
+            'recommendations': recs,  # bucket breakdown for pie/bars
+            'upgradesDowngrades': upgrades,
+            'earningsEstimate': earnings_est,
+            'revenueEstimate': revenue_est,
+            # From .info (already rate-limit friendly, reuse)
+            'currentPrice': info.get('currentPrice') or info.get('regularMarketPrice'),
+            'targetHigh': info.get('targetHighPrice'),
+            'targetLow': info.get('targetLowPrice'),
+            'targetMean': info.get('targetMeanPrice'),
+            'targetMedian': info.get('targetMedianPrice'),
+            'numAnalysts': info.get('numberOfAnalystOpinions'),
+            'recommendationKey': info.get('recommendationKey', ''),
+            'recommendationMean': info.get('recommendationMean'),
+        }
+    try:
+        return jsonify(_cached_fundamentals('analyst', symbol, build))
+    except Exception as e:
+        return jsonify({'error': str(e), 'symbol': symbol,
+                        'recommendations': [], 'upgradesDowngrades': [],
+                        'earningsEstimate': [], 'revenueEstimate': []}), 200
+
+
+@app.route('/api/corporate-actions/<symbol>')
+def get_corporate_actions(symbol):
+    """Dividends, splits, earnings history, next earnings date."""
+    def build():
+        ticker = yf.Ticker(symbol)
+
+        dividends = []
+        try:
+            s = ticker.dividends
+            if s is not None and not s.empty:
+                for dt, v in s.tail(20).items():
+                    dividends.append({
+                        'date': dt.strftime('%Y-%m-%d') if hasattr(dt, 'strftime') else str(dt),
+                        'amount': float(v),
+                    })
+                dividends.reverse()  # newest first
+        except Exception:
+            pass
+
+        splits = []
+        try:
+            s = ticker.splits
+            if s is not None and not s.empty:
+                for dt, v in s.tail(10).items():
+                    splits.append({
+                        'date': dt.strftime('%Y-%m-%d') if hasattr(dt, 'strftime') else str(dt),
+                        'ratio': float(v),
+                    })
+                splits.reverse()
+        except Exception:
+            pass
+
+        earnings_history = []
+        try:
+            df = ticker.earnings_history
+            if df is not None and not df.empty:
+                df_reset = df.reset_index()
+                for _, row in df_reset.head(8).iterrows():
+                    item = {}
+                    for k_src, k_dst in [('quarter', 'quarter'), ('epsActual', 'epsActual'),
+                                         ('epsEstimate', 'epsEstimate'), ('epsDifference', 'epsDifference'),
+                                         ('surprisePercent', 'surprisePercent')]:
+                        v = row.get(k_src)
+                        if v is not None:
+                            try:
+                                if k_dst == 'quarter':
+                                    item[k_dst] = v.strftime('%Y-%m-%d') if hasattr(v, 'strftime') else str(v)
+                                else:
+                                    import math
+                                    fv = float(v)
+                                    if not (math.isnan(fv) or math.isinf(fv)):
+                                        item[k_dst] = fv
+                            except Exception:
+                                pass
+                    if item:
+                        earnings_history.append(item)
+        except Exception:
+            pass
+
+        # Next earnings date via calendar
+        next_earnings = None
+        try:
+            cal = ticker.calendar
+            if isinstance(cal, dict):
+                ed = cal.get('Earnings Date')
+                if ed:
+                    first = ed[0] if isinstance(ed, list) and ed else ed
+                    if hasattr(first, 'strftime'):
+                        next_earnings = first.strftime('%Y-%m-%d')
+                    elif first:
+                        next_earnings = str(first)
+        except Exception:
+            pass
+
+        return {
+            'symbol': symbol,
+            'dividends': dividends,
+            'splits': splits,
+            'earningsHistory': earnings_history,
+            'nextEarnings': next_earnings,
+        }
+    try:
+        return jsonify(_cached_fundamentals('actions', symbol, build))
+    except Exception as e:
+        return jsonify({'error': str(e), 'symbol': symbol,
+                        'dividends': [], 'splits': [], 'earningsHistory': [],
+                        'nextEarnings': None}), 200
+
+
+@app.route('/api/holders/<symbol>')
+def get_holders(symbol):
+    """Major, institutional, and mutual-fund holders + insider transactions.
+    US coverage is strong; JP is spotty (yfinance limitation)."""
+    def build():
+        ticker = yf.Ticker(symbol)
+
+        def df_to_records(df, limit=15):
+            if df is None or df.empty:
+                return []
+            out = []
+            df_reset = df.reset_index() if df.index.name else df.copy()
+            for _, row in df_reset.head(limit).iterrows():
+                rec = {}
+                for col in row.index:
+                    v = row[col]
+                    if v is None:
+                        continue
+                    try:
+                        # Datetime
+                        if hasattr(v, 'strftime'):
+                            rec[str(col)] = v.strftime('%Y-%m-%d')
+                            continue
+                        # Numeric
+                        import math
+                        try:
+                            fv = float(v)
+                            if not (math.isnan(fv) or math.isinf(fv)):
+                                rec[str(col)] = fv
+                                continue
+                        except (TypeError, ValueError):
+                            pass
+                        # String
+                        rec[str(col)] = str(v)
+                    except Exception:
+                        continue
+                if rec:
+                    out.append(rec)
+            return out
+
+        result = {'symbol': symbol, 'major': [], 'institutional': [], 'mutualfund': [], 'insider': []}
+        try: result['major'] = df_to_records(ticker.major_holders, limit=10)
+        except Exception: pass
+        try: result['institutional'] = df_to_records(ticker.institutional_holders, limit=15)
+        except Exception: pass
+        try: result['mutualfund'] = df_to_records(ticker.mutualfund_holders, limit=10)
+        except Exception: pass
+        try: result['insider'] = df_to_records(ticker.insider_transactions, limit=15)
+        except Exception: pass
+        return result
+    try:
+        return jsonify(_cached_fundamentals('holders', symbol, build))
+    except Exception as e:
+        return jsonify({'error': str(e), 'symbol': symbol,
+                        'major': [], 'institutional': [], 'mutualfund': [], 'insider': []}), 200
+
+
 # ── Background prefetch ──────────────────────────────────────────
 _prefetch_running = False
 
