@@ -506,6 +506,16 @@ def index():
     return resp
 
 
+@app.route('/legacy')
+def legacy_index():
+    """Serve the old dual-system UI for reference / fallback during rebuild.
+    Some features (full chart drawing tools, CSV import, Kabu full UI, etc.)
+    still live here until sessions 2-3 port them to the new index.html."""
+    resp = send_from_directory('static', 'index.legacy.html')
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return resp
+
+
 @app.route('/manifest.json')
 def manifest():
     return send_from_directory('static', 'manifest.json')
