@@ -3394,16 +3394,29 @@ def remove_watchlist(symbol):
 
 @app.route('/api/kabu/status')
 def kabu_status():
-    """Check Kabu Station connection status."""
+    """Check Kabu Station connection status. Actively verifies token health
+    if the stored verification is stale (>60s old)."""
     kabu = _get_kabu_client()
     available = KabuClient.is_available() if HAS_KABU else False
-    connected = kabu.is_connected() if kabu else False
-    ws_connected = kabu_ws.is_connected() if HAS_KABU else False
+    connected = False
+    last_error = None
+    if kabu and kabu.is_connected():
+        # Token exists — check if it's still valid
+        if kabu.is_healthy():
+            connected = True  # Verified recently (<60s)
+        else:
+            # Stale — actively verify against Kabu
+            connected = kabu.verify_token()
+            last_error = kabu._last_error
+    # WS is only meaningful if REST token is actually working —
+    # otherwise WS socket might be open but no data flows
+    ws_connected = (kabu_ws.is_connected() if HAS_KABU else False) and connected
     return jsonify({
         'available': available,
         'connected': connected,
         'ws_connected': ws_connected,
-        'has_kabu': HAS_KABU
+        'has_kabu': HAS_KABU,
+        'last_error': last_error
     })
 
 

@@ -41,6 +41,8 @@ class KabuClient:
         self._token = None
         self._api_password = None
         self._order_password = None
+        self._last_verified_at = None  # datetime of last successful REST call
+        self._last_error = None        # last error message (for diagnostics)
 
     # ── Auth ──────────────────────────────────────────────────────
 
@@ -78,8 +80,49 @@ class KabuClient:
             raise ConnectionError(f'Cannot reach Kabu Station: {e}')
 
     def is_connected(self):
-        """Check if we have a valid token."""
+        """Check if we have a stored token. Fast — no network call.
+        This does NOT guarantee the token is still valid server-side —
+        use is_healthy() or verify_token() for that."""
         return bool(self._token)
+
+    def is_healthy(self):
+        """Return True if token exists AND has been verified within the last 60s.
+        For cheaper status checks — avoids hammering Kabu with verify calls."""
+        if not self._token:
+            return False
+        if not self._last_verified_at:
+            return False
+        from datetime import timedelta
+        return (datetime.now() - self._last_verified_at) < timedelta(seconds=60)
+
+    def verify_token(self):
+        """Make a cheap API call to check if the token is still valid.
+        Clears the token if it's rejected. Returns True/False.
+        Note: this bypasses rate limiting because it's meant for status checks."""
+        if not self._token:
+            return False
+        try:
+            req = urllib.request.Request(
+                f'{self.base_url}/wallet/cash',
+                headers={'X-API-KEY': self._token, 'Content-Type': 'application/json'},
+                method='GET'
+            )
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                resp.read()  # drain body
+                self._last_verified_at = datetime.now()
+                self._last_error = None
+                return True
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                self._token = None
+                self._last_verified_at = None
+                self._last_error = 'Token invalid — session expired or Kabu restarted'
+                return False
+            # Other HTTP errors — don't clear token (could be transient)
+            return True
+        except Exception as e:
+            # Network error — assume token still valid, don't clear it
+            return bool(self._token)
 
     def _request(self, method, path, body=None, is_order=False):
         """Make an authenticated request. Auto re-auth on 401 once."""
@@ -105,31 +148,45 @@ class KabuClient:
         )
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
-                return json.loads(resp.read())
+                result = json.loads(resp.read())
+                self._last_verified_at = datetime.now()  # Mark token verified
+                self._last_error = None
+                return result
         except urllib.error.HTTPError as e:
-            if e.code == 401 and self._api_password:
-                # Re-auth once
-                try:
-                    self.authenticate()
-                    headers['X-API-KEY'] = self._token
-                    req = urllib.request.Request(
-                        f'{self.base_url}{path}',
-                        data=data,
-                        headers=headers,
-                        method=method
-                    )
-                    with urllib.request.urlopen(req, timeout=10) as resp:
-                        return json.loads(resp.read())
-                except Exception:
-                    pass
+            if e.code == 401:
+                # Token is invalid — clear it
+                self._token = None
+                self._last_verified_at = None
+                if self._api_password:
+                    # Re-auth once
+                    try:
+                        self.authenticate()
+                        headers['X-API-KEY'] = self._token
+                        req = urllib.request.Request(
+                            f'{self.base_url}{path}',
+                            data=data,
+                            headers=headers,
+                            method=method
+                        )
+                        with urllib.request.urlopen(req, timeout=10) as resp:
+                            result = json.loads(resp.read())
+                            self._last_verified_at = datetime.now()
+                            self._last_error = None
+                            return result
+                    except Exception as reauth_err:
+                        self._last_error = f'Re-auth failed: {reauth_err}'
             try:
                 err_body = json.loads(e.read())
-                return {'error': err_body.get('Message', str(e))}
+                msg = err_body.get('Message', str(e))
             except Exception:
-                return {'error': f'HTTP {e.code}'}
+                msg = f'HTTP {e.code}'
+            self._last_error = msg
+            return {'error': msg}
         except urllib.error.URLError as e:
+            self._last_error = f'Connection failed: {e}'
             return {'error': f'Connection failed: {e}'}
         except Exception as e:
+            self._last_error = str(e)
             return {'error': str(e)}
 
     # ── Symbol conversion ─────────────────────────────────────────
