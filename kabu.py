@@ -10,6 +10,14 @@ import urllib.parse
 from datetime import datetime
 import threading
 
+
+class KabuError(Exception):
+    """Kabu Station error with a stable code for i18n on the frontend."""
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
 # ── Config ────────────────────────────────────────────────────────
 KABU_BASE_URL = 'http://localhost:18080/kabusapi'
 KABU_TEST_URL = 'http://localhost:18081/kabusapi'
@@ -51,10 +59,10 @@ class KabuClient:
         self._order_password = order_password
 
     def authenticate(self, api_password=None):
-        """POST /token — get session token. Returns token string or raises."""
+        """POST /token — get session token. Returns token string or raises KabuError."""
         pw = api_password or self._api_password
         if not pw:
-            raise ValueError('API password not set')
+            raise KabuError('kabu_err_no_password', 'API password not set')
         # Clear any stale token before attempting — on failure, we should NOT claim to be connected
         self._token = None
         body = json.dumps({'APIPassword': pw}).encode('utf-8')
@@ -71,13 +79,13 @@ class KabuClient:
                 self._token = data['Token']
                 self._api_password = pw
                 return self._token
-            raise ConnectionError(f'Auth failed: ResultCode={data.get("ResultCode")}')
+            raise KabuError('kabu_err_auth_failed', f'Auth failed: ResultCode={data.get("ResultCode")}')
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                raise ConnectionError('Kabu Station: wrong API password or session expired. Re-enter password or restart Kabu Station.')
-            raise ConnectionError(f'Kabu Station HTTP error: {e}')
+                raise KabuError('kabu_err_auth', 'Kabu Station: wrong API password or session expired. Re-enter password or restart Kabu Station.')
+            raise KabuError('kabu_err_http', f'Kabu Station HTTP error: {e}')
         except urllib.error.URLError as e:
-            raise ConnectionError(f'Cannot reach Kabu Station: {e}')
+            raise KabuError('kabu_err_unreachable', f'Cannot reach Kabu Station: {e}')
 
     def is_connected(self):
         """Check if we have a stored token. Fast — no network call.

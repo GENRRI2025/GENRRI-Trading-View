@@ -1629,6 +1629,14 @@ const LANG_DATA = {
     kabu_api_pw:'API Password', kabu_order_pw:'Order Password',
     kabu_connect:'Connect', kabu_connecting:'Connecting...',
     kabu_connected:'Connected', kabu_not_connected:'Not connected',
+    kabu_err_auth:'Kabu Station: wrong API password or session expired. Re-enter password or restart Kabu Station.',
+    kabu_err_auth_failed:'Authentication failed. Please check your API password.',
+    kabu_err_unreachable:'Cannot reach Kabu Station. Please ensure the desktop app is running.',
+    kabu_err_http:'Kabu Station HTTP error. Try again or restart Kabu Station.',
+    kabu_err_no_password:'API password is required.',
+    kabu_err_not_available:'Kabu Station module is not available.',
+    kabu_err_unknown:'Connection failed. Please try again.',
+    kabu_err_connection_failed:'Connection failed. Please try again.',
     kabu_live_streaming:'Connected (Live Streaming)', kabu_rest_only:'Connected (REST)',
     data_realtime_kabu:'Real-time (Kabu Station)',
     order_book:'ORDER BOOK',
@@ -1868,6 +1876,14 @@ const LANG_DATA = {
     kabu_api_pw:'APIパスワード', kabu_order_pw:'注文パスワード',
     kabu_connect:'接続', kabu_connecting:'接続中...',
     kabu_connected:'接続済み', kabu_not_connected:'未接続',
+    kabu_err_auth:'kabuステーション：APIパスワードが違うか、セッションが切れました。パスワードを入力し直すか、kabuステーションを再起動してください。',
+    kabu_err_auth_failed:'認証に失敗しました。APIパスワードをご確認ください。',
+    kabu_err_unreachable:'kabuステーションに接続できません。デスクトップアプリが起動していることを確認してください。',
+    kabu_err_http:'kabuステーションでHTTPエラーが発生しました。再試行するか、kabuステーションを再起動してください。',
+    kabu_err_no_password:'APIパスワードを入力してください。',
+    kabu_err_not_available:'kabuステーション連携モジュールが利用できません。',
+    kabu_err_unknown:'接続に失敗しました。もう一度お試しください。',
+    kabu_err_connection_failed:'接続に失敗しました。もう一度お試しください。',
     kabu_live_streaming:'接続中（ライブ配信）', kabu_rest_only:'接続中（REST）',
     data_realtime_kabu:'リアルタイム（kabuステーション）',
     order_book:'板情報',
@@ -2106,6 +2122,14 @@ const LANG_DATA = {
     kabu_api_pw:'API密码', kabu_order_pw:'下单密码',
     kabu_connect:'连接', kabu_connecting:'连接中...',
     kabu_connected:'已连接', kabu_not_connected:'未连接',
+    kabu_err_auth:'kabuStation: API密码错误或会话已过期。请重新输入密码或重启kabuStation。',
+    kabu_err_auth_failed:'认证失败，请检查API密码。',
+    kabu_err_unreachable:'无法连接到kabuStation，请确认桌面应用已开启。',
+    kabu_err_http:'kabuStation HTTP错误，请重试或重启kabuStation。',
+    kabu_err_no_password:'请输入API密码。',
+    kabu_err_not_available:'kabuStation连接模块不可用。',
+    kabu_err_unknown:'连接失败，请重试。',
+    kabu_err_connection_failed:'连接失败，请重试。',
     kabu_live_streaming:'已连接（实时推送）', kabu_rest_only:'已连接（REST）',
     data_realtime_kabu:'实时数据（kabuStation）',
     order_book:'盘口',
@@ -5890,28 +5914,30 @@ async function connectKabuStation() {
   const orderPw = document.getElementById('s-kabu-order-pw').value.trim();
   const status = document.getElementById('kabu-connect-status');
   const btn = document.getElementById('kabu-connect-btn');
-  if (!apiPw) { if (status) status.textContent = 'API password required'; return; }
-  btn.disabled = true; btn.textContent = 'Connecting...';
+  if (!apiPw) { if (status) status.textContent = t('kabu_err_no_password') || 'API password required'; return; }
+  btn.disabled = true; btn.textContent = t('kabu_connecting') || 'Connecting...';
   try {
     const res = await apiFetch('/api/kabu/connect', { method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ api_password: apiPw, order_password: orderPw }) });
     const data = await res.json();
     if (data.success) {
-      if (status) { status.textContent = 'Connected!'; status.style.color = 'var(--green)'; }
+      if (status) { status.textContent = t('kabu_connected') || 'Connected!'; status.style.color = 'var(--green)'; }
       // Save passwords locally
       localStorage.setItem('kabu_api_pw', apiPw);
       if (orderPw) localStorage.setItem('kabu_order_pw', orderPw);
       await checkKabuStatus();
     } else {
-      if (status) { status.textContent = data.error || 'Failed'; status.style.color = 'var(--red)'; }
+      // Prefer translated error code over raw English message
+      const translated = data.error_code ? t(data.error_code) : null;
+      if (status) { status.textContent = translated || data.error || t('kabu_err_unknown') || 'Failed'; status.style.color = 'var(--red)'; }
       // Refresh status so stale "Connected" indicator clears
       await checkKabuStatus();
     }
   } catch(e) {
-    if (status) { status.textContent = 'Connection failed'; status.style.color = 'var(--red)'; }
+    if (status) { status.textContent = t('kabu_err_connection_failed') || 'Connection failed'; status.style.color = 'var(--red)'; }
     await checkKabuStatus();
   }
-  btn.disabled = false; btn.textContent = 'Connect';
+  btn.disabled = false; btn.textContent = t('kabu_connect') || 'Connect';
 }
 
 // ── Order Book ──────────────────────────────────────────────────

@@ -24,11 +24,14 @@ except ImportError:
     HAS_ANTHROPIC = False
 
 try:
-    from kabu import KabuClient
+    from kabu import KabuClient, KabuError
     import kabu_ws
     HAS_KABU = True
 except ImportError:
     HAS_KABU = False
+    class KabuError(Exception):
+        def __init__(self, code='', message=''):
+            super().__init__(message); self.code = code; self.message = message
 
 
 def fetch_google_news(query, max_items=10, lang='ja'):
@@ -3456,12 +3459,12 @@ def _register_kabu_watchlist():
 def kabu_connect():
     """Authenticate with Kabu Station."""
     if not HAS_KABU:
-        return jsonify({'error': 'Kabu Station module not available'}), 400
+        return jsonify({'error': 'Kabu Station module not available', 'error_code': 'kabu_err_not_available'}), 400
     data = request.json or {}
     api_pw = data.get('api_password', '').strip() or KABU_API_PASSWORD
     order_pw = data.get('order_password', '').strip() or KABU_ORDER_PASSWORD
     if not api_pw:
-        return jsonify({'error': 'API password required'}), 400
+        return jsonify({'error': 'API password required', 'error_code': 'kabu_err_no_password'}), 400
 
     kabu = _get_kabu_client()
     print(f'[kabu-connect] api_pw length={len(api_pw)}, first2={api_pw[:2] if len(api_pw)>=2 else "?"}, from_env={bool(KABU_API_PASSWORD)}', flush=True)
@@ -3473,8 +3476,10 @@ def kabu_connect():
         # Register watchlist + portfolio symbols for PUSH streaming
         threading.Thread(target=_register_kabu_watchlist, daemon=True).start()
         return jsonify({'success': True, 'connected': True})
+    except KabuError as e:
+        return jsonify({'error': e.message, 'error_code': e.code}), 400
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': str(e), 'error_code': 'kabu_err_unknown'}), 400
 
 
 @app.route('/api/kabu/register', methods=['POST'])
