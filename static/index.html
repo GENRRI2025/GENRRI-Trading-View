@@ -647,7 +647,8 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   position: relative; background: transparent; border: none;
   overflow: hidden; padding: 0;
 }
-#lw-chart { height: 540px; border-radius: 0; overflow: hidden; }
+/* Chart fills available vertical space — no dead zone below */
+#lw-chart { height: calc(100vh - 210px); min-height: 380px; max-height: 820px; border-radius: 0; overflow: hidden; }
 #draw-canvas { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; z-index: 5; }
 .ohlc-tooltip {
   position: absolute; top: 14px; left: 14px; z-index: 10;
@@ -1635,21 +1636,29 @@ function toggleSidebar() {
   sidebarCollapsed = !sidebarCollapsed;
   localStorage.setItem('genrri_sidebar_collapsed', sidebarCollapsed ? '1' : '0');
   document.getElementById('app').classList.toggle('sidebar-collapsed', sidebarCollapsed);
-  // Force chart reflow after the grid settles — ResizeObserver can miss it
-  setTimeout(forceChartResize, 50);
-  setTimeout(forceChartResize, 220);  // second pass in case of CSS transition
+  // Force chart reflow after the grid settles — multi-pass, covers CSS transitions
+  [30, 120, 300].forEach(d => setTimeout(() => {
+    forceChartResize();
+    window.dispatchEvent(new Event('resize'));  // also nudges any other libs listening
+  }, d));
 }
 function forceChartResize() {
   if (typeof lwChart === 'undefined' || !lwChart) return;
   try {
     const container = document.getElementById('lw-chart');
-    if (container && container.clientWidth > 0) {
-      lwChart.applyOptions({ width: container.clientWidth });
-      lwChart.timeScale().fitContent();
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      // Use chart.resize() explicitly — some versions don't shrink via applyOptions alone
+      if (typeof lwChart.resize === 'function') {
+        lwChart.resize(Math.round(rect.width), Math.round(rect.height));
+      } else {
+        lwChart.applyOptions({ width: Math.round(rect.width), height: Math.round(rect.height) });
+      }
     }
     if (typeof resizeDrawCanvas === 'function') resizeDrawCanvas();
     if (typeof redrawCanvas === 'function') redrawCanvas();
-  } catch(e) {}
+  } catch(e) { console.warn('[chart] resize failed:', e); }
 }
 // Also handle window resize (which can miss certain grid changes)
 window.addEventListener('resize', () => { if (typeof forceChartResize === 'function') forceChartResize(); });
@@ -2419,7 +2428,7 @@ function initLWChart() {
   if (lwChart) { try { lwChart.remove(); } catch(e) {} lwChart = null; mainSeries = null; volSeries = null; maSeries = {}; bbSeries = {}; }
   const c = chartColors();
   lwChart = LightweightCharts.createChart(container, {
-    width: container.clientWidth || 600, height: 440,
+    autoSize: true,  // v4: chart auto-tracks its container's size
     layout: { background: { type: 'solid', color: 'transparent' }, textColor: c.text2 },
     grid: { vertLines: { color: c.border }, horzLines: { color: c.border } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
@@ -2427,8 +2436,13 @@ function initLWChart() {
     timeScale: { borderColor: c.border, timeVisible: chartType==='candle' ? INTRADAY_CANDLE_INTERVALS.has(currentCandleInterval) : INTRADAY_LINE_PERIODS.has(currentPeriod), secondsVisible: false },
     handleScroll: true, handleScale: true,
   });
-  new ResizeObserver(() => {
-    if (lwChart) lwChart.applyOptions({ width: container.clientWidth });
+  // ResizeObserver as backup (some browsers don't trigger autoSize on grid changes)
+  new ResizeObserver((entries) => {
+    if (!lwChart) return;
+    const rect = entries[0]?.contentRect;
+    if (rect && rect.width > 0) {
+      lwChart.applyOptions({ width: rect.width, height: rect.height });
+    }
     resizeDrawCanvas(); redrawCanvas();
   }).observe(container);
   lwChart.timeScale().subscribeVisibleLogicalRangeChange(() => redrawCanvas());
