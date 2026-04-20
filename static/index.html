@@ -2901,11 +2901,18 @@ async function submitCsv() {
     if (parts.length < 4) { skipped++; continue; }
     const [symbol, action, shares, price, commission, timestamp] = parts;
     if (!symbol || !['buy','sell'].includes(action.toLowerCase())) { skipped++; continue; }
+    const sharesN = parseFloat(shares), priceN = parseFloat(price);
+    const commN = parseFloat(commission || 0);
+    // Backend expects `date` (not `timestamp`) and `commission_pct` (not abs amount).
+    // Convert the CSV's absolute commission to percent-of-total so the backend
+    // stores the same yen amount we imported.
+    const total = sharesN * priceN;
+    const commissionPct = (total > 0 && commN > 0) ? (commN / total * 100) : 0;
     rows.push({
       symbol, action: action.toLowerCase(),
-      shares: parseFloat(shares), price: parseFloat(price),
-      commission: parseFloat(commission || 0),
-      timestamp: timestamp || new Date().toISOString(),
+      shares: sharesN, price: priceN,
+      commission_pct: commissionPct,
+      date: (timestamp || '').trim() || new Date().toISOString().slice(0, 19).replace('T', ' '),
       portfolio_id: pid,
     });
   }
@@ -3069,6 +3076,12 @@ async function saveColorMode() {
     body: JSON.stringify({ color_mode: v }) });
   localStorage.setItem('genrri_colormode', v);
   if (typeof applyColorMode === 'function') applyColorMode();
+  // CSS-var cascade auto-recolors .pos/.neg pills, but LWC caches colors
+  // at createChart time. Reinit the chart so candles/bars/MA lines pick up
+  // the swapped --up/--down values.
+  if (typeof lwChart !== 'undefined' && lwChart && typeof reinitChartAfterLayout === 'function') {
+    reinitChartAfterLayout();
+  }
   flashSavedToast('settings-colormode-saved');
 }
 function saveAIKey() {
