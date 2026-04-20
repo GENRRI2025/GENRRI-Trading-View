@@ -637,7 +637,8 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   overflow: hidden; padding: 0;
 }
 /* Chart fills available vertical space — no dead zone below */
-#lw-chart { height: calc(100vh - 210px); min-height: 380px; max-height: 820px; border-radius: 0; overflow: hidden; }
+/* Chart fits the viewport — no page scroll needed */
+#lw-chart { height: calc(100vh - 230px); min-height: 340px; max-height: 620px; border-radius: 0; overflow: hidden; }
 #draw-canvas { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; z-index: 5; }
 .ohlc-tooltip {
   position: absolute; top: 14px; left: 14px; z-index: 10;
@@ -658,6 +659,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   grid-template-columns: 260px 1fr;
   gap: 14px;
   align-items: start;
+  padding-top: 6px;
 }
 .main-content.mode-watchlists > .page { display: none !important; }
 .main-content.mode-watchlists > #page-watchlists { display: block !important; grid-column: 1; }
@@ -666,10 +668,10 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   .main-content.mode-watchlists { grid-template-columns: 1fr; }
   .main-content.mode-watchlists > #page-chart { grid-column: 1; grid-row: 2; }
 }
-.wl-tabs { display: flex; gap: 2px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; align-items: center; }
+.wl-tabs { display: flex; gap: 2px; margin: -4px 0 2px; overflow-x: auto; scrollbar-width: none; align-items: center; }
 .wl-tabs::-webkit-scrollbar { display: none; }
 .wl-tab {
-  padding: 7px 12px; background: transparent; border: none; color: var(--text2);
+  padding: 5px 12px; background: transparent; border: none; color: var(--text2);
   font-size: 12px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent;
   white-space: nowrap; transition: all 0.15s;
 }
@@ -679,16 +681,16 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .wl-tab .tab-menu { opacity: 0.4; margin-left: 4px; padding: 2px; border-radius: 3px; }
 .wl-tab.active .tab-menu, .wl-tab:hover .tab-menu { opacity: 1; }
 .wl-col-headers {
-  display: grid; grid-template-columns: 1fr 70px 62px;
-  gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--border);
-  font-size: 9px; font-weight: 500; color: var(--text2);
+  display: grid; grid-template-columns: 1fr 72px 66px;
+  gap: 6px; padding: 4px 10px; border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 500; color: var(--text2);
   text-transform: uppercase; letter-spacing: 0.5px;
 }
 .wl-col-headers span:nth-child(2), .wl-col-headers span:nth-child(3) { text-align: right; }
-.wl-body { background: transparent; border: none; border-top: 1px solid var(--border); border-radius: 0; max-height: 70vh; overflow-y: auto; }
+.wl-body { background: transparent; border: none; border-top: 1px solid var(--border); border-radius: 0; max-height: calc(100vh - 200px); overflow-y: auto; }
 .wl-row {
-  display: grid; grid-template-columns: 1fr 70px 62px;
-  gap: 6px; align-items: center; padding: 8px 10px; cursor: pointer;
+  display: grid; grid-template-columns: 1fr 72px 66px;
+  gap: 6px; align-items: center; padding: 9px 10px; cursor: pointer;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   transition: background 0.1s;
 }
@@ -696,10 +698,10 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .wl-row.active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .wl-row:last-child { border-bottom: none; }
 .wl-row-sym { min-width: 0; }
-.wl-row-sym-code { font-weight: 600; color: var(--text); font-size: 12px; }
-.wl-row-sym-name { font-size: 10px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wl-row-price { text-align: right; font-weight: 500; color: var(--text); font-size: 12px; }
-.wl-row-chg { text-align: right; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.wl-row-sym-code { font-weight: 600; color: var(--text); font-size: 14px; }
+.wl-row-sym-name { font-size: 11px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-row-price { text-align: right; font-weight: 500; color: var(--text); font-size: 13px; }
+.wl-row-chg { text-align: right; padding: 3px 6px; border-radius: 4px; font-size: 12px; font-weight: 500; }
 .wl-row-chg.pos { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
 .wl-row-chg.neg { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
 
