@@ -36,8 +36,9 @@
 }
 [data-theme="gold"] {
   /* Softer warm-charcoal instead of near-pure black — easier on eyes for long sessions.
-     Text is warm cream (not pure white) so contrast is reduced without losing readability. */
-  --bg: #1a1610; --surface: #211c13; --surface2: #2b2518; --border: #554726;
+     Text is warm cream (not pure white) so contrast is reduced without losing readability.
+     Borders are gold-tinted to match the theme aesthetic. */
+  --bg: #1a1610; --surface: #211c13; --surface2: #2b2518; --border: #6b5528;
   --text: #ede3c6; --text2: #b39f75; --accent: #d4af37; --accent2: #c9a227;
   --green: #00d4aa; --red: #ff4d6a; --chart-grid: #2f2818;
 }
@@ -286,8 +287,14 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 }
 [data-theme="gold"] .panel, [data-theme="gold"] .pf-header, [data-theme="gold"] .pf-stat,
 [data-theme="gold"] .holdings-list, [data-theme="gold"] .chart-toolbar, [data-theme="gold"] .chart-host,
-[data-theme="gold"] .idx-card {
-  border-color: color-mix(in srgb, var(--border) 120%, var(--accent) 8%);
+[data-theme="gold"] .idx-card, [data-theme="gold"] .chart-panel {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+/* Gold theme: row separators also gold-tinted */
+[data-theme="gold"] .holding-row,
+[data-theme="gold"] .wl-row,
+[data-theme="gold"] .mover-row {
+  border-bottom-color: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .idx-item {
   display: flex; flex-direction: column; gap: 2px;
@@ -609,7 +616,12 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 }
 
 /* ═══════════════════ SESSION 2: CHART ═══════════════════ */
-.chart-toolbar { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
+/* Chart panel: single unified container — toolbar + chart in one tile */
+.chart-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; box-shadow: 0 1px 2px color-mix(in srgb, #000 8%, transparent);
+}
+.chart-toolbar { background: transparent; border: none; padding: 8px 10px; }
 .ct-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 4px 0; }
 .ct-row:not(:last-child) { border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 4px; }
 .ct-periods { display: flex; gap: 2px; flex-wrap: wrap; }
@@ -643,7 +655,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 }
 #ma-cfg-panel input:focus { outline: none; }
 .chart-host {
-  position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  position: relative; background: transparent; border: none; border-top: 1px solid var(--border);
   overflow: hidden; padding: 8px;
 }
 #lw-chart { height: 440px; border-radius: 6px; overflow: hidden; }
@@ -1123,6 +1135,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 
       <!-- ═══ CHART PAGE ═══ -->
       <div class="page" id="page-chart">
+        <div class="chart-panel">
         <div class="chart-toolbar">
           <!-- Row 1: period + chart type -->
           <div class="ct-row">
@@ -1189,6 +1202,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
           <canvas id="draw-canvas"></canvas>
           <div class="ohlc-tooltip" id="ohlc-tooltip" style="display:none"></div>
         </div>
+        </div><!-- /chart-panel -->
       </div>
     </div>
   </main>
