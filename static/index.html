@@ -261,7 +261,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   background: var(--surface); scrollbar-width: thin;
 }
 /* Panel cards: just a single 1px border, no shadows, blends with bg */
-.pf-header { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 16px 16px; }
+.pf-header { background: transparent; border: none; padding: 20px 16px 14px; }
 
 /* Subtle row separators — ────────────────────────── */
 .holding-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
@@ -274,16 +274,14 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .holding-row:hover, .wl-row:hover, .mover-row:hover { border-left-color: var(--accent); }
 .wl-row.active { border-left-color: var(--accent); }
 .panel-header { border-bottom: 1px solid var(--border); }
-/* Gold theme: subtle gold-tint on panel borders — blends rather than stands out */
-[data-theme="gold"] .panel, [data-theme="gold"] .pf-header, [data-theme="gold"] .pf-stat,
-[data-theme="gold"] .holdings-list, [data-theme="gold"] .chart-host,
-[data-theme="gold"] .idx-card, [data-theme="gold"] .chart-panel {
-  border-color: color-mix(in srgb, var(--accent) 12%, var(--border));
+/* Gold theme: subtle gold-tint only on elements that still have borders */
+[data-theme="gold"] .panel, [data-theme="gold"] .idx-card, [data-theme="gold"] .pf-stats {
+  border-color: color-mix(in srgb, var(--accent) 10%, var(--border));
 }
 [data-theme="gold"] .holding-row,
 [data-theme="gold"] .wl-row,
 [data-theme="gold"] .mover-row {
-  border-bottom-color: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 .idx-item {
   display: flex; flex-direction: column; gap: 2px;
@@ -393,22 +391,24 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .pf-header-value { font-size: 30px; font-weight: 600; color: var(--text); }
 .pf-header-change { font-size: 13px; font-weight: 500; margin-top: 4px; }
 
-.pf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 18px; }
-.pf-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; }
+.pf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0; margin-bottom: 22px; background: transparent; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.pf-stat { background: transparent; border: none; border-right: 1px solid color-mix(in srgb, var(--border) 60%, transparent); padding: 14px 16px; }
+.pf-stat:last-child { border-right: none; }
+@media (max-width: 700px) { .pf-stat { border-right: none; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); } .pf-stat:last-child { border-bottom: none; } }
 .pf-stat-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
 .pf-stat-value { font-size: 17px; font-weight: 600; color: var(--text); }
 .pf-stat-value.pos { color: var(--up); }
 .pf-stat-value.neg { color: var(--down); }
 .pf-stat-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
 
-.perf-chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 18px; }
+.perf-chart-wrap { background: transparent; border: none; padding: 8px 0; margin-bottom: 18px; }
 .perf-chart-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
 .perf-chart-periods { display: flex; gap: 4px; margin-left: auto; }
 .perf-chart-canvas { position: relative; height: 200px; }
 
 .holdings-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .holdings-title { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
-.holdings-list { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.holdings-list { background: transparent; border: none; border-top: 1px solid var(--border); border-radius: 0; overflow: hidden; }
 .holding-row {
   display: grid; grid-template-columns: 1fr auto auto auto;
   gap: 12px; align-items: center; padding: 10px 14px;
@@ -605,12 +605,12 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 }
 
 /* ═══════════════════ SESSION 2: CHART ═══════════════════ */
-/* Chart panel: single unified container — toolbar + chart in one tile */
+/* Chart panel: toolbar + chart flowing naturally, no border cage */
 .chart-panel {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-  overflow: hidden; box-shadow: 0 1px 2px color-mix(in srgb, #000 8%, transparent);
+  background: transparent; border: none; border-radius: 0;
+  overflow: hidden;
 }
-.chart-toolbar { background: transparent; border: none; padding: 8px 10px; }
+.chart-toolbar { background: transparent; border: none; padding: 4px 0 8px; }
 .ct-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 4px 0; }
 .ct-row:not(:last-child) { border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 4px; }
 .ct-periods { display: flex; gap: 2px; flex-wrap: wrap; }
@@ -644,11 +644,11 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 }
 #ma-cfg-panel input:focus { outline: none; }
 .chart-host {
-  position: relative; background: transparent; border: none; border-top: 1px solid var(--border);
-  overflow: hidden; padding: 8px;
+  position: relative; background: transparent; border: none;
+  overflow: hidden; padding: 0;
 }
-#lw-chart { height: 440px; border-radius: 6px; overflow: hidden; }
-#draw-canvas { position: absolute; top: 8px; left: 8px; right: 8px; pointer-events: none; z-index: 5; }
+#lw-chart { height: 460px; border-radius: 0; overflow: hidden; }
+#draw-canvas { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; z-index: 5; }
 .ohlc-tooltip {
   position: absolute; top: 14px; left: 14px; z-index: 10;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
