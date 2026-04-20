@@ -20,7 +20,7 @@
 <style>
 /* ═══════════════════ THEMES ═══════════════════ */
 [data-theme="dark"] {
-  --bg: #0a0e1a; --surface: #111827; --surface2: #1a2235; --border: #1e2d45;
+  --bg: #0a0e1a; --surface: #111827; --surface2: #1a2235; --border: #283a5c;
   --text: #e8eaf0; --text2: #7b8499; --accent: #00d4aa; --accent2: #0099ff;
   --green: #00d4aa; --red: #ff4d6a; --chart-grid: #1e2d45;
 }
@@ -37,7 +37,7 @@
 [data-theme="gold"] {
   /* Softer warm-charcoal instead of near-pure black — easier on eyes for long sessions.
      Text is warm cream (not pure white) so contrast is reduced without losing readability. */
-  --bg: #1a1610; --surface: #211c13; --surface2: #2b2518; --border: #3d3420;
+  --bg: #1a1610; --surface: #211c13; --surface2: #2b2518; --border: #554726;
   --text: #ede3c6; --text2: #b39f75; --accent: #d4af37; --accent2: #c9a227;
   --green: #00d4aa; --red: #ff4d6a; --chart-grid: #2f2818;
 }
@@ -259,6 +259,35 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 [data-theme="gold"] .panel, [data-theme="gold"] .pf-header, [data-theme="gold"] .holdings-list,
 [data-theme="gold"] .chart-toolbar, [data-theme="gold"] .chart-host, [data-theme="gold"] .pf-stat, [data-theme="gold"] .idx-card {
   box-shadow: 0 1px 2px color-mix(in srgb, #1a1008 40%, transparent);
+}
+
+/* MOOMOO-STYLE STRONGER GRID BORDERS ────────────────────────── */
+/* Dividers between holding rows */
+.holding-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+.holding-row:last-child { border-bottom: none; }
+/* Dividers between watchlist rows (already there but make more visible) */
+.wl-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+/* Dividers between mover rows */
+.mover-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+.mover-row:last-child { border-bottom: none; }
+/* Left accent bar on hover (Moomoo highlight) */
+.holding-row, .wl-row, .mover-row { border-left: 2px solid transparent; transition: border-left-color 0.1s, background 0.1s; }
+.holding-row:hover, .wl-row:hover, .mover-row:hover { border-left-color: var(--accent); }
+.wl-row.active { border-left-color: var(--accent); }
+/* Panel header bottom border — subtle but visible */
+.panel-header { border-bottom: 1px solid var(--border); }
+/* Section title under-lines */
+.holdings-title, .panel-title { position: relative; }
+/* Make main panel borders feel more like tiles — accent the top edge on dark themes */
+[data-theme="dark"] .panel, [data-theme="dark"] .pf-header, [data-theme="dark"] .pf-stat,
+[data-theme="dark"] .holdings-list, [data-theme="dark"] .chart-toolbar, [data-theme="dark"] .chart-host,
+[data-theme="dark"] .idx-card {
+  border-color: color-mix(in srgb, var(--border) 100%, transparent);
+}
+[data-theme="gold"] .panel, [data-theme="gold"] .pf-header, [data-theme="gold"] .pf-stat,
+[data-theme="gold"] .holdings-list, [data-theme="gold"] .chart-toolbar, [data-theme="gold"] .chart-host,
+[data-theme="gold"] .idx-card {
+  border-color: color-mix(in srgb, var(--border) 120%, var(--accent) 8%);
 }
 .idx-item {
   display: flex; flex-direction: column; gap: 2px;
