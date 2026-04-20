@@ -5904,9 +5904,12 @@ async function connectKabuStation() {
       await checkKabuStatus();
     } else {
       if (status) { status.textContent = data.error || 'Failed'; status.style.color = 'var(--red)'; }
+      // Refresh status so stale "Connected" indicator clears
+      await checkKabuStatus();
     }
   } catch(e) {
     if (status) { status.textContent = 'Connection failed'; status.style.color = 'var(--red)'; }
+    await checkKabuStatus();
   }
   btn.disabled = false; btn.textContent = 'Connect';
 }

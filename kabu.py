@@ -53,6 +53,8 @@ class KabuClient:
         pw = api_password or self._api_password
         if not pw:
             raise ValueError('API password not set')
+        # Clear any stale token before attempting — on failure, we should NOT claim to be connected
+        self._token = None
         body = json.dumps({'APIPassword': pw}).encode('utf-8')
         req = urllib.request.Request(
             f'{self.base_url}/token',
