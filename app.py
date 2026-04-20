@@ -1939,6 +1939,45 @@ SP500_TOP_TICKERS = [
     'LRCX','SO','PANW','ADP','TMUS','BSX','SLB','MU','ICE','EQIX',
 ]
 
+# Static sector map — used as fallback when STOCK_INFO_CACHE is cold
+# (most stocks never hit /api/stock-info, so we'd otherwise show "Unknown"
+# for the entire heatmap on US). Sector names match yfinance conventions.
+STATIC_SECTOR_MAP = {
+    # US — S&P 500 top 100
+    'AAPL':'Technology','MSFT':'Technology','NVDA':'Technology','AVGO':'Technology',
+    'CRM':'Technology','ADBE':'Technology','CSCO':'Technology','AMD':'Technology',
+    'TXN':'Technology','QCOM':'Technology','ORCL':'Technology','INTC':'Technology',
+    'IBM':'Technology','INTU':'Technology','ACN':'Technology','LRCX':'Technology',
+    'MU':'Technology','PANW':'Technology','ADI':'Technology',
+    'GOOGL':'Communication Services','GOOG':'Communication Services','META':'Communication Services',
+    'NFLX':'Communication Services','CMCSA':'Communication Services','DIS':'Communication Services',
+    'VZ':'Communication Services','T':'Communication Services','TMUS':'Communication Services',
+    'AMZN':'Consumer Cyclical','TSLA':'Consumer Cyclical','HD':'Consumer Cyclical',
+    'MCD':'Consumer Cyclical','NKE':'Consumer Cyclical','LOW':'Consumer Cyclical',
+    'SBUX':'Consumer Cyclical','BKNG':'Consumer Cyclical','TJX':'Consumer Cyclical',
+    'WMT':'Consumer Defensive','PG':'Consumer Defensive','COST':'Consumer Defensive',
+    'KO':'Consumer Defensive','PEP':'Consumer Defensive','PM':'Consumer Defensive',
+    'MDLZ':'Consumer Defensive','MO':'Consumer Defensive',
+    'UNH':'Healthcare','JNJ':'Healthcare','MRK':'Healthcare','ABBV':'Healthcare',
+    'LLY':'Healthcare','TMO':'Healthcare','ABT':'Healthcare','DHR':'Healthcare',
+    'PFE':'Healthcare','AMGN':'Healthcare','BMY':'Healthcare','MDT':'Healthcare',
+    'ISRG':'Healthcare','SYK':'Healthcare','GILD':'Healthcare','CVS':'Healthcare',
+    'CI':'Healthcare','REGN':'Healthcare','VRTX':'Healthcare','ELV':'Healthcare',
+    'ZTS':'Healthcare','BSX':'Healthcare',
+    'BRK-B':'Financial Services','JPM':'Financial Services','V':'Financial Services',
+    'MA':'Financial Services','BAC':'Financial Services','WFC':'Financial Services',
+    'MS':'Financial Services','GS':'Financial Services','AXP':'Financial Services',
+    'SPGI':'Financial Services','BLK':'Financial Services','SCHW':'Financial Services',
+    'C':'Financial Services','ICE':'Financial Services',
+    'XOM':'Energy','CVX':'Energy','COP':'Energy','SLB':'Energy',
+    'RTX':'Industrials','UNP':'Industrials','HON':'Industrials','DE':'Industrials',
+    'CAT':'Industrials','GE':'Industrials','UPS':'Industrials','LMT':'Industrials',
+    'ETN':'Industrials','ADP':'Industrials',
+    'LIN':'Basic Materials',
+    'NEE':'Utilities','SO':'Utilities',
+    'AMT':'Real Estate','EQIX':'Real Estate',
+}
+
 
 def _movers_refresh():
     """Batch-fetch the curated universe via yf.download, compute top gainers/losers
@@ -2012,13 +2051,13 @@ def _movers_refresh():
 
 
 def _compute_heatmap(results):
-    """Group results by sector (from STOCK_INFO_CACHE) and compute aggregates."""
+    """Group results by sector (from STOCK_INFO_CACHE, with static fallback)."""
     sectors = {}
     for r in results:
         sym = r['symbol']
         # Look up sector from cached stock info (populated lazily elsewhere)
         cached_info = STOCK_INFO_CACHE.get(sym, {}).get('data') if STOCK_INFO_CACHE.get(sym) else None
-        sector = (cached_info or {}).get('sector') or 'Unknown'
+        sector = (cached_info or {}).get('sector') or STATIC_SECTOR_MAP.get(sym) or 'Unknown'
         if sector not in sectors:
             sectors[sector] = {'sector': sector, 'stocks': [], 'change_sum': 0.0, 'count': 0}
         sectors[sector]['stocks'].append(r)
