@@ -2214,6 +2214,16 @@ function renderPerfChart(data) {
 // ═════════════════════════════════════════════════════════════
 // ═══ RIGHT DETAIL PANEL ══════════════════════════════════════
 // ═════════════════════════════════════════════════════════════
+// Indices (^N225, ^GSPC, ^DJI, ^IXIC, ^TOPX) and Yahoo FX pairs (USDJPY=X)
+// are calculated benchmarks / quotes — not tradeable instruments.
+function isTradeable(sym) {
+  if (!sym) return false;
+  if (sym.startsWith('^')) return false;    // index
+  if (sym.endsWith('=X')) return false;     // FX quote
+  if (sym.startsWith('=')) return false;    // Yahoo future/index variants
+  return true;
+}
+
 async function selectStock(symbol) {
   if (!symbol) return;
   currentSymbol = symbol;
@@ -2221,6 +2231,9 @@ async function selectStock(symbol) {
   const clean = symbol.replace('.T','').replace('=X','').replace('^','');
   document.getElementById('dp-sym').textContent = clean;
   document.getElementById('dp-name').textContent = '—';
+  // Hide Buy/Sell buttons for indices & FX pairs — not actually tradeable
+  const actions = document.querySelector('.dp-actions');
+  if (actions) actions.style.display = isTradeable(symbol) ? '' : 'none';
   // Mobile: open drawer
   if (window.innerWidth < 900) document.getElementById('detail')?.classList.add('open');
   // Clear stats
@@ -2601,6 +2614,10 @@ function closeSearch() {
 // ═════════════════════════════════════════════════════════════
 async function openTradeModal(action) {
   if (!currentSymbol) { toast('Select a stock first', 'err'); return; }
+  if (!isTradeable(currentSymbol)) {
+    toast(t('not_tradeable') || 'Indices and FX pairs are not tradeable.', 'err');
+    return;
+  }
   const sym = currentSymbol;
   let price = 0, name = sym;
   try { const q = await (await apiFetch('/api/quote/' + encodeURIComponent(sym))).json(); if (q && !q.error) price = q.price || 0; } catch(e) {}
