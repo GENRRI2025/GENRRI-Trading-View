@@ -1,6 +1,6 @@
 // Bump this version every time you deploy a significant update.
 // Changing it forces ALL browsers to drop the old cache immediately.
-const CACHE = 'genrri-v117';
+const CACHE = 'genrri-v118';
 const DATA_CACHE = 'genrri-data-v2';
 
 // Only cache third-party CDN assets (charts library etc.) — never the app HTML/JS.
@@ -10,7 +10,7 @@ const CDN_CACHE = [
 ];
 
 // API endpoints to cache for offline viewing (read-only GET endpoints)
-const CACHEABLE_API = ['/api/portfolio', '/api/transactions', '/api/watchlist', '/api/portfolio-history', '/api/portfolio-history-intraday', '/api/settings', '/api/financials', '/api/analyst', '/api/corporate-actions', '/api/holders'];
+const CACHEABLE_API = ['/api/portfolio', '/api/transactions', '/api/watchlist', '/api/portfolio-history', '/api/portfolio-history-intraday', '/api/settings', '/api/financials', '/api/analyst', '/api/corporate-actions', '/api/holders', '/api/alerts'];
 
 self.addEventListener('install', e => {
   e.waitUntil(

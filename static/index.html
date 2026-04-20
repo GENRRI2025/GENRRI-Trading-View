@@ -455,7 +455,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .dp-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 .dp-tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--border); }
-.dp-tab { background: transparent; border: none; color: var(--text2); padding: 10px 12px; font-size: 12px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+.dp-tab { background: transparent; border: none; color: var(--text2); padding: 10px 9px; font-size: 12px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
 .dp-tab:hover { color: var(--text); }
 .dp-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .dp-tab-content { padding: 12px; font-size: 11px; }
@@ -585,6 +585,17 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   .detail.open { transform: translateY(0); }
   .index-strip { padding: 6px 12px; }
   .markets-grid { grid-template-columns: 1fr; }
+  /* Transactions + Alerts: stack filter controls */
+  .txn-filters { flex-direction: column; align-items: stretch; gap: 8px; }
+  .txn-filter-group { min-width: 0; }
+  .txn-filter-actions { margin-left: 0; }
+  .txn-table-head, .txn-row { font-size: 10.5px; padding: 6px 6px; }
+  /* dp-tabs: allow horizontal scroll with 5 tabs on narrow panels */
+  .dp-tabs { overflow-x: auto; scrollbar-width: none; }
+  .dp-tabs::-webkit-scrollbar { display: none; }
+  .dp-tab { padding: 10px 8px; font-size: 11.5px; }
+  /* Settings panels tighter */
+  #page-settings .panel { padding: 14px !important; }
 }
 @media (max-width: 640px) {
   .main-content { padding: 10px 12px 16px; }
@@ -722,6 +733,85 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .sidebar-recent-item .sr-code { font-weight: 600; color: var(--text); font-size: 11px; min-width: 0; flex-shrink: 0; }
 .sidebar-recent-item .sr-chg { margin-left: auto; font-size: 10px; font-variant-numeric: tabular-nums; }
 .app-shell.sidebar-collapsed .sidebar-recent { display: none; }
+
+/* ═══════════════════ SESSION 3: TRANSACTIONS / ALERTS TABLES ═══════════════════ */
+.txn-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; padding: 6px 4px 14px; }
+.txn-filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+.txn-filter-group label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); font-weight: 500; }
+.txn-filter-group select, .txn-filter-group input {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 8px; color: var(--text); font-size: 12px;
+}
+.txn-filter-group select:focus, .txn-filter-group input:focus { outline: none; border-color: var(--accent); }
+.txn-filter-actions { margin-left: auto; display: flex; gap: 8px; }
+
+.txn-table-wrap { background: transparent; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.txn-table-head {
+  display: grid; grid-template-columns: 130px 1fr 56px 82px 70px 84px 96px 80px 56px;
+  gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 500; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0;
+  background: var(--bg); z-index: 2;
+}
+.txn-table-head .num { text-align: right; }
+.txn-table-head .sortable { cursor: pointer; user-select: none; }
+.txn-table-head .sortable:hover { color: var(--text); }
+.txn-table-head .sortable.active { color: var(--accent); }
+.txn-table-head .sortable.active::after { content: '↓'; margin-left: 2px; }
+.txn-table-head .sortable.active.asc::after { content: '↑'; }
+.txn-table-body { max-height: calc(100vh - 200px); overflow-y: auto; }
+.txn-row {
+  display: grid; grid-template-columns: 130px 1fr 56px 82px 70px 84px 96px 80px 56px;
+  gap: 10px; padding: 9px 12px; align-items: center;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  font-size: 12px; transition: background 0.1s;
+}
+.txn-row:hover { background: var(--surface2); }
+.txn-row .num { text-align: right; font-variant-numeric: tabular-nums; }
+.txn-row .action-pill {
+  display: inline-block; padding: 2px 7px; border-radius: 4px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.txn-row .action-pill.buy { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+.txn-row .action-pill.sell { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
+.txn-row .action-pill.deposit { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.txn-row .action-pill.withdrawal { background: color-mix(in srgb, var(--text2) 20%, transparent); color: var(--text2); }
+.txn-row .action-pill.fx { background: color-mix(in srgb, var(--accent2) 18%, transparent); color: var(--accent2); }
+.txn-row .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+.txn-row .row-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text2);
+  padding: 3px 7px; border-radius: 4px; font-size: 10px; cursor: pointer; transition: all 0.1s;
+}
+.txn-row .row-btn:hover { border-color: var(--accent); color: var(--accent); }
+.txn-row .row-btn.danger:hover { border-color: var(--down); color: var(--down); }
+.txn-pnl { text-align: right; font-size: 11px; padding: 2px 6px; border-radius: 4px; min-width: 60px; }
+.txn-pnl.pos { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+.txn-pnl.neg { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
+
+.alerts-table-head {
+  display: grid; grid-template-columns: 100px 100px 120px 1fr 120px 90px;
+  gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 500; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.alerts-table-head .num { text-align: right; }
+.alert-row {
+  display: grid; grid-template-columns: 100px 100px 120px 1fr 120px 90px;
+  gap: 10px; padding: 9px 12px; align-items: center; font-size: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.alert-row:hover { background: var(--surface2); }
+.alert-row .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Mobile: collapse table columns */
+@media (max-width: 900px) {
+  .txn-table-head, .txn-row { grid-template-columns: 80px 1fr 50px 70px 90px 70px; gap: 6px; font-size: 11px; padding: 7px 8px; }
+  .txn-table-head > :nth-child(2), .txn-row > :nth-child(2),
+  .txn-table-head > :nth-child(5), .txn-row > :nth-child(5) { display: none; }
+  .alerts-table-head, .alert-row { grid-template-columns: 80px 80px 90px 60px; }
+  .alerts-table-head > :nth-child(4), .alert-row > :nth-child(4),
+  .alerts-table-head > :nth-child(5), .alert-row > :nth-child(5) { display: none; }
+}
 
 /* ═══════════════════ SESSION 2: DP ORDER BOOK INLINE ═══════════════════ */
 .dp-ob-row { position: relative; display: grid; grid-template-columns: 18px 1fr 1fr; gap: 6px; padding: 3px 6px; font-size: 11px; }
@@ -877,6 +967,10 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
       <button class="nav-item" data-route="transactions" onclick="go('transactions')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 15.5"/></svg>
         <span data-i18n="nav_history">Transactions</span>
+      </button>
+      <button class="nav-item" data-route="alerts" onclick="go('alerts')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span data-i18n="nav_alerts">Alerts</span>
       </button>
       <button class="nav-item" data-route="settings" onclick="go('settings')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -1050,16 +1144,76 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         <div class="wl-body" id="wl-body"></div>
       </div>
 
-      <!-- ═══ TRANSACTIONS PAGE (placeholder, Session 3) ═══ -->
+      <!-- ═══ TRANSACTIONS PAGE (Session 3) ═══ -->
       <div class="page" id="page-transactions">
-        <div class="panel" style="padding: 40px 20px; text-align: center;">
-          <div class="empty-state-title" data-i18n="txn_history">Transaction History</div>
-          <div class="empty-state-sub" style="margin: 12px 0">Coming in Session 3.</div>
-          <a href="/legacy#/history" class="btn" style="display:inline-block;margin-top:8px;text-decoration:none">Use legacy Transactions page</a>
+        <div class="txn-filters">
+          <div class="txn-filter-group">
+            <label data-i18n="txn_portfolio">Portfolio</label>
+            <select id="txn-pf-filter" onchange="loadTxns()">
+              <option value="__all__" data-i18n="txn_all_pf">All portfolios</option>
+            </select>
+          </div>
+          <div class="txn-filter-group">
+            <label data-i18n="txn_type">Type</label>
+            <select id="txn-type-filter" onchange="renderTxns()">
+              <option value="all" data-i18n="txn_all">All</option>
+              <option value="trade" data-i18n="txn_trades">Trades</option>
+              <option value="buy" data-i18n="txn_buys">Buys</option>
+              <option value="sell" data-i18n="txn_sells">Sells</option>
+              <option value="fund" data-i18n="txn_funds">Deposits / Withdrawals</option>
+              <option value="fx" data-i18n="txn_fx">FX conversions</option>
+            </select>
+          </div>
+          <div class="txn-filter-group">
+            <label data-i18n="txn_symbol">Symbol</label>
+            <input type="text" id="txn-sym-filter" oninput="renderTxns()" placeholder="e.g. 7203 or AAPL"/>
+          </div>
+          <div class="txn-filter-actions">
+            <button class="btn" onclick="openCsvImport()" data-i18n="btn_import_csv">Import CSV</button>
+          </div>
+        </div>
+        <div class="txn-table-wrap">
+          <div class="txn-table-head">
+            <span class="sortable" data-sort="timestamp" onclick="sortTxns('timestamp')" data-i18n="col_date">Date</span>
+            <span class="sortable" data-sort="portfolio_name" onclick="sortTxns('portfolio_name')" data-i18n="col_portfolio">Portfolio</span>
+            <span class="sortable" data-sort="action" onclick="sortTxns('action')" data-i18n="col_action">Action</span>
+            <span class="sortable" data-sort="symbol" onclick="sortTxns('symbol')" data-i18n="col_symbol">Symbol</span>
+            <span class="sortable num" data-sort="shares" onclick="sortTxns('shares')" data-i18n="col_shares">Shares</span>
+            <span class="sortable num" data-sort="price" onclick="sortTxns('price')" data-i18n="col_price">Price</span>
+            <span class="sortable num" data-sort="total" onclick="sortTxns('total')" data-i18n="col_total">Total</span>
+            <span class="sortable num" data-sort="pnl" onclick="sortTxns('pnl')" data-i18n="col_pnl">P/L</span>
+            <span style="text-align:right"></span>
+          </div>
+          <div class="txn-table-body" id="txn-table-body">
+            <div class="empty-state"><div class="empty-state-sub" data-i18n="loading">Loading…</div></div>
+          </div>
         </div>
       </div>
 
-      <!-- ═══ SETTINGS PAGE (compact, Session 1) ═══ -->
+      <!-- ═══ ALERTS PAGE (Session 3) ═══ -->
+      <div class="page" id="page-alerts">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 14px">
+          <div style="font-size:11px;color:var(--text2)" data-i18n="alerts_desc">
+            Price alerts are checked against latest quotes whenever portfolio refreshes.
+          </div>
+          <button class="btn primary" onclick="openAlertModal()" data-i18n="btn_new_alert">+ New Alert</button>
+        </div>
+        <div class="txn-table-wrap">
+          <div class="alerts-table-head">
+            <span data-i18n="col_symbol">Symbol</span>
+            <span data-i18n="col_condition">Condition</span>
+            <span class="num" data-i18n="col_threshold">Threshold</span>
+            <span class="num" data-i18n="col_note">Note</span>
+            <span data-i18n="col_created">Created</span>
+            <span style="text-align:right"></span>
+          </div>
+          <div id="alerts-body">
+            <div class="empty-state"><div class="empty-state-sub" data-i18n="loading">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SETTINGS PAGE (Session 3, full) ═══ -->
       <div class="page" id="page-settings">
         <div class="panel" style="padding: 20px">
           <div class="panel-title" style="margin-bottom:14px" data-i18n="s_account">Account</div>
@@ -1087,6 +1241,32 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
             <button class="btn" data-theme-btn="sand" onclick="setTheme('sand')" data-i18n="theme_sand">Sand</button>
           </div>
         </div>
+
+        <!-- Color Mode (US: green up / CN/JP: red up) -->
+        <div class="panel" style="padding: 20px">
+          <div class="panel-title" style="margin-bottom:8px" data-i18n="s_colormode">Color Convention</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:12px" data-i18n="s_colormode_desc">Choose which color represents price gains.</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="settings-colormode" onchange="saveColorMode()" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text)">
+              <option value="us">US — Green = Up, Red = Down</option>
+              <option value="cn">JP / CN — Red = Up, Green = Down</option>
+            </select>
+            <span id="settings-colormode-saved" style="font-size:11px;color:var(--up);opacity:0;transition:opacity 0.3s"></span>
+          </div>
+        </div>
+
+        <!-- Commission % -->
+        <div class="panel" style="padding: 20px">
+          <div class="panel-title" style="margin-bottom:8px" data-i18n="s_commission">Default Commission</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:12px" data-i18n="s_commission_desc">Default commission rate applied to buy/sell trades (percent).</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="number" id="settings-commission" step="0.01" min="0" max="10" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);width:100px"/>
+            <span style="color:var(--text2);font-size:12px">%</span>
+            <button class="btn primary" onclick="saveCommissionPct()">Save</button>
+            <span id="settings-commission-saved" style="font-size:11px;color:var(--up);opacity:0;transition:opacity 0.3s"></span>
+          </div>
+        </div>
+
         <!-- Kabu Station connection -->
         <div class="panel" style="padding: 20px">
           <div class="panel-title" style="margin-bottom:6px">Kabu Station API</div>
@@ -1106,11 +1286,32 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
           <button class="btn primary" onclick="connectKabu()" id="kabu-connect-btn">Connect</button>
           <div class="kabu-err" id="kabu-err" style="display:none"></div>
         </div>
-        <!-- More settings placeholder -->
+
+        <!-- AI Analyst (Anthropic) -->
         <div class="panel" style="padding: 20px">
-          <div class="panel-title" style="margin-bottom:14px">More Settings</div>
-          <div class="empty-state-sub">AI Analyst, Commission %, CSV Import, Price Alerts coming in Session 3.</div>
-          <a href="/legacy" class="btn" style="display:inline-block;margin-top:12px;text-decoration:none">Open legacy Settings</a>
+          <div class="panel-title" style="margin-bottom:6px" data-i18n="s_ai_analyst">AI Analyst (Anthropic)</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:12px" data-i18n="s_ai_analyst_desc">
+            Paste your Anthropic API key to enable AI-powered stock analysis in the right panel. Key is stored locally in your browser (never sent to our server).
+          </div>
+          <div class="modal-field" style="margin-bottom:10px">
+            <label>Anthropic API Key</label>
+            <input type="password" id="settings-ai-key" placeholder="sk-ant-..." autocomplete="off"/>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn primary" onclick="saveAIKey()">Save Key</button>
+            <button class="btn" onclick="clearAIKey()">Remove Key</button>
+            <span id="settings-ai-key-saved" style="font-size:11px;color:var(--up);opacity:0;transition:opacity 0.3s"></span>
+          </div>
+          <div style="font-size:10px;color:var(--text2);margin-top:10px">
+            Get a key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a>. Estimated cost: ~$0.02 per stock analysis.
+          </div>
+        </div>
+
+        <!-- Danger zone -->
+        <div class="panel" style="padding: 20px">
+          <div class="panel-title" style="margin-bottom:8px;color:var(--down)" data-i18n="s_danger">Danger Zone</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:12px" data-i18n="s_danger_desc">Resets current portfolio: all holdings, cash, and transactions will be cleared.</div>
+          <button class="btn danger" onclick="resetPortfolioConfirm()" data-i18n="s_reset_portfolio">Reset Current Portfolio</button>
         </div>
       </div>
 
@@ -1221,6 +1422,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         <button class="dp-tab" data-tab="news" onclick="setDpTab('news')" data-i18n="info_news">News</button>
         <button class="dp-tab" data-tab="financials" onclick="setDpTab('financials')" data-i18n="info_financials">Financials</button>
         <button class="dp-tab" data-tab="analyst" onclick="setDpTab('analyst')" data-i18n="info_analyst">Analyst</button>
+        <button class="dp-tab" data-tab="ai" onclick="setDpTab('ai')" data-i18n="info_ai">AI</button>
       </div>
       <div class="dp-tab-content" id="dp-tab-content"></div>
 
@@ -1281,7 +1483,28 @@ const LANG_DATA = {
     portfolio_name_prompt:'Portfolio name:',
     portfolio_fund_prompt:'Starting fund amount (e.g. 1000000):',
     cant_delete_main:"Can't delete the main portfolio",
-    info_overview:'Overview', info_financials:'Financials', info_news:'News', info_analyst:'Analyst',
+    info_overview:'Overview', info_financials:'Financials', info_news:'News', info_analyst:'Analyst', info_ai:'AI',
+    nav_alerts:'Alerts', txn_portfolio:'Portfolio', txn_type:'Type', txn_symbol:'Symbol', txn_all_pf:'All portfolios',
+    txn_all:'All', txn_trades:'Trades', txn_buys:'Buys', txn_sells:'Sells', txn_funds:'Deposits / Withdrawals', txn_fx:'FX conversions',
+    col_date:'Date', col_portfolio:'Portfolio', col_action:'Action', col_shares:'Shares', col_total:'Total', col_pnl:'P/L',
+    col_condition:'Condition', col_threshold:'Threshold', col_note:'Note', col_created:'Created',
+    btn_import_csv:'Import CSV', btn_new_alert:'+ New Alert', btn_delete:'Delete',
+    alerts_desc:'Price alerts are checked against latest quotes whenever portfolio refreshes.',
+    new_alert:'New Price Alert', no_alerts:'No alerts. Click + New Alert above to create one.',
+    cond_above:'Price crosses above', cond_below:'Price drops below', optional:'optional',
+    edit_txn:'Edit Transaction', confirm_delete_txn:'Delete this transaction? Holdings will be recalculated.',
+    confirm_delete_alert:'Delete this alert?', confirm_reset_pf:'Reset the current portfolio? All holdings, cash, and transactions will be cleared. This cannot be undone.',
+    s_colormode:'Color Convention', s_colormode_desc:'Choose which color represents price gains.',
+    s_commission:'Default Commission', s_commission_desc:'Default commission rate applied to buy/sell trades (percent).',
+    s_ai_analyst:'AI Analyst (Anthropic)',
+    s_ai_analyst_desc:'Paste your Anthropic API key to enable AI-powered stock analysis in the right panel. Key is stored locally in your browser (never sent to our server).',
+    s_danger:'Danger Zone', s_danger_desc:'Resets current portfolio: all holdings, cash, and transactions will be cleared.',
+    s_reset_portfolio:'Reset Current Portfolio',
+    csv_help:'Expected columns: <code>symbol,action,shares,price,commission,timestamp</code>. Action = buy/sell. Timestamp in YYYY-MM-DD or ISO format.',
+    ai_loading:'Analyzing… this takes ~10 seconds on first load.',
+    ai_no_key:'Add your Anthropic API key in Settings → AI Analyst to enable this feature.',
+    ai_failed:'AI analysis failed',
+    loading:'Loading…',
     info_market_cap:'Market Cap', info_pe:'P/E', info_div_yield:'Div Yield',
     info_52w_high:'52W High', info_52w_low:'52W Low', info_beta:'Beta', info_avg_vol:'Avg Volume',
     info_sector:'Sector', info_industry:'Industry',
@@ -1329,7 +1552,8 @@ const LANG_DATA = {
     portfolio_name_prompt:'ポートフォリオ名:',
     portfolio_fund_prompt:'初期資金額 (例: 1000000):',
     cant_delete_main:'メインポートフォリオは削除できません',
-    info_overview:'概要', info_financials:'財務', info_news:'ニュース', info_analyst:'アナリスト',
+    info_overview:'概要', info_financials:'財務', info_news:'ニュース', info_analyst:'アナリスト', info_ai:'AI',
+    nav_alerts:'アラート', loading:'読み込み中…',
     info_market_cap:'時価総額', info_pe:'PER', info_div_yield:'配当利回り',
     info_52w_high:'52週高値', info_52w_low:'52週安値', info_beta:'ベータ', info_avg_vol:'平均出来高',
     info_sector:'セクター', info_industry:'業種',
@@ -1377,7 +1601,8 @@ const LANG_DATA = {
     portfolio_name_prompt:'组合名称:',
     portfolio_fund_prompt:'初始资金金额 (例: 1000000):',
     cant_delete_main:'不能删除主组合',
-    info_overview:'概览', info_financials:'财务', info_news:'新闻', info_analyst:'分析师',
+    info_overview:'概览', info_financials:'财务', info_news:'新闻', info_analyst:'分析师', info_ai:'AI',
+    nav_alerts:'提醒', loading:'加载中…',
     info_market_cap:'市值', info_pe:'市盈率', info_div_yield:'股息率',
     info_52w_high:'52周最高', info_52w_low:'52周最低', info_beta:'贝塔', info_avg_vol:'平均成交量',
     info_sector:'行业', info_industry:'产业',
@@ -1598,7 +1823,7 @@ async function doLogout() {
 // ═══ ROUTER ══════════════════════════════════════════════════
 // ═════════════════════════════════════════════════════════════
 function go(route) {
-  if (!['markets','watchlists','portfolio','transactions','settings','chart'].includes(route)) route = 'markets';
+  if (!['markets','watchlists','portfolio','transactions','alerts','settings','chart'].includes(route)) route = 'markets';
   currentRoute = route;
   localStorage.setItem('genrri_last_route', route);
   location.hash = '#/' + route;
@@ -1614,6 +1839,7 @@ function go(route) {
     watchlists: t('sort_watchlist') || 'Watchlists',
     portfolio: t('nav_portfolio') || 'Portfolio',
     transactions: t('nav_history') || 'Transactions',
+    alerts: t('nav_alerts') || 'Alerts',
     settings: t('nav_settings') || 'Settings',
     chart: 'Chart',
   };
@@ -1621,6 +1847,9 @@ function go(route) {
   // Load data for route
   if (route === 'markets') loadMarkets();
   if (route === 'portfolio') loadPortfolio();
+  if (route === 'transactions') loadTxns();
+  if (route === 'alerts') loadAlerts();
+  if (route === 'settings') loadSettingsPage();
   // Close mobile drawer if open
   if (window.innerWidth < 900) document.getElementById('detail')?.classList.remove('open');
 }
@@ -2050,6 +2279,7 @@ function setDpTab(tab) {
   else if (tab === 'news') renderDpNews(currentSymbol, body);
   else if (tab === 'financials') renderDpFinancials(currentSymbol, body);
   else if (tab === 'analyst') renderDpAnalyst(currentSymbol, body);
+  else if (tab === 'ai') renderDpAI(currentSymbol, body);
 }
 async function renderDpQuote(symbol, body) {
   body.innerHTML = `<div class="dp-placeholder">${t('info_loading')}</div>`;
@@ -2399,7 +2629,7 @@ async function openTradeModal(action) {
     </div>
     <div class="modal-field">
       <label>${t('trade_commission')} %</label>
-      <input type="number" id="qt-fee" min="0" max="100" step="0.01" value="1" oninput="_qtUpdate()"/>
+      <input type="number" id="qt-fee" min="0" max="100" step="0.01" value="${localStorage.getItem('genrri_commission_pct') || '0.1'}" oninput="_qtUpdate()"/>
     </div>
     <div class="qt-summary">
       <div class="qt-row"><span>${t('trade_est_total')}</span><span id="qt-total">¥0</span></div>
@@ -2449,6 +2679,481 @@ async function _qtExec(symbol, action, price) {
   } catch(e) {
     msg.textContent = 'Trade failed'; msg.className = 'modal-msg err';
     btn.disabled = false; btn.textContent = action === 'buy' ? t('trade_buy') : t('trade_sell');
+  }
+}
+
+// ═════════════════════════════════════════════════════════════
+// ═══ SESSION 3: TRANSACTIONS ════════════════════════════════
+// ═════════════════════════════════════════════════════════════
+let _txnCache = [];
+let _txnSort = { key: 'timestamp', asc: false };
+
+async function loadTxns() {
+  const body = document.getElementById('txn-table-body');
+  if (body) body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">${t('loading') || 'Loading…'}</div></div>`;
+
+  // Populate portfolio filter
+  const pfSel = document.getElementById('txn-pf-filter');
+  if (pfSel && pfSel.options.length <= 1 && Array.isArray(portfolios) && portfolios.length) {
+    pfSel.innerHTML = `<option value="__all__" data-i18n="txn_all_pf">${t('txn_all_pf') || 'All portfolios'}</option>`
+      + portfolios.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+    pfSel.value = currentPortfolioId || '__all__';
+  }
+
+  const pfVal = pfSel ? pfSel.value : '__all__';
+  const url = pfVal === '__all__'
+    ? '/api/transactions?all=1&include_funds=1'
+    : `/api/transactions?portfolio_id=${encodeURIComponent(pfVal)}&include_funds=1`;
+  try {
+    const r = await apiFetch(url);
+    _txnCache = await r.json();
+    if (!Array.isArray(_txnCache)) _txnCache = [];
+    renderTxns();
+  } catch(e) {
+    if (body) body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">Failed to load.</div></div>`;
+  }
+}
+
+function renderTxns() {
+  const body = document.getElementById('txn-table-body');
+  if (!body) return;
+  const typeFilter = (document.getElementById('txn-type-filter')?.value || 'all').toLowerCase();
+  const symFilter = (document.getElementById('txn-sym-filter')?.value || '').trim().toLowerCase();
+
+  let rows = _txnCache.slice();
+  rows = rows.filter(r => {
+    const src = r.source || 'trade';
+    if (typeFilter === 'trade' && src !== 'trade') return false;
+    if (typeFilter === 'fund' && src !== 'fund') return false;
+    if (typeFilter === 'fx' && src !== 'fx') return false;
+    if (typeFilter === 'buy' && !(src === 'trade' && r.action === 'buy')) return false;
+    if (typeFilter === 'sell' && !(src === 'trade' && r.action === 'sell')) return false;
+    if (symFilter && !(r.symbol || '').toLowerCase().includes(symFilter)) return false;
+    return true;
+  });
+
+  // Sort
+  const { key, asc } = _txnSort;
+  rows.sort((a, b) => {
+    let av = a[key], bv = b[key];
+    if (av == null) av = '';
+    if (bv == null) bv = '';
+    if (typeof av === 'number' && typeof bv === 'number') return asc ? av - bv : bv - av;
+    return asc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+  });
+
+  // Sort indicator on header
+  document.querySelectorAll('.txn-table-head .sortable').forEach(el => {
+    el.classList.toggle('active', el.dataset.sort === key);
+    el.classList.toggle('asc', el.dataset.sort === key && asc);
+  });
+
+  if (!rows.length) { body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">No transactions</div></div>`; return; }
+  body.innerHTML = rows.slice(0, 500).map(r => renderTxnRow(r)).join('');
+}
+
+function renderTxnRow(r) {
+  const src = r.source || 'trade';
+  const date = (r.timestamp || '').slice(0, 16).replace('T', ' ');
+  const pfName = r.portfolio_name || '—';
+  const action = r.action || '';
+  let actionPillClass = action;
+  let actionLabel = action;
+  if (src === 'fund') { actionPillClass = action; actionLabel = action; }
+  else if (src === 'fx') { actionPillClass = 'fx'; actionLabel = 'FX ' + (action || ''); }
+  const sym = r.symbol || (src === 'fund' ? (r.name || '') : (src === 'fx' ? 'USD/JPY' : ''));
+  const shares = (src === 'trade') ? (r.shares || 0) : '';
+  const price = (src === 'trade') ? fmtPrice(r.price) : (src === 'fx' ? fmtPrice(r.price) : '');
+  const total = r.total != null ? fmtPrice(r.total) : '';
+  const pnl = (src === 'trade' && r.pnl != null && r.pnl !== 0) ? r.pnl : null;
+  const pnlHtml = pnl != null
+    ? `<span class="txn-pnl ${pnl >= 0 ? 'pos' : 'neg'}">${pnl >= 0 ? '+' : ''}${fmtPrice(pnl)}</span>`
+    : '<span class="num" style="color:var(--text2)">—</span>';
+  const editable = src === 'trade';
+  return `<div class="txn-row">
+    <span>${escHtml(date)}</span>
+    <span style="color:var(--text2);font-size:11px">${escHtml(pfName)}</span>
+    <span><span class="action-pill ${escHtml(actionPillClass)}">${escHtml(actionLabel)}</span></span>
+    <span style="font-weight:500">${escHtml(sym)}</span>
+    <span class="num">${shares}</span>
+    <span class="num">${price}</span>
+    <span class="num">${total}</span>
+    ${pnlHtml}
+    <span class="row-actions">
+      ${editable ? `<button class="row-btn" title="Edit" onclick="editTxn(${r.id})">✎</button>` : ''}
+      ${editable ? `<button class="row-btn danger" title="Delete" onclick="deleteTxn(${r.id})">×</button>` : ''}
+    </span>
+  </div>`;
+}
+
+function sortTxns(key) {
+  if (_txnSort.key === key) _txnSort.asc = !_txnSort.asc;
+  else { _txnSort.key = key; _txnSort.asc = false; }
+  renderTxns();
+}
+
+async function deleteTxn(id) {
+  if (!confirm(t('confirm_delete_txn') || 'Delete this transaction? Holdings will be recalculated.')) return;
+  try {
+    const r = await apiFetch('/api/transactions/' + id, { method: 'DELETE' });
+    if (!r.ok) { alert('Delete failed'); return; }
+    await loadTxns();
+    if (currentRoute === 'portfolio') loadPortfolio();
+  } catch(e) { alert('Delete failed'); }
+}
+
+function editTxn(id) {
+  const row = _txnCache.find(r => r.id === id);
+  if (!row) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">${t('edit_txn') || 'Edit Transaction'}</div>
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-field"><label>Action</label>
+        <select id="et-action">
+          <option value="buy" ${row.action==='buy'?'selected':''}>Buy</option>
+          <option value="sell" ${row.action==='sell'?'selected':''}>Sell</option>
+        </select>
+      </div>
+      <div class="modal-field"><label>Shares</label><input type="number" id="et-shares" value="${row.shares}" step="any"/></div>
+      <div class="modal-field"><label>Price</label><input type="number" id="et-price" value="${row.price}" step="any"/></div>
+      <div class="modal-field"><label>Commission</label><input type="number" id="et-commission" value="${row.commission||0}" step="any"/></div>
+      <div class="modal-msg" id="et-msg"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+        <button class="btn primary" onclick="saveTxnEdit(${id})">Save</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function saveTxnEdit(id) {
+  const action = document.getElementById('et-action').value;
+  const shares = parseFloat(document.getElementById('et-shares').value);
+  const price = parseFloat(document.getElementById('et-price').value);
+  const commission = parseFloat(document.getElementById('et-commission').value || 0);
+  const msg = document.getElementById('et-msg');
+  if (!shares || !price) { msg.textContent = 'Invalid values'; msg.className = 'modal-msg err'; return; }
+  try {
+    const r = await apiFetch('/api/transactions/' + id, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action, shares, price, commission })
+    });
+    if (!r.ok) { const e = await r.json().catch(() => ({})); msg.textContent = e.error || 'Save failed'; msg.className = 'modal-msg err'; return; }
+    document.querySelector('.modal-overlay')?.remove();
+    await loadTxns();
+    if (currentRoute === 'portfolio') loadPortfolio();
+  } catch(e) { msg.textContent = 'Save failed'; msg.className = 'modal-msg err'; }
+}
+
+// ═════════════════════════════════════════════════════════════
+// ═══ SESSION 3: CSV IMPORT ══════════════════════════════════
+// ═════════════════════════════════════════════════════════════
+function openCsvImport() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">${t('btn_import_csv') || 'Import CSV'}</div>
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:10px">
+        ${t('csv_help') || 'Expected columns: <code>symbol,action,shares,price,commission,timestamp</code>. Action = buy/sell. Timestamp in YYYY-MM-DD or ISO format.'}
+      </div>
+      <textarea id="csv-input" rows="10" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-family:monospace;font-size:11px" placeholder="symbol,action,shares,price,commission,timestamp
+7203,buy,100,2500,50,2024-01-15
+AAPL,buy,10,180.5,0,2024-02-01"></textarea>
+      <div class="modal-field" style="margin-top:10px"><label>Portfolio</label>
+        <select id="csv-portfolio">
+          ${Array.isArray(portfolios) ? portfolios.map(p => `<option value="${p.id}" ${p.id===currentPortfolioId?'selected':''}>${escHtml(p.name)}</option>`).join('') : ''}
+        </select>
+      </div>
+      <div class="modal-msg" id="csv-msg"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+        <button class="btn primary" onclick="submitCsv()" id="csv-submit">Import</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function submitCsv() {
+  const text = document.getElementById('csv-input').value.trim();
+  const pid = document.getElementById('csv-portfolio').value;
+  const msg = document.getElementById('csv-msg');
+  const btn = document.getElementById('csv-submit');
+  if (!text) { msg.textContent = 'Paste CSV data first'; msg.className = 'modal-msg err'; return; }
+
+  // Parse
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const rows = [];
+  let skipped = 0;
+  for (const line of lines) {
+    if (/^symbol/i.test(line)) continue;  // header
+    const parts = line.split(',').map(s => s.trim());
+    if (parts.length < 4) { skipped++; continue; }
+    const [symbol, action, shares, price, commission, timestamp] = parts;
+    if (!symbol || !['buy','sell'].includes(action.toLowerCase())) { skipped++; continue; }
+    rows.push({
+      symbol, action: action.toLowerCase(),
+      shares: parseFloat(shares), price: parseFloat(price),
+      commission: parseFloat(commission || 0),
+      timestamp: timestamp || new Date().toISOString(),
+      portfolio_id: pid,
+    });
+  }
+  if (!rows.length) { msg.textContent = 'No valid rows found'; msg.className = 'modal-msg err'; return; }
+
+  btn.disabled = true; btn.textContent = 'Importing…';
+  let ok = 0, fail = 0;
+  for (const row of rows) {
+    try {
+      const r = await apiFetch('/api/import-transaction', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(row)
+      });
+      if (r.ok) ok++; else fail++;
+    } catch(e) { fail++; }
+  }
+  msg.textContent = `Imported ${ok} · Failed ${fail}${skipped ? ` · Skipped ${skipped}` : ''}`;
+  msg.className = ok > 0 ? 'modal-msg ok' : 'modal-msg err';
+  btn.disabled = false; btn.textContent = 'Import';
+  if (ok > 0) {
+    setTimeout(() => {
+      document.querySelector('.modal-overlay')?.remove();
+      if (currentRoute === 'transactions') loadTxns();
+      if (currentRoute === 'portfolio') loadPortfolio();
+    }, 1500);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════
+// ═══ SESSION 3: PRICE ALERTS ════════════════════════════════
+// ═════════════════════════════════════════════════════════════
+async function loadAlerts() {
+  const body = document.getElementById('alerts-body');
+  if (!body) return;
+  body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">${t('loading') || 'Loading…'}</div></div>`;
+  try {
+    const r = await apiFetch('/api/alerts');
+    const list = await r.json();
+    if (!Array.isArray(list) || !list.length) {
+      body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">${t('no_alerts') || 'No alerts. Click + New Alert above to create one.'}</div></div>`;
+      return;
+    }
+    body.innerHTML = list.map(a => `<div class="alert-row">
+      <span style="font-weight:500">${escHtml(a.symbol)}</span>
+      <span>${a.condition === 'above' ? '▲ ' : '▼ '}${escHtml(a.condition)}</span>
+      <span class="num">${fmtPrice(a.threshold)}</span>
+      <span style="color:var(--text2);font-size:11px">${escHtml(a.note || '—')}</span>
+      <span style="color:var(--text2);font-size:11px">${escHtml((a.created_at || '').slice(0, 10))}</span>
+      <span class="row-actions">
+        <button class="row-btn danger" onclick="deleteAlert(${a.id})">${t('btn_delete') || 'Delete'}</button>
+      </span>
+    </div>`).join('');
+  } catch(e) {
+    body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">Failed to load alerts</div></div>`;
+  }
+}
+
+function openAlertModal(prefillSymbol) {
+  const sym = prefillSymbol || currentSymbol || '';
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">${t('new_alert') || 'New Price Alert'}</div>
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-field"><label>${t('col_symbol') || 'Symbol'}</label>
+        <input type="text" id="al-sym" value="${escHtml(sym)}" placeholder="7203 / AAPL"/>
+      </div>
+      <div class="modal-field"><label>${t('col_condition') || 'Condition'}</label>
+        <select id="al-cond">
+          <option value="above">${t('cond_above') || 'Price crosses above'}</option>
+          <option value="below">${t('cond_below') || 'Price drops below'}</option>
+        </select>
+      </div>
+      <div class="modal-field"><label>${t('col_threshold') || 'Threshold'}</label>
+        <input type="number" id="al-th" step="any" placeholder="2500"/>
+      </div>
+      <div class="modal-field"><label>${t('col_note') || 'Note'} (${t('optional') || 'optional'})</label>
+        <input type="text" id="al-note" placeholder="e.g. Take profit target"/>
+      </div>
+      <div class="modal-msg" id="al-msg"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+        <button class="btn primary" onclick="saveAlert()">Create</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function saveAlert() {
+  const symbol = document.getElementById('al-sym').value.trim();
+  const condition = document.getElementById('al-cond').value;
+  const threshold = parseFloat(document.getElementById('al-th').value);
+  const note = document.getElementById('al-note').value.trim();
+  const msg = document.getElementById('al-msg');
+  if (!symbol || !threshold) { msg.textContent = 'Symbol and threshold required'; msg.className = 'modal-msg err'; return; }
+  try {
+    const r = await apiFetch('/api/alerts', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ symbol, condition, threshold, note })
+    });
+    if (!r.ok) { const e = await r.json().catch(() => ({})); msg.textContent = e.error || 'Save failed'; msg.className = 'modal-msg err'; return; }
+    document.querySelector('.modal-overlay')?.remove();
+    if (currentRoute === 'alerts') loadAlerts();
+  } catch(e) { msg.textContent = 'Save failed'; msg.className = 'modal-msg err'; }
+}
+
+async function deleteAlert(id) {
+  if (!confirm(t('confirm_delete_alert') || 'Delete this alert?')) return;
+  try {
+    await apiFetch('/api/alerts/' + id, { method: 'DELETE' });
+    loadAlerts();
+  } catch(e) {}
+}
+
+// ═════════════════════════════════════════════════════════════
+// ═══ SESSION 3: SETTINGS PAGE LOADER ═════════════════════════
+// ═════════════════════════════════════════════════════════════
+async function loadSettingsPage() {
+  // Mark active theme/lang buttons
+  document.querySelectorAll('[data-theme-btn]').forEach(b => b.classList.toggle('primary', b.dataset.themeBtn === (localStorage.getItem('genrri_theme') || 'dark')));
+  document.querySelectorAll('[data-lang]').forEach(b => b.classList.toggle('primary', b.dataset.lang === (localStorage.getItem('genrri_lang') || 'en')));
+  // Username
+  const u = document.getElementById('settings-username');
+  if (u && authUser) u.textContent = authUser;
+  // Commission — from localStorage (cached) or /api/settings
+  const cpct = document.getElementById('settings-commission');
+  if (cpct) {
+    const cached = localStorage.getItem('genrri_commission_pct');
+    cpct.value = cached != null ? cached : '0.1';
+    try {
+      const r = await apiFetch('/api/settings');
+      const s = await r.json();
+      if (s.commission_pct != null) { cpct.value = s.commission_pct; localStorage.setItem('genrri_commission_pct', s.commission_pct); }
+    } catch(e) {}
+  }
+  // Color mode
+  const cm = document.getElementById('settings-colormode');
+  if (cm) cm.value = localStorage.getItem('genrri_colormode') || 'us';
+  // AI key placeholder
+  const aikey = document.getElementById('settings-ai-key');
+  if (aikey && localStorage.getItem('genrri_ai_key')) aikey.placeholder = '• • • • • • (key saved)';
+  // Kabu status
+  if (typeof checkKabuStatus === 'function') checkKabuStatus();
+}
+
+async function saveCommissionPct() {
+  const v = parseFloat(document.getElementById('settings-commission').value);
+  if (isNaN(v) || v < 0) return;
+  localStorage.setItem('genrri_commission_pct', v);
+  await apiFetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ commission_pct: v }) });
+  flashSavedToast('settings-commission-saved');
+}
+async function saveColorMode() {
+  const v = document.getElementById('settings-colormode').value;
+  await apiFetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ color_mode: v }) });
+  localStorage.setItem('genrri_colormode', v);
+  if (typeof applyColorMode === 'function') applyColorMode();
+  flashSavedToast('settings-colormode-saved');
+}
+function saveAIKey() {
+  const v = document.getElementById('settings-ai-key').value.trim();
+  if (!v) return;
+  // Stored client-side only — never sent to our backend
+  localStorage.setItem('genrri_ai_key', v);
+  document.getElementById('settings-ai-key').value = '';
+  document.getElementById('settings-ai-key').placeholder = '• • • • • • (key saved)';
+  flashSavedToast('settings-ai-key-saved');
+}
+function clearAIKey() {
+  localStorage.removeItem('genrri_ai_key');
+  document.getElementById('settings-ai-key').value = '';
+  document.getElementById('settings-ai-key').placeholder = 'sk-ant-...';
+  flashSavedToast('settings-ai-key-saved');
+}
+async function resetPortfolioConfirm() {
+  if (!confirm(t('confirm_reset_pf') || 'Reset the current portfolio? All holdings, cash, and transactions will be cleared. This cannot be undone.')) return;
+  try {
+    await apiFetch('/api/reset', { method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ portfolio_id: currentPortfolioId }) });
+    alert('Portfolio reset.');
+    if (typeof loadPortfolio === 'function') loadPortfolio();
+  } catch(e) { alert('Reset failed'); }
+}
+function flashSavedToast(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = '✓ Saved';
+  el.style.opacity = '1';
+  setTimeout(() => { el.style.opacity = '0'; }, 1500);
+}
+
+// Color mode: swap green/red up/down colors for US (green up) vs CN/JP (red up) conventions
+function applyColorMode() {
+  const mode = localStorage.getItem('genrri_colormode') || 'us';
+  const root = document.documentElement;
+  if (mode === 'cn') {
+    // CN/JP convention: red = up, green = down
+    root.style.setProperty('--up', 'var(--red)');
+    root.style.setProperty('--down', 'var(--green)');
+  } else {
+    root.style.setProperty('--up', 'var(--green)');
+    root.style.setProperty('--down', 'var(--red)');
+  }
+}
+
+// ═════════════════════════════════════════════════════════════
+// ═══ SESSION 3: AI ANALYST (right panel tab) ═════════════════
+// ═════════════════════════════════════════════════════════════
+async function renderDpAI(symbol, body) {
+  body.innerHTML = `<div class="dp-placeholder">${t('ai_loading') || 'Analyzing… this takes ~10 seconds on first load.'}</div>`;
+  try {
+    const key = localStorage.getItem('genrri_ai_key') || '';
+    const headers = key ? { 'X-AI-Key': key } : {};
+    const lang = localStorage.getItem('genrri_lang') || 'en';
+    const r = await apiFetch(`/api/ai-analysis/${encodeURIComponent(symbol)}?lang=${lang}`, { headers });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      if (e.error === 'NO_KEY') {
+        body.innerHTML = `<div class="dp-placeholder" style="padding:12px 0;font-size:11px;line-height:1.5">
+          ${t('ai_no_key') || 'Add your Anthropic API key in Settings → AI Analyst to enable this feature.'}
+          <div style="margin-top:10px"><button class="btn primary" onclick="go('settings')">Open Settings</button></div>
+        </div>`;
+        return;
+      }
+      body.innerHTML = `<div class="dp-placeholder" style="padding:12px 0;font-size:11px">${escHtml(e.message || 'AI analysis failed')}</div>`;
+      return;
+    }
+    const a = await r.json();
+    const ratingColor = { 'Strong Buy':'var(--up)', 'Buy':'var(--up)', 'Hold':'var(--text2)', 'Sell':'var(--down)', 'Strong Sell':'var(--down)' }[a.rating] || 'var(--text2)';
+    body.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <div style="font-size:18px;font-weight:600;color:${ratingColor}">${escHtml(a.rating)}</div>
+          <div style="font-size:10px;color:var(--text2)">Confidence: ${escHtml(a.confidence)} · ${a.newsCount} articles</div>
+        </div>
+        <button class="row-btn" onclick="renderDpAI('${symbol}', this.closest('.dp-tab-content'))" title="Refresh">⟳</button>
+      </div>
+      <div style="font-size:11px;line-height:1.6;white-space:pre-wrap;max-height:520px;overflow-y:auto;padding-right:4px">${escHtml(a.analysis)}</div>
+      <div style="font-size:9px;color:var(--text2);margin-top:8px;text-align:right">${escHtml(a.timestamp)}</div>
+    `;
+  } catch(e) {
+    body.innerHTML = `<div class="dp-placeholder">${t('ai_failed') || 'AI analysis failed'}</div>`;
   }
 }
 
@@ -2568,11 +3273,14 @@ async function checkKabuStatus() {
 // ═══ INIT ════════════════════════════════════════════════════
 // ═════════════════════════════════════════════════════════════
 async function initApp() {
+  // Apply color mode before anything renders
+  applyColorMode();
   // Load settings (theme, etc.)
   try {
     const r = await apiFetch('/api/settings');
     const settings = await r.json();
     if (settings.theme) setTheme(settings.theme);
+    if (settings.commission_pct != null) localStorage.setItem('genrri_commission_pct', settings.commission_pct);
   } catch(e) {}
   // Set username
   const nameEl = document.getElementById('user-name');
