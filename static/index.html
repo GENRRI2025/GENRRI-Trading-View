@@ -647,7 +647,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   position: relative; background: transparent; border: none;
   overflow: hidden; padding: 0;
 }
-#lw-chart { height: 460px; border-radius: 0; overflow: hidden; }
+#lw-chart { height: 540px; border-radius: 0; overflow: hidden; }
 #draw-canvas { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; z-index: 5; }
 .ohlc-tooltip {
   position: absolute; top: 14px; left: 14px; z-index: 10;
@@ -665,8 +665,8 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 /* When main-content has .mode-watchlists class, show list + chart as grid */
 .main-content.mode-watchlists {
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 12px;
+  grid-template-columns: 260px 1fr;
+  gap: 14px;
   align-items: start;
 }
 .main-content.mode-watchlists > .page { display: none !important; }
@@ -689,16 +689,16 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .wl-tab .tab-menu { opacity: 0.4; margin-left: 4px; padding: 2px; border-radius: 3px; }
 .wl-tab.active .tab-menu, .wl-tab:hover .tab-menu { opacity: 1; }
 .wl-col-headers {
-  display: grid; grid-template-columns: 1fr 80px 72px;
-  gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--border);
+  display: grid; grid-template-columns: 1fr 70px 62px;
+  gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--border);
   font-size: 9px; font-weight: 500; color: var(--text2);
   text-transform: uppercase; letter-spacing: 0.5px;
 }
 .wl-col-headers span:nth-child(2), .wl-col-headers span:nth-child(3) { text-align: right; }
-.wl-body { background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 10px 10px; max-height: 65vh; overflow-y: auto; }
+.wl-body { background: transparent; border: none; border-top: 1px solid var(--border); border-radius: 0; max-height: 70vh; overflow-y: auto; }
 .wl-row {
-  display: grid; grid-template-columns: 1fr 80px 72px;
-  gap: 8px; align-items: center; padding: 8px 12px; cursor: pointer;
+  display: grid; grid-template-columns: 1fr 70px 62px;
+  gap: 6px; align-items: center; padding: 8px 10px; cursor: pointer;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   transition: background 0.1s;
 }
@@ -1635,7 +1635,24 @@ function toggleSidebar() {
   sidebarCollapsed = !sidebarCollapsed;
   localStorage.setItem('genrri_sidebar_collapsed', sidebarCollapsed ? '1' : '0');
   document.getElementById('app').classList.toggle('sidebar-collapsed', sidebarCollapsed);
+  // Force chart reflow after the grid settles — ResizeObserver can miss it
+  setTimeout(forceChartResize, 50);
+  setTimeout(forceChartResize, 220);  // second pass in case of CSS transition
 }
+function forceChartResize() {
+  if (typeof lwChart === 'undefined' || !lwChart) return;
+  try {
+    const container = document.getElementById('lw-chart');
+    if (container && container.clientWidth > 0) {
+      lwChart.applyOptions({ width: container.clientWidth });
+      lwChart.timeScale().fitContent();
+    }
+    if (typeof resizeDrawCanvas === 'function') resizeDrawCanvas();
+    if (typeof redrawCanvas === 'function') redrawCanvas();
+  } catch(e) {}
+}
+// Also handle window resize (which can miss certain grid changes)
+window.addEventListener('resize', () => { if (typeof forceChartResize === 'function') forceChartResize(); });
 
 // ═════════════════════════════════════════════════════════════
 // ═══ INDEX STRIP ═════════════════════════════════════════════
