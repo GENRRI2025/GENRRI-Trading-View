@@ -656,10 +656,10 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 /* When main-content has .mode-watchlists class, show list + chart as grid */
 .main-content.mode-watchlists {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 14px;
+  grid-template-columns: 240px 1fr;
+  gap: 10px;
   align-items: start;
-  padding-top: 0;
+  padding: 0 8px 16px 4px;
 }
 .main-content.mode-watchlists > .page { display: none !important; }
 .main-content.mode-watchlists > #page-watchlists { display: block !important; grid-column: 1; }
@@ -671,7 +671,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .wl-tabs { display: flex; gap: 2px; margin: 0; overflow-x: auto; scrollbar-width: none; align-items: center; }
 .wl-tabs::-webkit-scrollbar { display: none; }
 .wl-tab {
-  padding: 3px 12px; background: transparent; border: none; color: var(--text2);
+  padding: 3px 8px; background: transparent; border: none; color: var(--text2);
   font-size: 12px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent;
   white-space: nowrap; transition: all 0.15s;
 }
@@ -682,7 +682,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .wl-tab.active .tab-menu, .wl-tab:hover .tab-menu { opacity: 1; }
 .wl-col-headers {
   display: grid; grid-template-columns: 1fr 72px 66px;
-  gap: 6px; padding: 2px 10px 3px; border-bottom: 1px solid var(--border);
+  gap: 6px; padding: 2px 8px 3px; border-bottom: 1px solid var(--border);
   font-size: 10px; font-weight: 500; color: var(--text2);
   text-transform: uppercase; letter-spacing: 0.5px;
 }
@@ -690,7 +690,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .wl-body { background: transparent; border: none; border-top: 1px solid var(--border); border-radius: 0; max-height: calc(100vh - 200px); overflow-y: auto; }
 .wl-row {
   display: grid; grid-template-columns: 1fr 72px 66px;
-  gap: 6px; align-items: center; padding: 9px 10px; cursor: pointer;
+  gap: 6px; align-items: center; padding: 9px 8px; cursor: pointer;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   transition: background 0.1s;
 }
@@ -1628,13 +1628,29 @@ function toggleSidebar() {
   sidebarCollapsed = !sidebarCollapsed;
   localStorage.setItem('genrri_sidebar_collapsed', sidebarCollapsed ? '1' : '0');
   document.getElementById('app').classList.toggle('sidebar-collapsed', sidebarCollapsed);
-  // Force chart reflow via raf chain + delayed passes — catches the grid reflow
-  // whether the browser fires ResizeObserver or not.
-  requestAnimationFrame(() => requestAnimationFrame(forceChartResize));
-  [60, 180, 400].forEach(d => setTimeout(() => {
-    forceChartResize();
-    window.dispatchEvent(new Event('resize'));
-  }, d));
+  // LWC v4 autoSize + resize() both intermittently fail to SHRINK after a
+  // grid column change. The only 100%-reliable fix is to destroy and
+  // recreate the chart — chartDataCache is kept in memory so re-render
+  // is instant (no refetch).
+  requestAnimationFrame(() => requestAnimationFrame(reinitChartAfterLayout));
+  setTimeout(reinitChartAfterLayout, 200);
+}
+function reinitChartAfterLayout() {
+  if (typeof lwChart === 'undefined' || !lwChart) return;
+  try {
+    const container = document.getElementById('lw-chart');
+    if (!container) return;
+    // Force a reflow read so the container's new width is committed
+    void container.offsetWidth;
+    // Destroy + recreate — the only reliable shrink path in LWC v4.
+    initLWChart();
+    if (typeof syncChartUI === 'function') syncChartUI();
+    if (typeof chartDataCache !== 'undefined' && chartDataCache && chartDataCache.length
+        && typeof renderLWChart === 'function') {
+      renderLWChart();
+    }
+    if (typeof loadDrawingsForSymbol === 'function') loadDrawingsForSymbol();
+  } catch(e) { console.warn('[chart] reinit failed:', e); }
 }
 function forceChartResize() {
   if (typeof lwChart === 'undefined' || !lwChart) return;
