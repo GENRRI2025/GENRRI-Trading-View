@@ -35,9 +35,11 @@
   --green: #2d8a4e; --red: #c44040; --chart-grid: #e8e2d4;
 }
 [data-theme="gold"] {
-  --bg: #0a0908; --surface: #15120c; --surface2: #1f1a10; --border: #3a2f14;
-  --text: #f5ecd1; --text2: #a89361; --accent: #d4af37; --accent2: #c9a227;
-  --green: #00d4aa; --red: #ff4d6a; --chart-grid: #2a2210;
+  /* Softer warm-charcoal instead of near-pure black — easier on eyes for long sessions.
+     Text is warm cream (not pure white) so contrast is reduced without losing readability. */
+  --bg: #1a1610; --surface: #211c13; --surface2: #2b2518; --border: #3d3420;
+  --text: #ede3c6; --text2: #b39f75; --accent: #d4af37; --accent2: #c9a227;
+  --green: #00d4aa; --red: #ff4d6a; --chart-grid: #2f2818;
 }
 :root { --up: var(--green); --down: var(--red); }
 
@@ -106,12 +108,15 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   grid-template-rows: 1fr;
   min-height: 100vh; max-height: 100vh;
   overflow: hidden;
+  /* Subtle column separators — creates the Moomoo-style grid feel */
+  gap: 1px;
+  background: var(--border);
 }
 .app-shell.sidebar-collapsed { grid-template-columns: 58px 1fr 340px; }
 
 /* ═══════════════════ SIDEBAR ═══════════════════ */
 .sidebar {
-  background: var(--surface); border-right: 1px solid var(--border);
+  background: var(--surface);
   display: flex; flex-direction: column; overflow: hidden;
 }
 .sidebar-header {
@@ -241,6 +246,19 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   display: flex; gap: 10px; padding: 8px 18px;
   border-bottom: 1px solid var(--border); overflow-x: auto;
   background: var(--surface); scrollbar-width: thin;
+}
+/* Panel cards have their own border + rounded corners — Moomoo grid feel */
+.panel { box-shadow: 0 1px 2px color-mix(in srgb, #000 8%, transparent); }
+.pf-stat { box-shadow: 0 1px 2px color-mix(in srgb, #000 6%, transparent); }
+.idx-card { box-shadow: 0 1px 2px color-mix(in srgb, #000 6%, transparent); }
+.pf-header { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 16px 16px; }
+.holdings-list { box-shadow: 0 1px 2px color-mix(in srgb, #000 6%, transparent); }
+.chart-toolbar { box-shadow: 0 1px 2px color-mix(in srgb, #000 6%, transparent); }
+.chart-host { box-shadow: 0 1px 2px color-mix(in srgb, #000 6%, transparent); }
+/* Gold theme: slightly warmer subtle shadow instead of pure black */
+[data-theme="gold"] .panel, [data-theme="gold"] .pf-header, [data-theme="gold"] .holdings-list,
+[data-theme="gold"] .chart-toolbar, [data-theme="gold"] .chart-host, [data-theme="gold"] .pf-stat, [data-theme="gold"] .idx-card {
+  box-shadow: 0 1px 2px color-mix(in srgb, #1a1008 40%, transparent);
 }
 .idx-item {
   display: flex; flex-direction: column; gap: 2px;
@@ -398,7 +416,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 
 /* ═══════════════════ RIGHT DETAIL PANEL ═══════════════════ */
 .detail {
-  background: var(--surface); border-left: 1px solid var(--border);
+  background: var(--surface);
   display: flex; flex-direction: column; overflow: hidden;
 }
 .dp-header { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
@@ -2034,8 +2052,8 @@ async function runSearch(q) {
   const results = document.getElementById('search-results');
   try {
     const [jpRes, usRes] = await Promise.all([
-      apiFetch('/api/stocks?search=' + encodeURIComponent(q) + '&limit=8&region=jp').then(r => r.json()).catch(() => []),
-      apiFetch('/api/stocks?search=' + encodeURIComponent(q) + '&limit=8&region=us').then(r => r.json()).catch(() => [])
+      apiFetch('/api/stocks?q=' + encodeURIComponent(q) + '&limit=8&region=jp').then(r => r.json()).catch(() => []),
+      apiFetch('/api/stocks?q=' + encodeURIComponent(q) + '&limit=8&region=us').then(r => r.json()).catch(() => [])
     ]);
     const jp = Array.isArray(jpRes) ? jpRes : (jpRes.stocks || []);
     const us = Array.isArray(usRes) ? usRes : (usRes.stocks || []);

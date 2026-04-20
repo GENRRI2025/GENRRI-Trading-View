@@ -642,7 +642,8 @@ def get_stocks():
                 "stocks": [{"symbol": r[0], "name": r[1], "nameJP": r[1], "sector": r[2], "market": r[3], "code": r[4]} for r in rows]
             })
 
-    q      = request.args.get('q', '').strip()
+    # Accept both ?q= and ?search= as the search term (frontend compatibility)
+    q      = (request.args.get('q') or request.args.get('search') or '').strip()
     sector = request.args.get('sector', '').strip()
     market = request.args.get('market', '').strip()
     region = request.args.get('region', 'jp').strip().lower()
