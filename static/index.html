@@ -560,6 +560,193 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   .mh-search { min-width: 100%; }
   .pf-header-value { font-size: 24px; }
 }
+
+/* ═══════════════════ SESSION 2: CHART ═══════════════════ */
+.chart-toolbar { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
+.ct-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 4px 0; }
+.ct-row:not(:last-child) { border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 4px; }
+.ct-periods { display: flex; gap: 2px; flex-wrap: wrap; }
+.ct-type { display: flex; gap: 2px; margin-left: auto; }
+.ct-btn {
+  padding: 5px 12px; border-radius: 6px; border: 1px solid transparent; background: transparent;
+  color: var(--text2); cursor: pointer; font-size: 12px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s; white-space: nowrap;
+}
+.ct-btn:hover { background: var(--surface2); color: var(--text); }
+.ct-btn.active { background: var(--accent); color: #000; }
+.ct-btn.ind { padding: 4px 10px; font-size: 11px; border-color: var(--border); }
+.ct-btn.ind.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.ct-btn.draw { padding: 4px 10px; font-size: 11px; border-color: var(--border); }
+.ct-btn.draw.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.ct-btn.draw.danger { color: var(--red); border-color: var(--red); }
+.ct-divider { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.ct-draw { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+#ma-cfg-panel {
+  display: none; flex-wrap: wrap; gap: 14px; align-items: center;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 12px; margin-top: 8px;
+}
+#ma-cfg-panel label {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500;
+}
+#ma-cfg-panel input {
+  width: 50px; background: var(--surface); border: 1px solid currentColor;
+  color: inherit; border-radius: 5px; padding: 2px 6px; font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+#ma-cfg-panel input:focus { outline: none; }
+.chart-host {
+  position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; padding: 8px;
+}
+#lw-chart { height: 440px; border-radius: 6px; overflow: hidden; }
+#draw-canvas { position: absolute; top: 8px; left: 8px; right: 8px; pointer-events: none; z-index: 5; }
+.ohlc-tooltip {
+  position: absolute; top: 14px; left: 14px; z-index: 10;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(4px); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 10px; font-size: 11px; color: var(--text); pointer-events: none;
+  font-variant-numeric: tabular-nums; line-height: 1.4;
+}
+.ohlc-tooltip .label { color: var(--text2); margin-right: 3px; }
+.ohlc-tooltip .sep { display: inline-block; width: 6px; }
+.ohlc-tooltip .val.pos { color: var(--up); }
+.ohlc-tooltip .val.neg { color: var(--down); }
+
+/* ═══════════════════ SESSION 2: WATCHLISTS SPLIT ═══════════════════ */
+/* When main-content has .mode-watchlists class, show list + chart as grid */
+.main-content.mode-watchlists {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.main-content.mode-watchlists > .page { display: none !important; }
+.main-content.mode-watchlists > #page-watchlists { display: block !important; grid-column: 1; }
+.main-content.mode-watchlists > #page-chart { display: block !important; grid-column: 2; }
+@media (max-width: 1100px) {
+  .main-content.mode-watchlists { grid-template-columns: 1fr; }
+  .main-content.mode-watchlists > #page-chart { grid-column: 1; grid-row: 2; }
+}
+.wl-tabs { display: flex; gap: 2px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; align-items: center; }
+.wl-tabs::-webkit-scrollbar { display: none; }
+.wl-tab {
+  padding: 7px 12px; background: transparent; border: none; color: var(--text2);
+  font-size: 12px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+}
+.wl-tab:hover { color: var(--text); }
+.wl-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.wl-tab.add { color: var(--accent); font-weight: 600; padding: 7px 10px; }
+.wl-tab .tab-menu { opacity: 0.4; margin-left: 4px; padding: 2px; border-radius: 3px; }
+.wl-tab.active .tab-menu, .wl-tab:hover .tab-menu { opacity: 1; }
+.wl-col-headers {
+  display: grid; grid-template-columns: 1fr 80px 72px;
+  gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--border);
+  font-size: 9px; font-weight: 500; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.wl-col-headers span:nth-child(2), .wl-col-headers span:nth-child(3) { text-align: right; }
+.wl-body { background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 10px 10px; max-height: 65vh; overflow-y: auto; }
+.wl-row {
+  display: grid; grid-template-columns: 1fr 80px 72px;
+  gap: 8px; align-items: center; padding: 8px 12px; cursor: pointer;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  transition: background 0.1s;
+}
+.wl-row:hover { background: var(--surface2); }
+.wl-row.active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.wl-row:last-child { border-bottom: none; }
+.wl-row-sym { min-width: 0; }
+.wl-row-sym-code { font-weight: 600; color: var(--text); font-size: 12px; }
+.wl-row-sym-name { font-size: 10px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-row-price { text-align: right; font-weight: 500; color: var(--text); font-size: 12px; }
+.wl-row-chg { text-align: right; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.wl-row-chg.pos { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+.wl-row-chg.neg { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
+
+/* ═══════════════════ SESSION 2: RECENT STOCKS ═══════════════════ */
+.sidebar-recent { padding: 6px 6px 0; border-top: 1px solid var(--border); margin-top: 4px; }
+.sidebar-recent-label {
+  font-size: 9px; color: var(--text2); text-transform: uppercase;
+  letter-spacing: 0.5px; padding: 6px 10px 4px; font-weight: 500;
+}
+.sidebar-recent-list { display: flex; flex-direction: column; gap: 1px; max-height: 140px; overflow-y: auto; }
+.sidebar-recent-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px; border-radius: 4px; cursor: pointer;
+  font-size: 11px; background: transparent; border: none; color: var(--text2);
+  text-align: left; width: 100%; transition: background 0.1s;
+}
+.sidebar-recent-item:hover { background: var(--surface2); color: var(--text); }
+.sidebar-recent-item .sr-code { font-weight: 600; color: var(--text); font-size: 11px; min-width: 0; flex-shrink: 0; }
+.sidebar-recent-item .sr-chg { margin-left: auto; font-size: 10px; font-variant-numeric: tabular-nums; }
+.app-shell.sidebar-collapsed .sidebar-recent { display: none; }
+
+/* ═══════════════════ SESSION 2: DP ORDER BOOK INLINE ═══════════════════ */
+.dp-ob-row { position: relative; display: grid; grid-template-columns: 18px 1fr 1fr; gap: 6px; padding: 3px 6px; font-size: 11px; }
+.dp-ob-bar { position: absolute; top: 0; bottom: 0; right: 0; border-radius: 3px; z-index: 0; }
+.dp-ob-bar.ask { background: color-mix(in srgb, var(--down) 18%, transparent); }
+.dp-ob-bar.bid { background: color-mix(in srgb, var(--up) 18%, transparent); }
+.dp-ob-row > * { position: relative; z-index: 1; }
+.dp-ob-lvl { color: var(--text2); font-size: 10px; }
+.dp-ob-price { font-weight: 500; }
+.dp-ob-price.ask { color: var(--down); }
+.dp-ob-price.bid { color: var(--up); }
+.dp-ob-qty { text-align: right; color: var(--text); }
+.dp-ob-spread { text-align: center; padding: 5px 0; margin: 3px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text); }
+
+/* Trade overview donut */
+.to-wrap { display: flex; align-items: center; gap: 14px; }
+.to-donut { width: 80px; height: 80px; flex-shrink: 0; border-radius: 50%; position: relative; }
+.to-donut::after { content: ''; position: absolute; inset: 16px; background: var(--surface2); border-radius: 50%; }
+.to-legend { flex: 1; display: flex; flex-direction: column; gap: 5px; font-size: 10px; }
+.to-legend-row { display: flex; align-items: center; gap: 6px; }
+.to-dot { width: 8px; height: 8px; border-radius: 50%; }
+.to-label { color: var(--text2); flex: 1; }
+.to-value { color: var(--text); font-weight: 500; }
+.to-net { text-align: center; margin-top: 8px; font-size: 11px; color: var(--text2); }
+.to-net .net-val { font-weight: 600; font-size: 13px; }
+.to-net .net-val.pos { color: var(--up); }
+.to-net .net-val.neg { color: var(--down); }
+
+/* ═══════════════════ SESSION 2: STAR DROPDOWN ═══════════════════ */
+.star-dropdown {
+  position: absolute; top: 100%; right: 0; margin-top: 4px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  min-width: 180px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); padding: 4px; z-index: 50;
+}
+.star-dropdown-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+  font-size: 12px; cursor: pointer; border-radius: 4px; color: var(--text);
+  background: transparent; border: none; width: 100%; text-align: left;
+}
+.star-dropdown-item:hover { background: var(--surface2); }
+.star-dropdown-item input[type=checkbox] { accent-color: var(--accent); }
+.star-dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
+.star-dropdown-item.add { color: var(--accent); }
+.dp-fav-wrap { position: relative; margin-left: auto; }
+
+/* ═══════════════════ SESSION 2: KABU CONNECT FORM ═══════════════════ */
+.kabu-status-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px 12px; background: var(--surface2); border-radius: 6px; font-size: 12px; }
+.kabu-status-row .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text2); }
+.kabu-status-row.connected { background: color-mix(in srgb, var(--up) 15%, transparent); color: var(--up); }
+.kabu-status-row.connected .dot { background: var(--up); animation: pulse 2s infinite; }
+.kabu-err { color: var(--red); font-size: 11px; margin-top: 8px; padding: 6px 10px; background: color-mix(in srgb, var(--down) 10%, transparent); border-radius: 4px; }
+
+/* ═══════════════════ SESSION 2: LIVE TRADE MODAL ═══════════════════ */
+.modal-warning-banner {
+  background: color-mix(in srgb, var(--down) 12%, transparent);
+  border: 1px solid var(--down); border-radius: 8px;
+  padding: 10px 12px; margin-bottom: 14px;
+  font-size: 12px; color: var(--down); font-weight: 500; text-align: center;
+}
+.modal-details { font-size: 12px; margin-bottom: 14px; }
+.modal-details .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.modal-check { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 12px; color: var(--text2); }
+.modal-check input { width: 16px; height: 16px; accent-color: var(--down); }
+.modal-btn.confirm-live { background: var(--down); color: #fff; opacity: 0.4; pointer-events: none; }
+.modal-btn.confirm-live.enabled { opacity: 1; pointer-events: auto; }
 </style>
 </head>
 <body>
@@ -656,6 +843,11 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         <span data-i18n="nav_settings">Settings</span>
       </button>
     </nav>
+    <!-- Recent stocks -->
+    <div class="sidebar-recent" id="sidebar-recent">
+      <div class="sidebar-recent-label">Recent</div>
+      <div class="sidebar-recent-list" id="sidebar-recent-list"></div>
+    </div>
     <div class="sidebar-footer">
       <button class="conn-pill" id="conn-pill" onclick="go('settings')" title="Kabu Station connection">
         <span class="dot"></span>
@@ -807,13 +999,15 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         </div>
       </div>
 
-      <!-- ═══ WATCHLISTS PAGE (placeholder, Session 2) ═══ -->
+      <!-- ═══ WATCHLISTS PAGE (left list only — chart shown via grid with #page-chart) ═══ -->
       <div class="page" id="page-watchlists">
-        <div class="panel" style="padding: 40px 20px; text-align: center;">
-          <div class="empty-state-title" data-i18n="sort_watchlist">Watchlists</div>
-          <div class="empty-state-sub" style="margin: 12px 0">Coming in Session 2 — split view with persistent chart.</div>
-          <a href="/legacy#/market" class="btn" style="display:inline-block;margin-top:8px;text-decoration:none">Use legacy Market page</a>
+        <div class="wl-tabs" id="wl-tabs"></div>
+        <div class="wl-col-headers">
+          <span data-i18n="col_symbol">Symbol</span>
+          <span data-i18n="col_price">Price</span>
+          <span data-i18n="col_change">% Chg</span>
         </div>
+        <div class="wl-body" id="wl-body"></div>
       </div>
 
       <!-- ═══ TRANSACTIONS PAGE (placeholder, Session 3) ═══ -->
@@ -853,18 +1047,100 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
             <button class="btn" data-theme-btn="sand" onclick="setTheme('sand')" data-i18n="theme_sand">Sand</button>
           </div>
         </div>
+        <!-- Kabu Station connection -->
+        <div class="panel" style="padding: 20px">
+          <div class="panel-title" style="margin-bottom:6px">Kabu Station API</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Connect to Kabu Station for real-time JP stock data and live trading.</div>
+          <div class="kabu-status-row" id="kabu-status-row">
+            <span class="dot"></span>
+            <span id="kabu-status-text" data-i18n="kabu_not_connected">Not connected</span>
+          </div>
+          <div class="modal-field" style="margin-bottom:8px">
+            <label>API Password</label>
+            <input type="password" id="kabu-api-pw" autocomplete="current-password"/>
+          </div>
+          <div class="modal-field" style="margin-bottom:10px">
+            <label>Order Password (optional — for live trading)</label>
+            <input type="password" id="kabu-order-pw" autocomplete="current-password"/>
+          </div>
+          <button class="btn primary" onclick="connectKabu()" id="kabu-connect-btn">Connect</button>
+          <div class="kabu-err" id="kabu-err" style="display:none"></div>
+        </div>
+        <!-- More settings placeholder -->
         <div class="panel" style="padding: 20px">
           <div class="panel-title" style="margin-bottom:14px">More Settings</div>
-          <div class="empty-state-sub">Kabu Station, AI Analyst, Commission %, etc. coming in Session 2/3.</div>
+          <div class="empty-state-sub">AI Analyst, Commission %, CSV Import, Price Alerts coming in Session 3.</div>
           <a href="/legacy" class="btn" style="display:inline-block;margin-top:12px;text-decoration:none">Open legacy Settings</a>
         </div>
       </div>
 
-      <!-- ═══ CHART PAGE (placeholder, Session 2) ═══ -->
+      <!-- ═══ CHART PAGE ═══ -->
       <div class="page" id="page-chart">
-        <div class="panel" style="padding: 40px 20px; text-align: center;">
-          <div class="empty-state-title">Full Chart View</div>
-          <div class="empty-state-sub" style="margin: 12px 0">Coming in Session 2 — full-size chart with all indicators and drawing tools.</div>
+        <div class="chart-toolbar">
+          <!-- Row 1: period + chart type -->
+          <div class="ct-row">
+            <div class="ct-periods" id="line-periods" style="display:none">
+              <button class="ct-btn" data-period="1d" onclick="loadChart('1d')">1D</button>
+              <button class="ct-btn" data-period="5d" onclick="loadChart('5d')">5D</button>
+              <button class="ct-btn" data-period="1mo" onclick="loadChart('1mo')">1M</button>
+              <button class="ct-btn" data-period="3mo" onclick="loadChart('3mo')">3M</button>
+              <button class="ct-btn" data-period="6mo" onclick="loadChart('6mo')">6M</button>
+              <button class="ct-btn" data-period="1y" onclick="loadChart('1y')">1Y</button>
+              <button class="ct-btn" data-period="5y" onclick="loadChart('5y')">5Y</button>
+              <button class="ct-btn" data-period="max" onclick="loadChart('max')">MAX</button>
+            </div>
+            <div class="ct-periods" id="candle-intervals">
+              <button class="ct-btn" data-interval="1m" onclick="loadCandleInterval('1m')">1</button>
+              <button class="ct-btn" data-interval="5m" onclick="loadCandleInterval('5m')">5</button>
+              <button class="ct-btn" data-interval="15m" onclick="loadCandleInterval('15m')">15</button>
+              <button class="ct-btn" data-interval="30m" onclick="loadCandleInterval('30m')">30</button>
+              <button class="ct-btn" data-interval="60m" onclick="loadCandleInterval('60m')">1H</button>
+              <button class="ct-btn" data-interval="1d" onclick="loadCandleInterval('1d')">D</button>
+              <button class="ct-btn" data-interval="1wk" onclick="loadCandleInterval('1wk')">W</button>
+              <button class="ct-btn" data-interval="1mo" onclick="loadCandleInterval('1mo')">M</button>
+            </div>
+            <div class="ct-type">
+              <button class="ct-btn" id="btn-line" onclick="setChartType('line')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="3 17 9 11 13 15 21 7"/></svg> Line
+              </button>
+              <button class="ct-btn" id="btn-candle" onclick="setChartType('candle')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="8" y1="3" x2="8" y2="21"/><rect x="5" y="7" width="6" height="9" rx="1"/><line x1="16" y1="3" x2="16" y2="21"/><rect x="13" y="5" width="6" height="7" rx="1"/></svg> Candle
+              </button>
+            </div>
+          </div>
+          <!-- Row 2: indicators -->
+          <div class="ct-row">
+            <button class="ct-btn ind" id="ind-ma0" onclick="toggleIndicator('ma0')">MA<span id="ma-lbl-0">5</span></button>
+            <button class="ct-btn ind" id="ind-ma1" onclick="toggleIndicator('ma1')">MA<span id="ma-lbl-1">20</span></button>
+            <button class="ct-btn ind" id="ind-ma2" onclick="toggleIndicator('ma2')">MA<span id="ma-lbl-2">50</span></button>
+            <button class="ct-btn ind" id="ind-ma3" onclick="toggleIndicator('ma3')">MA<span id="ma-lbl-3">200</span></button>
+            <button class="ct-btn ind" id="ind-bb" onclick="toggleIndicator('bb')">BB</button>
+            <button class="ct-btn ind" id="ind-vol" onclick="toggleIndicator('vol')">VOL</button>
+            <button class="ct-btn ind" id="btn-ma-cfg" onclick="toggleMASettings()" title="Customize MA periods" style="border-style:dashed">⚙</button>
+            <!-- Drawing tools (candle mode only) -->
+            <div class="ct-divider"></div>
+            <div class="ct-draw" id="draw-row" style="display:none">
+              <span style="font-size:10px;color:var(--text2);margin-right:2px">Draw:</span>
+              <button class="ct-btn draw" id="draw-none" onclick="setDrawTool('none')">Pan</button>
+              <button class="ct-btn draw" id="draw-trend" onclick="setDrawTool('trend')">Trend</button>
+              <button class="ct-btn draw" id="draw-hline" onclick="setDrawTool('hline')">H-Line</button>
+              <button class="ct-btn draw" id="draw-ray" onclick="setDrawTool('ray')">Ray</button>
+              <button class="ct-btn draw danger" onclick="clearDrawings()">Clear</button>
+            </div>
+          </div>
+          <!-- MA config panel (hidden by default) -->
+          <div id="ma-cfg-panel" style="display:none">
+            <span style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px">MA Periods</span>
+            <label style="color:#f97316">MA1<input type="number" id="ma-inp-0" min="2" max="500" value="5" oninput="updateMAPeriod(0)"/></label>
+            <label style="color:#3b82f6">MA2<input type="number" id="ma-inp-1" min="2" max="500" value="20" oninput="updateMAPeriod(1)"/></label>
+            <label style="color:#8b5cf6">MA3<input type="number" id="ma-inp-2" min="2" max="500" value="50" oninput="updateMAPeriod(2)"/></label>
+            <label style="color:#ec4899">MA4<input type="number" id="ma-inp-3" min="2" max="500" value="200" oninput="updateMAPeriod(3)"/></label>
+          </div>
+        </div>
+        <div class="chart-host" id="chart-host">
+          <div id="lw-chart"></div>
+          <canvas id="draw-canvas"></canvas>
+          <div class="ohlc-tooltip" id="ohlc-tooltip" style="display:none"></div>
         </div>
       </div>
     </div>
@@ -876,9 +1152,12 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
       <div class="dp-top-row">
         <span class="dp-sym-badge" id="dp-sym">7203</span>
         <span class="dp-name" id="dp-name">Toyota Motor</span>
-        <button class="dp-icon-btn" id="dp-fav" onclick="toggleFav()" title="Add to watchlist">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        </button>
+        <div class="dp-fav-wrap">
+          <button class="dp-icon-btn" id="dp-fav" onclick="openStarDropdown(event)" title="Add to watchlist">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </button>
+          <div class="star-dropdown" id="star-dropdown" style="display:none"></div>
+        </div>
       </div>
       <div class="dp-price-row">
         <span class="dp-price" id="dp-price">—</span>
@@ -1438,15 +1717,42 @@ async function loadPortfolios() {
 function renderPortfolioSwitcher() {
   const sw = document.getElementById('pf-switcher');
   if (!sw) return;
+  const firstNonLive = portfolioList.find(p => !p.is_live)?.id;
   const items = portfolioList.map(p => {
     const isLive = !!p.is_live;
     const active = p.id === currentPortfolioId;
+    const isMain = p.id === firstNonLive;
     const name = isLive ? t('real_account') : (p.name || t('my_portfolio'));
-    return `<button class="pf-pill ${active ? 'active' : ''}" onclick="switchPortfolio('${p.id}')">
-      ${escHtml(name)}${isLive ? '<span class="live-tag">LIVE</span>' : ''}
+    const menuBtn = (!isLive && !isMain && active)
+      ? `<span class="tab-menu" onclick="event.stopPropagation();showPfContextMenu(event,'${p.id}')" style="margin-left:6px;opacity:0.5;cursor:pointer;padding:0 4px">⋯</span>`
+      : '';
+    return `<button class="pf-pill ${active ? 'active' : ''}" onclick="switchPortfolio('${p.id}')" oncontextmenu="if(!${isMain||isLive}){showPfContextMenu(event,'${p.id}');return false}">
+      ${escHtml(name)}${isLive ? '<span class="live-tag">LIVE</span>' : ''}${menuBtn}
     </button>`;
   }).join('');
   sw.innerHTML = items + `<button class="pf-add" onclick="openAddPortfolioModal()" title="New portfolio">+</button>`;
+}
+function showPfContextMenu(e, pid) {
+  e.preventDefault(); e.stopPropagation();
+  const action = prompt('Action? (rename / delete)', 'rename');
+  if (!action) return;
+  const p = portfolioList.find(x => x.id === pid);
+  if (action === 'rename') {
+    const newName = prompt(t('portfolio_name_prompt'), p?.name || '');
+    if (!newName || !newName.trim()) return;
+    apiFetch('/api/portfolios/' + pid, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name: newName.trim()})
+    }).then(async () => { toast('Renamed', 'ok'); await loadPortfolios(); loadPortfolio(); });
+  } else if (action === 'delete') {
+    if (!confirm('Delete this portfolio? All its holdings will be removed.')) return;
+    apiFetch('/api/portfolios/' + pid, { method: 'DELETE' }).then(async () => {
+      toast('Deleted', 'ok');
+      if (currentPortfolioId === pid) currentPortfolioId = portfolioList.find(p => p.id !== pid)?.id || 'main';
+      await loadPortfolios();
+      loadPortfolio();
+    }).catch(() => toast(t('err_delete_failed') || 'Failed to delete', 'err'));
+  }
 }
 function switchPortfolio(pid) {
   currentPortfolioId = pid;
@@ -1690,6 +1996,7 @@ function renderDpFinancials(symbol, body) {
 }
 
 async function toggleFav() {
+  // Deprecated — kept for backward compat. Use openStarDropdown now.
   if (!currentSymbol) return;
   const btn = document.getElementById('dp-fav');
   const isFav = btn?.classList.contains('favorited');
@@ -1978,14 +2285,866 @@ async function initApp() {
   loadIndexStrip();
   // Navigate to last route
   go(currentRoute);
+  // Load watchlists early so they're ready
+  loadWatchlists().catch(() => {});
   // Populate default stock in right panel
   selectStock(currentSymbol || '7203.T');
-  // Kabu status
+  // Restore Kabu creds + check status
+  _restoreKabuCreds();
   checkKabuStatus();
+  // Render recent stocks
+  renderRecent();
   // Pollers
   setInterval(loadIndexStrip, 60000);
   setInterval(checkKabuStatus, 30000);
   setInterval(() => { if (currentRoute === 'markets') loadMarkets(); }, 5 * 60 * 1000);
+  // Auto-reconnect Kabu if saved creds
+  const savedApiPw = localStorage.getItem('kabu_api_pw');
+  if (savedApiPw) {
+    setTimeout(() => {
+      const pwEl = document.getElementById('kabu-api-pw');
+      if (pwEl && pwEl.value && !kabuConnected) connectKabu();
+    }, 1000);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════
+// ═══ SESSION 2 ADDITIONS ════════════════════════════════════
+// ═════════════════════════════════════════════════════════════
+
+// ─── localStorage cache helper (from legacy) ─────────────────
+const _LC = {
+  set(key, val, ttlMs = 86400000) {
+    try { localStorage.setItem('gc_' + key, JSON.stringify({ v: val, exp: Date.now() + ttlMs })); } catch(e) {}
+  },
+  get(key) {
+    try { const raw = localStorage.getItem('gc_' + key); if (!raw) return null;
+      const { v } = JSON.parse(raw); return v;
+    } catch(e) { return null; }
+  },
+};
+
+// ─── Chart state ──────────────────────────────────────────────
+let lwChart = null, mainSeries = null, volSeries = null;
+let maSeries = {}, bbSeries = {};
+let chartDataCache = [];
+let chartType = localStorage.getItem('genrri_chartType') || 'candle';
+let currentCandleInterval = localStorage.getItem('genrri_candleInterval') || '5m';
+let activeIndicators = new Set(JSON.parse(localStorage.getItem('genrri_indicators') || '[]'));
+['ma5','ma20','ma50','ma200'].forEach(k => activeIndicators.delete(k));
+let maPeriods = JSON.parse(localStorage.getItem('genrri_maPeriods') || '[5,20,50,200]');
+const maColors = ['#f97316','#3b82f6','#8b5cf6','#ec4899'];
+let currentPeriod = '1d';
+let drawTool = 'none', drawings = [], isDrawingLine = false, drawStart = null;
+let drawCanvas, drawCtx;
+const INTRADAY_LINE_PERIODS = new Set(['1d','5d','1mo']);
+const INTRADAY_CANDLE_INTERVALS = new Set(['1m','5m','15m','30m','60m']);
+
+function _css(k) { return getComputedStyle(document.documentElement).getPropertyValue(k).trim(); }
+function chartColors() {
+  return { bg: _css('--surface'), text2: _css('--text2'), border: _css('--border'),
+           accent: _css('--accent'), green: _css('--up'), red: _css('--down'), text: _css('--text') };
+}
+
+function initLWChart() {
+  const container = document.getElementById('lw-chart');
+  if (!container) return;
+  if (lwChart) { try { lwChart.remove(); } catch(e) {} lwChart = null; mainSeries = null; volSeries = null; maSeries = {}; bbSeries = {}; }
+  const c = chartColors();
+  lwChart = LightweightCharts.createChart(container, {
+    width: container.clientWidth || 600, height: 440,
+    layout: { background: { type: 'solid', color: 'transparent' }, textColor: c.text2 },
+    grid: { vertLines: { color: c.border }, horzLines: { color: c.border } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: c.border },
+    timeScale: { borderColor: c.border, timeVisible: chartType==='candle' ? INTRADAY_CANDLE_INTERVALS.has(currentCandleInterval) : INTRADAY_LINE_PERIODS.has(currentPeriod), secondsVisible: false },
+    handleScroll: true, handleScale: true,
+  });
+  new ResizeObserver(() => {
+    if (lwChart) lwChart.applyOptions({ width: container.clientWidth });
+    resizeDrawCanvas(); redrawCanvas();
+  }).observe(container);
+  lwChart.timeScale().subscribeVisibleLogicalRangeChange(() => redrawCanvas());
+  // Crosshair OHLCV tooltip
+  lwChart.subscribeCrosshairMove(onCrosshairMove);
+  initDrawCanvas();
+}
+
+function onCrosshairMove(param) {
+  const tip = document.getElementById('ohlc-tooltip');
+  if (!tip) return;
+  if (!param || !param.time || !param.seriesData || !mainSeries) { tip.style.display = 'none'; return; }
+  const bar = param.seriesData.get(mainSeries);
+  if (!bar) { tip.style.display = 'none'; return; }
+  const c = chartColors();
+  if (chartType === 'candle' && bar.open != null) {
+    const up = bar.close >= bar.open;
+    const chg = bar.close - bar.open;
+    const chgPct = bar.open ? (chg / bar.open * 100) : 0;
+    const s = chg >= 0 ? '+' : '';
+    const cls = up ? 'pos' : 'neg';
+    // Find volume
+    let vol = '';
+    const rawBar = chartDataCache.find(d => d.time === param.time);
+    if (rawBar && rawBar.volume) vol = `<span class="label">V</span>${fmtBig(rawBar.volume)}<span class="sep"></span>`;
+    tip.innerHTML = `<span class="label">O</span>${fmtPrice(bar.open)}<span class="sep"></span>`
+      + `<span class="label">H</span><span class="val pos">${fmtPrice(bar.high)}</span><span class="sep"></span>`
+      + `<span class="label">L</span><span class="val neg">${fmtPrice(bar.low)}</span><span class="sep"></span>`
+      + `<span class="label">C</span>${fmtPrice(bar.close)}<span class="sep"></span>`
+      + vol
+      + `<span class="val ${cls}">${s}${fmtPrice(Math.abs(chg))} (${s}${Math.abs(chgPct).toFixed(2)}%)</span>`;
+  } else {
+    tip.innerHTML = `<span class="label">Price</span>${fmtPrice(bar.value)}`;
+  }
+  tip.style.display = 'block';
+}
+
+function calcMA(data, n) {
+  const r = [];
+  for (let i = n-1; i < data.length; i++) {
+    const avg = data.slice(i-n+1, i+1).reduce((s,d) => s + d.close, 0) / n;
+    r.push({ time: data[i].time, value: Math.round(avg*100)/100 });
+  }
+  return r;
+}
+function calcBB(data, n=20, mult=2) {
+  const upper=[],mid=[],lower=[];
+  for (let i=n-1; i<data.length; i++) {
+    const sl = data.slice(i-n+1, i+1).map(d => d.close);
+    const avg = sl.reduce((s,v) => s+v, 0) / n;
+    const std = Math.sqrt(sl.reduce((s,v) => s + (v-avg)**2, 0) / n);
+    const r = v => Math.round(v*100)/100;
+    upper.push({time: data[i].time, value: r(avg + mult*std)});
+    mid.push({time: data[i].time, value: r(avg)});
+    lower.push({time: data[i].time, value: r(avg - mult*std)});
+  }
+  return {upper, mid, lower};
+}
+function removeSeries(s) { if (s && lwChart) { try { lwChart.removeSeries(s); } catch(e) {} } }
+
+function renderLWChart() {
+  if (!lwChart || !chartDataCache.length) return;
+  const data = chartDataCache, c = chartColors();
+  removeSeries(mainSeries); mainSeries = null;
+  removeSeries(volSeries); volSeries = null;
+  Object.values(maSeries).forEach(removeSeries); maSeries = {};
+  Object.values(bbSeries).forEach(removeSeries); bbSeries = {};
+  if (chartType === 'candle') {
+    mainSeries = lwChart.addCandlestickSeries({ upColor: c.green, downColor: c.red, borderUpColor: c.green, borderDownColor: c.red, wickUpColor: c.green, wickDownColor: c.red });
+    mainSeries.setData(data.map(d => ({ time: d.time, open: d.open, high: d.high, low: d.low, close: d.close })));
+  } else {
+    const isUp = data[data.length-1].close >= data[0].close;
+    const lc = isUp ? c.green : c.red;
+    mainSeries = lwChart.addAreaSeries({ lineColor: lc, lineWidth: 2, topColor: lc+'44', bottomColor: lc+'00', priceLineVisible: false });
+    mainSeries.setData(data.map(d => ({ time: d.time, value: d.close })));
+  }
+  // Avg cost line if holding
+  const holding = portfolio?.holdings?.find(h => h.symbol === currentSymbol);
+  if (holding && holding.avg_cost > 0) {
+    try {
+      mainSeries.createPriceLine({ price: holding.avg_cost, color: '#3b82f6', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'Avg Cost ' + fmtPrice(holding.avg_cost) });
+    } catch(e) {}
+  }
+  // Volume
+  if (activeIndicators.has('vol')) {
+    volSeries = lwChart.addHistogramSeries({ color: c.accent+'60', priceFormat: { type: 'volume' }, priceScaleId: 'vol' });
+    lwChart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+    volSeries.setData(data.map(d => ({ time: d.time, value: d.volume || 0, color: (d.close >= d.open ? c.green : c.red) + '70' })));
+  }
+  // MAs
+  for (let i = 0; i < 4; i++) {
+    const key = `ma${i}`, period = maPeriods[i], color = maColors[i];
+    if (activeIndicators.has(key) && data.length >= period) {
+      const d = calcMA(data, period);
+      if (d.length) {
+        maSeries[key] = lwChart.addLineSeries({ color, lineWidth: 1, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false });
+        maSeries[key].setData(d);
+      }
+    }
+  }
+  // Bollinger Bands
+  if (activeIndicators.has('bb') && data.length >= 20) {
+    const bb = calcBB(data);
+    const bs = { lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
+    bbSeries.upper = lwChart.addLineSeries({ color: '#f5c51888', ...bs });
+    bbSeries.mid = lwChart.addLineSeries({ color: '#f5c518', lineStyle: LightweightCharts.LineStyle.Dashed, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    bbSeries.lower = lwChart.addLineSeries({ color: '#f5c51888', ...bs });
+    bbSeries.upper.setData(bb.upper); bbSeries.mid.setData(bb.mid); bbSeries.lower.setData(bb.lower);
+  }
+  lwChart.timeScale().fitContent();
+  setTimeout(redrawCanvas, 60);
+}
+
+function setChartType(type) {
+  chartType = type;
+  localStorage.setItem('genrri_chartType', type);
+  document.getElementById('btn-line').classList.toggle('active', type === 'line');
+  document.getElementById('btn-candle').classList.toggle('active', type === 'candle');
+  document.getElementById('draw-row').style.display = type === 'candle' ? 'flex' : 'none';
+  document.getElementById('line-periods').style.display = type === 'line' ? 'flex' : 'none';
+  document.getElementById('candle-intervals').style.display = type === 'candle' ? 'flex' : 'none';
+  if (type === 'line') { setDrawTool('none'); loadChart(currentPeriod); }
+  else { loadCandleData(currentCandleInterval); }
+}
+function toggleIndicator(ind) {
+  if (activeIndicators.has(ind)) activeIndicators.delete(ind); else activeIndicators.add(ind);
+  localStorage.setItem('genrri_indicators', JSON.stringify([...activeIndicators]));
+  document.getElementById('ind-' + ind)?.classList.toggle('active', activeIndicators.has(ind));
+  renderLWChart();
+}
+function toggleMASettings() {
+  const panel = document.getElementById('ma-cfg-panel');
+  const btn = document.getElementById('btn-ma-cfg');
+  const show = panel.style.display === 'none';
+  panel.style.display = show ? 'flex' : 'none';
+  btn.classList.toggle('active', show);
+}
+function updateMAPeriod(idx) {
+  const val = parseInt(document.getElementById('ma-inp-' + idx).value);
+  if (!val || val < 2) return;
+  maPeriods[idx] = val;
+  localStorage.setItem('genrri_maPeriods', JSON.stringify(maPeriods));
+  const lbl = document.getElementById('ma-lbl-' + idx); if (lbl) lbl.textContent = val;
+  renderLWChart();
+}
+function syncChartUI() {
+  document.getElementById('btn-line')?.classList.toggle('active', chartType === 'line');
+  document.getElementById('btn-candle')?.classList.toggle('active', chartType === 'candle');
+  document.getElementById('draw-row').style.display = chartType === 'candle' ? 'flex' : 'none';
+  document.getElementById('line-periods').style.display = chartType === 'line' ? 'flex' : 'none';
+  document.getElementById('candle-intervals').style.display = chartType === 'candle' ? 'flex' : 'none';
+  document.querySelectorAll('#candle-intervals .ct-btn').forEach(b => b.classList.toggle('active', b.dataset.interval === currentCandleInterval));
+  document.querySelectorAll('#line-periods .ct-btn').forEach(b => b.classList.toggle('active', b.dataset.period === currentPeriod));
+  ['ma0','ma1','ma2','ma3','bb','vol'].forEach(k => document.getElementById('ind-' + k)?.classList.toggle('active', activeIndicators.has(k)));
+  maPeriods.forEach((p, i) => {
+    const lbl = document.getElementById('ma-lbl-' + i); if (lbl) lbl.textContent = p;
+    const inp = document.getElementById('ma-inp-' + i); if (inp) inp.value = p;
+  });
+}
+
+async function loadChart(period) {
+  currentPeriod = period;
+  document.querySelectorAll('#line-periods .ct-btn').forEach(b => b.classList.toggle('active', b.dataset.period === period));
+  if (!lwChart) { initLWChart(); syncChartUI(); }
+  else lwChart.applyOptions({ timeScale: { timeVisible: INTRADAY_LINE_PERIODS.has(period), secondsVisible: false } });
+  const cacheKey = `chart_line_${currentSymbol}_${period}`;
+  const cached = _LC.get(cacheKey);
+  if (cached && cached.length) { chartDataCache = cached; renderLWChart(); loadDrawingsForSymbol(); }
+  try {
+    const r = await apiFetch('/api/history/' + currentSymbol + '?period=' + period);
+    const data = await r.json();
+    if (data.length && !data.error) { chartDataCache = data; _LC.set(cacheKey, data, 86400000); renderLWChart(); loadDrawingsForSymbol(); }
+  } catch(e) {}
+}
+function loadCandleInterval(interval) {
+  currentCandleInterval = interval;
+  localStorage.setItem('genrri_candleInterval', interval);
+  document.querySelectorAll('#candle-intervals .ct-btn').forEach(b => b.classList.toggle('active', b.dataset.interval === interval));
+  loadCandleData(interval);
+}
+async function loadCandleData(interval) {
+  if (!lwChart) { initLWChart(); syncChartUI(); }
+  else lwChart.applyOptions({ timeScale: { timeVisible: INTRADAY_CANDLE_INTERVALS.has(interval), secondsVisible: false } });
+  const cacheKey = `chart_candle_${currentSymbol}_${interval}`;
+  const cached = _LC.get(cacheKey);
+  if (cached && cached.length) { chartDataCache = cached; renderLWChart(); loadDrawingsForSymbol(); }
+  try {
+    const r = await apiFetch('/api/history/' + currentSymbol + '?interval=' + interval);
+    const data = await r.json();
+    if (data.length && !data.error) { chartDataCache = data; _LC.set(cacheKey, data, 86400000); renderLWChart(); loadDrawingsForSymbol(); }
+  } catch(e) {}
+}
+
+// ─── Drawing tools ────────────────────────────────────────────
+let _drawCanvasInited = false;
+function initDrawCanvas() {
+  drawCanvas = document.getElementById('draw-canvas');
+  if (!drawCanvas) return;
+  drawCtx = drawCanvas.getContext('2d');
+  resizeDrawCanvas();
+  if (_drawCanvasInited) return;
+  _drawCanvasInited = true;
+  function getPos(e) {
+    const r = drawCanvas.getBoundingClientRect();
+    const touch = e.touches ? e.touches[0] || e.changedTouches[0] : e;
+    return { x: touch.clientX - r.left, y: touch.clientY - r.top };
+  }
+  function onStart(e) { if (drawTool === 'none') return; e.preventDefault(); drawStart = getPos(e); isDrawingLine = true; }
+  function onMove(e) {
+    if (!isDrawingLine || !drawStart) return; e.preventDefault();
+    const cur = getPos(e);
+    redrawCanvas();
+    const end = drawTool === 'hline' ? {x: drawCanvas.width, y: drawStart.y} : drawTool === 'ray' ? extendRay(drawStart, cur) : cur;
+    _line(drawStart, end, '#f5c518', true);
+  }
+  function onEnd(e) {
+    if (!isDrawingLine || !drawStart) return;
+    isDrawingLine = false;
+    const end = getPos(e);
+    if (Math.hypot(end.x - drawStart.x, end.y - drawStart.y) < 5) { drawStart = null; return; }
+    const sc = _px2coord(drawStart.x, drawStart.y);
+    const ec = drawTool === 'hline' ? {logical: _px2coord(drawCanvas.width, drawStart.y).logical, price: sc.price}
+               : drawTool === 'ray' ? _px2coord(extendRay(drawStart, end).x, extendRay(drawStart, end).y)
+               : _px2coord(end.x, end.y);
+    if (sc.logical != null && ec.logical != null && sc.price != null && ec.price != null)
+      drawings.push({ tool: drawTool, s: sc, e: ec });
+    redrawCanvas();
+    saveDrawingsForSymbol();
+    drawStart = null;
+  }
+  drawCanvas.addEventListener('mousedown', onStart);
+  drawCanvas.addEventListener('mousemove', onMove);
+  drawCanvas.addEventListener('mouseup', onEnd);
+  drawCanvas.addEventListener('touchstart', onStart, {passive: false});
+  drawCanvas.addEventListener('touchmove', onMove, {passive: false});
+  drawCanvas.addEventListener('touchend', onEnd, {passive: false});
+}
+function extendRay(p1, p2) {
+  if (!drawCanvas) return p2;
+  const dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.hypot(dx, dy) || 1;
+  const tt = Math.max(drawCanvas.width, drawCanvas.height) * 2 / len;
+  return { x: p1.x + dx * tt, y: p1.y + dy * tt };
+}
+function resizeDrawCanvas() {
+  if (!drawCanvas) return;
+  const c = document.getElementById('lw-chart');
+  if (!c) return;
+  const rect = c.getBoundingClientRect();
+  drawCanvas.width = rect.width; drawCanvas.height = rect.height;
+  drawCanvas.style.width = rect.width + 'px'; drawCanvas.style.height = rect.height + 'px';
+}
+function _px2coord(x, y) {
+  if (!lwChart || !mainSeries) return { logical: null, price: null };
+  return { logical: lwChart.timeScale().coordinateToLogical(x), price: mainSeries.coordinateToPrice(y) };
+}
+function _coord2px(logical, price) {
+  if (!lwChart || !mainSeries) return null;
+  const x = lwChart.timeScale().logicalToCoordinate(logical);
+  const y = mainSeries.priceToCoordinate(price);
+  return (x == null || y == null) ? null : {x, y};
+}
+function redrawCanvas() {
+  if (!drawCtx || !drawCanvas) return;
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  drawings.forEach(d => {
+    const p1 = _coord2px(d.s.logical, d.s.price);
+    if (!p1) return;
+    let p2;
+    if (d.tool === 'hline') {
+      const py = _coord2px(d.s.logical, d.s.price);
+      if (!py) return;
+      p2 = {x: drawCanvas.width, y: py.y}; p1.x = 0;
+    } else if (d.tool === 'ray') {
+      const ep = _coord2px(d.e.logical, d.e.price);
+      if (!ep) return;
+      p2 = extendRay(p1, ep);
+    } else {
+      p2 = _coord2px(d.e.logical, d.e.price);
+    }
+    if (!p2) return;
+    _line(p1, p2, d.tool === 'hline' ? '#64ffda' : '#f5c518');
+  });
+}
+function _line(p1, p2, color, dashed = false) {
+  if (!drawCtx) return;
+  drawCtx.beginPath(); drawCtx.strokeStyle = color; drawCtx.lineWidth = 1.5;
+  drawCtx.setLineDash(dashed ? [6, 3] : []); drawCtx.moveTo(p1.x, p1.y); drawCtx.lineTo(p2.x, p2.y);
+  drawCtx.stroke(); drawCtx.setLineDash([]);
+}
+function setDrawTool(tool) {
+  drawTool = tool;
+  document.querySelectorAll('.ct-btn.draw').forEach(b => b.classList.remove('active'));
+  (document.getElementById('draw-' + tool) || document.getElementById('draw-none'))?.classList.add('active');
+  if (drawCanvas) { drawCanvas.style.pointerEvents = tool === 'none' ? 'none' : 'all'; drawCanvas.style.cursor = tool === 'none' ? 'default' : 'crosshair'; }
+}
+function clearDrawings() { drawings = []; redrawCanvas(); saveDrawingsForSymbol(); }
+function saveDrawingsForSymbol() {
+  try { localStorage.setItem('genrri_drawings_' + currentSymbol, JSON.stringify(drawings)); } catch(e) {}
+}
+function loadDrawingsForSymbol() {
+  try {
+    const raw = localStorage.getItem('genrri_drawings_' + currentSymbol);
+    drawings = raw ? JSON.parse(raw) : [];
+    redrawCanvas();
+  } catch(e) { drawings = []; }
+}
+
+// ─── NAMED WATCHLISTS ─────────────────────────────────────────
+let watchlists = [];   // [{id, name, symbol_count}]
+let currentWatchlistId = 'default';  // 'default' = legacy /api/watchlist
+let watchlistItems = {};  // id -> [{symbol, name}]
+
+async function loadWatchlists() {
+  try {
+    const r = await apiFetch('/api/watchlists');
+    watchlists = await r.json();
+  } catch(e) { watchlists = []; }
+  // Always prepend the "default" watchlist
+  watchlists = [{id: 'default', name: 'Default', symbol_count: 0}, ...watchlists.filter(w => w.id !== 'default')];
+  renderWatchlistTabs();
+}
+function renderWatchlistTabs() {
+  const tabs = document.getElementById('wl-tabs');
+  if (!tabs) return;
+  const tabHtml = watchlists.map(w => {
+    const active = w.id === currentWatchlistId;
+    return `<button class="wl-tab ${active ? 'active' : ''}" onclick="switchWatchlist('${w.id}')" oncontextmenu="showWlContextMenu(event,'${w.id}');return false">
+      ${escHtml(w.name)}
+      ${w.id !== 'default' && active ? '<span class="tab-menu" onclick="event.stopPropagation();showWlContextMenu(event,\''+w.id+'\')">⋯</span>' : ''}
+    </button>`;
+  }).join('');
+  tabs.innerHTML = tabHtml + `<button class="wl-tab add" onclick="createWatchlist()" title="New list">+</button>`;
+}
+async function switchWatchlist(id) {
+  currentWatchlistId = id;
+  renderWatchlistTabs();
+  await loadWatchlistBody();
+}
+async function loadWatchlistBody() {
+  const body = document.getElementById('wl-body');
+  if (!body) return;
+  body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">${t('loading')}</div></div>`;
+  try {
+    let items = [];
+    if (currentWatchlistId === 'default') {
+      const r = await apiFetch('/api/watchlist');
+      items = await r.json();
+    } else {
+      const r = await apiFetch('/api/watchlists/' + currentWatchlistId + '/symbols');
+      items = await r.json();
+    }
+    if (!items || !items.length) {
+      body.innerHTML = `<div class="empty-state"><div class="empty-state-title">Empty</div><div class="empty-state-sub">Click ⭐ on any stock to add it.</div></div>`;
+      return;
+    }
+    watchlistItems[currentWatchlistId] = items;
+    renderWatchlistRows(items);
+    // Start live polling
+    startWatchlistPoll();
+  } catch(e) {
+    body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">Failed to load</div></div>`;
+  }
+}
+async function renderWatchlistRows(items) {
+  const body = document.getElementById('wl-body');
+  if (!body) return;
+  // Fetch quotes in parallel (use cache where possible)
+  const quotes = await Promise.all(items.map(async it => {
+    try { const r = await apiFetch('/api/quote/' + encodeURIComponent(it.symbol)); return {...it, quote: await r.json()}; }
+    catch(e) { return {...it, quote: null}; }
+  }));
+  body.innerHTML = quotes.map(it => {
+    const q = it.quote || {};
+    const price = q.price != null ? fmtPrice(q.price) : '—';
+    const c = q.change_pct || 0;
+    const cls = c >= 0 ? 'pos' : 'neg';
+    const s = c >= 0 ? '+' : '';
+    const active = it.symbol === currentSymbol;
+    return `<div class="wl-row ${active ? 'active' : ''}" data-symbol="${escHtml(it.symbol)}" onclick="selectStock('${escHtml(it.symbol)}')">
+      <div class="wl-row-sym">
+        <div class="wl-row-sym-code">${escHtml(it.symbol.replace('.T',''))}</div>
+        <div class="wl-row-sym-name">${escHtml(it.name || '')}</div>
+      </div>
+      <div class="wl-row-price">${price}</div>
+      <div class="wl-row-chg ${cls}">${s}${c.toFixed(2)}%</div>
+    </div>`;
+  }).join('');
+  // Update stockPrices cache
+  quotes.forEach(it => { if (it.quote && !it.quote.error) stockPrices[it.symbol] = it.quote; });
+}
+let _wlPollTimer = null;
+function startWatchlistPoll() {
+  if (_wlPollTimer) clearInterval(_wlPollTimer);
+  const delay = window.kabuConnected ? 1000 : 60000;
+  _wlPollTimer = setInterval(() => {
+    if (currentRoute !== 'watchlists') return;
+    const items = watchlistItems[currentWatchlistId] || [];
+    if (items.length) renderWatchlistRows(items);
+  }, delay);
+}
+function stopWatchlistPoll() {
+  if (_wlPollTimer) { clearInterval(_wlPollTimer); _wlPollTimer = null; }
+}
+async function createWatchlist() {
+  const name = prompt('List name:');
+  if (!name || !name.trim()) return;
+  try {
+    const r = await apiFetch('/api/watchlists', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name: name.trim()})
+    });
+    const data = await r.json();
+    if (data.id) {
+      await loadWatchlists();
+      switchWatchlist(data.id);
+      toast('List created', 'ok');
+    }
+  } catch(e) { toast('Failed', 'err'); }
+}
+function showWlContextMenu(e, listId) {
+  e.preventDefault(); e.stopPropagation();
+  if (listId === 'default') return;
+  // Simple prompt-based menu for now
+  const action = prompt('Action for this list? (rename / delete)', 'rename');
+  if (!action) return;
+  if (action === 'rename') {
+    const list = watchlists.find(w => w.id === listId);
+    const newName = prompt('New name:', list?.name || '');
+    if (newName && newName.trim()) {
+      apiFetch('/api/watchlists/' + listId, {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({name: newName.trim()})
+      }).then(() => loadWatchlists()).then(() => renderWatchlistTabs());
+    }
+  } else if (action === 'delete') {
+    if (!confirm('Delete this list?')) return;
+    apiFetch('/api/watchlists/' + listId, {method: 'DELETE'}).then(async () => {
+      if (currentWatchlistId === listId) currentWatchlistId = 'default';
+      await loadWatchlists();
+      loadWatchlistBody();
+    });
+  }
+}
+
+// ─── MULTI-LIST STAR DROPDOWN ─────────────────────────────────
+async function openStarDropdown(e) {
+  e.stopPropagation();
+  if (!currentSymbol) return;
+  const dd = document.getElementById('star-dropdown');
+  if (dd.style.display === 'block') { dd.style.display = 'none'; return; }
+  if (!watchlists.length) await loadWatchlists();
+  // Get which lists currently contain this symbol
+  const membership = {};
+  try {
+    const r = await apiFetch('/api/watchlist');
+    const defLst = await r.json();
+    membership['default'] = Array.isArray(defLst) && defLst.some(it => it.symbol === currentSymbol);
+  } catch(e) { membership['default'] = false; }
+  for (const w of watchlists) {
+    if (w.id === 'default') continue;
+    try {
+      const r = await apiFetch('/api/watchlists/' + w.id + '/symbols');
+      const items = await r.json();
+      membership[w.id] = Array.isArray(items) && items.some(it => it.symbol === currentSymbol);
+    } catch(e) { membership[w.id] = false; }
+  }
+  dd.innerHTML = watchlists.map(w => `
+    <label class="star-dropdown-item">
+      <input type="checkbox" ${membership[w.id] ? 'checked' : ''} onchange="toggleListMembership('${w.id}', this.checked)"/>
+      <span>${escHtml(w.name)}</span>
+    </label>
+  `).join('') + `<div class="star-dropdown-divider"></div><button class="star-dropdown-item add" onclick="createWatchlist();document.getElementById('star-dropdown').style.display='none'">+ New list</button>`;
+  dd.style.display = 'block';
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function closer(ev) {
+      if (!dd.contains(ev.target) && ev.target.id !== 'dp-fav' && !document.getElementById('dp-fav').contains(ev.target)) {
+        dd.style.display = 'none';
+        document.removeEventListener('click', closer);
+      }
+    });
+  }, 0);
+  updateFavState();
+}
+async function toggleListMembership(listId, checked) {
+  if (!currentSymbol) return;
+  try {
+    if (listId === 'default') {
+      if (checked) {
+        await apiFetch('/api/watchlist', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({symbol: currentSymbol}) });
+      } else {
+        await apiFetch('/api/watchlist/' + encodeURIComponent(currentSymbol), { method: 'DELETE' });
+      }
+    } else {
+      if (checked) {
+        await apiFetch('/api/watchlists/' + listId + '/symbols', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({symbol: currentSymbol}) });
+      } else {
+        await apiFetch('/api/watchlists/' + listId + '/symbols/' + encodeURIComponent(currentSymbol), { method: 'DELETE' });
+      }
+    }
+    updateFavState();
+    if (currentRoute === 'watchlists') loadWatchlistBody();
+  } catch(e) {}
+}
+// Override the original toggleFav to instead open dropdown
+// (done via the onclick change in HTML — function still usable for programmatic cases)
+
+// ─── RECENT STOCKS ────────────────────────────────────────────
+let recentStocks = JSON.parse(localStorage.getItem('genrri_recent_stocks') || '[]');
+function pushRecentStock(symbol) {
+  if (!symbol) return;
+  recentStocks = [symbol, ...recentStocks.filter(s => s !== symbol)].slice(0, 10);
+  localStorage.setItem('genrri_recent_stocks', JSON.stringify(recentStocks));
+  renderRecent();
+}
+function renderRecent() {
+  const list = document.getElementById('sidebar-recent-list');
+  if (!list) return;
+  if (!recentStocks.length) {
+    list.innerHTML = `<div style="padding:6px 10px;font-size:10px;color:var(--text2)">None yet</div>`;
+    return;
+  }
+  list.innerHTML = recentStocks.map(sym => {
+    const q = stockPrices[sym] || {};
+    const chg = q.change_pct || 0;
+    const cls = chg > 0 ? 'pos' : (chg < 0 ? 'neg' : '');
+    const s = chg > 0 ? '+' : '';
+    return `<button class="sidebar-recent-item" onclick="selectStock('${sym}')">
+      <span class="sr-code">${sym.replace('.T','').replace('=X','').replace('^','')}</span>
+      <span class="sr-chg ${cls}">${q.price != null ? s + chg.toFixed(2) + '%' : ''}</span>
+    </button>`;
+  }).join('');
+}
+
+// ─── KABU STATION INTEGRATION ─────────────────────────────────
+let kabuConnected = false;
+let kabuSSE = null;
+let _kabuActiveSymbol = null;
+let _kabuBoardPoll = null;
+window.kabuConnected = false;
+
+async function connectKabu() {
+  const apiPw = document.getElementById('kabu-api-pw').value.trim();
+  const orderPw = document.getElementById('kabu-order-pw').value.trim();
+  const btn = document.getElementById('kabu-connect-btn');
+  const err = document.getElementById('kabu-err');
+  err.style.display = 'none';
+  if (!apiPw) { err.textContent = 'API password required'; err.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = 'Connecting...';
+  try {
+    const r = await apiFetch('/api/kabu/connect', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({api_password: apiPw, order_password: orderPw})
+    });
+    const data = await r.json();
+    if (data.success) {
+      localStorage.setItem('kabu_api_pw', apiPw);
+      if (orderPw) localStorage.setItem('kabu_order_pw', orderPw);
+      toast('Kabu Station connected', 'ok');
+      await checkKabuStatus();
+      // Start SSE stream for current symbol
+      if (currentSymbol) startKabuStream(currentSymbol);
+      // Restart watchlist poll with new rate
+      if (currentRoute === 'watchlists') startWatchlistPoll();
+    } else {
+      err.textContent = data.error || 'Connection failed';
+      err.style.display = 'block';
+    }
+  } catch(e) { err.textContent = 'Connection error'; err.style.display = 'block'; }
+  btn.disabled = false; btn.textContent = 'Connect';
+}
+
+async function checkKabuStatus() {
+  try {
+    const r = await apiFetch('/api/kabu/status');
+    const data = await r.json();
+    kabuConnected = !!data.connected;
+    window.kabuConnected = kabuConnected;
+    const pill = document.getElementById('conn-pill');
+    if (pill) {
+      pill.classList.toggle('live', kabuConnected);
+      const lbl = pill.querySelector('span:not(.dot)');
+      if (lbl) lbl.textContent = kabuConnected ? t('badge_live') : t('badge_delayed');
+    }
+    const statusRow = document.getElementById('kabu-status-row');
+    if (statusRow) {
+      statusRow.classList.toggle('connected', kabuConnected);
+      const txt = document.getElementById('kabu-status-text');
+      if (txt) txt.textContent = kabuConnected ? t('kabu_connected') : t('kabu_not_connected');
+    }
+    // Update DP order book + trade overview
+    if (currentSymbol) renderDpOrderBook(currentSymbol);
+  } catch(e) {}
+}
+
+// Kabu SSE real-time stream
+function startKabuStream(symbol) {
+  stopKabuStream();
+  if (!kabuConnected || !symbol || !symbol.endsWith('.T')) return;
+  // Register symbol
+  apiFetch('/api/kabu/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({symbols: [symbol]}) }).catch(() => {});
+  // Poll board every 1s (SSE alternative)
+  _kabuActiveSymbol = symbol;
+  let busy = false;
+  async function poll() {
+    if (busy) return; busy = true;
+    try {
+      const r = await apiFetch('/api/kabu/board/' + encodeURIComponent(symbol));
+      const data = await r.json();
+      if (!data.error && data.price) {
+        _handleKabuTick(data);
+      }
+    } catch(e) {} finally { busy = false; }
+  }
+  poll();
+  _kabuBoardPoll = setInterval(poll, 1000);
+}
+function stopKabuStream() {
+  _kabuActiveSymbol = null;
+  if (_kabuBoardPoll) { clearInterval(_kabuBoardPoll); _kabuBoardPoll = null; }
+  if (kabuSSE) { try { kabuSSE.close(); } catch(e) {} kabuSSE = null; }
+}
+function _handleKabuTick(data) {
+  // Update right panel price
+  if (data.price && currentSymbol === data.symbol) {
+    const priceEl = document.getElementById('dp-price');
+    if (priceEl) priceEl.textContent = fmtPrice(data.price);
+    const c = data.change || 0, cp = data.change_pct || 0;
+    const chgEl = document.getElementById('dp-change');
+    if (chgEl) {
+      const cls = c >= 0 ? 'pos' : 'neg', s = c >= 0 ? '+' : '';
+      chgEl.textContent = `${s}${c.toFixed(2)} (${s}${cp.toFixed(2)}%)`;
+      chgEl.className = 'dp-change ' + cls;
+    }
+  }
+  // Update order book
+  renderDpOrderBookFromData(data);
+  // Update trade overview
+  renderDpTradeOverview(data);
+}
+
+// Order book in right panel
+async function renderDpOrderBook(symbol) {
+  const body = document.getElementById('dp-ob-body');
+  const tag = document.getElementById('dp-ob-tag');
+  if (!body) return;
+  if (!symbol.endsWith('.T')) {
+    body.innerHTML = `<div class="dp-placeholder">JP stocks only (.T)</div>`;
+    if (tag) { tag.textContent = t('badge_delayed'); tag.classList.remove('live'); }
+    return;
+  }
+  if (!kabuConnected) {
+    body.innerHTML = `<div class="dp-placeholder">Connect Kabu Station for live order book</div>`;
+    if (tag) { tag.textContent = t('badge_delayed'); tag.classList.remove('live'); }
+    return;
+  }
+  try {
+    const r = await apiFetch('/api/kabu/board/' + encodeURIComponent(symbol));
+    const data = await r.json();
+    if (data.error) { body.innerHTML = `<div class="dp-placeholder">${data.error}</div>`; return; }
+    renderDpOrderBookFromData(data);
+    if (tag) { tag.textContent = t('badge_live'); tag.classList.add('live'); }
+    renderDpTradeOverview(data);
+  } catch(e) { body.innerHTML = `<div class="dp-placeholder">Failed to load</div>`; }
+}
+function renderDpOrderBookFromData(data) {
+  const body = document.getElementById('dp-ob-body');
+  if (!body) return;
+  const asks = (data.asks || []).slice().reverse();
+  const bids = data.bids || [];
+  if (!asks.length && !bids.length) { body.innerHTML = `<div class="dp-placeholder">No depth data</div>`; return; }
+  const maxQty = Math.max(...asks.map(a => a.qty || 0), ...bids.map(b => b.qty || 0), 1);
+  function rows(items, side) {
+    return items.slice(0, 10).map((it, i) => {
+      const pct = Math.round((it.qty / maxQty) * 100);
+      const lvl = side === 'ask' ? (items.length - i) : (i + 1);
+      return `<div class="dp-ob-row">
+        <div class="dp-ob-bar ${side}" style="width:${pct}%"></div>
+        <span class="dp-ob-lvl">${lvl}</span>
+        <span class="dp-ob-price ${side}">${fmtPrice(it.price)}</span>
+        <span class="dp-ob-qty">${it.qty.toLocaleString()}</span>
+      </div>`;
+    }).join('');
+  }
+  const bestAsk = asks.length ? asks[asks.length - 1].price : null;
+  const bestBid = bids.length ? bids[0].price : null;
+  const spread = (bestAsk && bestBid) ? (bestAsk - bestBid) : null;
+  const spreadPct = spread && bestBid ? (spread / bestBid * 100).toFixed(3) : '—';
+  body.innerHTML = rows(asks, 'ask') + `<div class="dp-ob-spread">${data.price ? fmtPrice(data.price) : '—'} · Spread: ${spread != null ? fmtPrice(spread) : '—'} (${spreadPct}%)</div>` + rows(bids, 'bid');
+}
+function renderDpTradeOverview(data) {
+  const body = document.getElementById('dp-to-body');
+  if (!body) return;
+  if (!data || data.error) { body.innerHTML = `<div class="dp-placeholder">Requires Kabu Station</div>`; return; }
+  const bids = data.bids || [], asks = data.asks || [];
+  const bidVal = bids.slice(0, 5).reduce((s, b) => s + (b.price || 0) * (b.qty || 0), 0);
+  const askVal = asks.slice(0, 5).reduce((s, a) => s + (a.price || 0) * (a.qty || 0), 0);
+  const total = bidVal + askVal;
+  if (!total) { body.innerHTML = `<div class="dp-placeholder">No depth</div>`; return; }
+  const bidPct = bidVal / total * 100;
+  const askPct = askVal / total * 100;
+  const net = bidVal - askVal;
+  const netCls = net >= 0 ? 'pos' : 'neg';
+  const netLabel = net >= 0 ? 'Net Inflow' : 'Net Outflow';
+  body.innerHTML = `
+    <div class="to-wrap">
+      <div class="to-donut" style="background: conic-gradient(var(--up) 0% ${bidPct}%, var(--down) ${bidPct}% 100%)"></div>
+      <div class="to-legend">
+        <div class="to-legend-row"><span class="to-dot" style="background:var(--up)"></span><span class="to-label">Bid (Buy)</span><span class="to-value">${bidPct.toFixed(1)}%</span></div>
+        <div class="to-legend-row"><span class="to-dot" style="background:var(--down)"></span><span class="to-label">Ask (Sell)</span><span class="to-value">${askPct.toFixed(1)}%</span></div>
+      </div>
+    </div>
+    <div class="to-net">${netLabel}: <span class="net-val ${netCls}">${net >= 0 ? '+' : '-'}${fmtBig(Math.abs(net))}</span></div>
+  `;
+}
+
+// Override openTradeModal to route to live confirmation if in live mode
+// (keep simulation flow in openTradeModal as-is for now; live trade handled via Kabu confirmation when Kabu connected & .T stock)
+
+// ─── ROUTE HOOKS FOR SESSION 2 ────────────────────────────────
+// Wrap go() to handle watchlist split mode, recent stocks, and chart init
+const _origGo = go;
+window.go = function(route) {
+  _origGo(route);
+  // Main content mode class for watchlists split
+  const mc = document.querySelector('.main-content');
+  if (mc) mc.classList.toggle('mode-watchlists', route === 'watchlists');
+  // Load watchlist data
+  if (route === 'watchlists') {
+    if (!watchlists.length) loadWatchlists().then(() => loadWatchlistBody());
+    else loadWatchlistBody();
+    // Also init chart if not yet
+    ensureChartReady();
+  }
+  // Init chart on chart route
+  if (route === 'chart') ensureChartReady();
+  // Stop watchlist poll when leaving
+  if (route !== 'watchlists') stopWatchlistPoll();
+};
+
+function ensureChartReady() {
+  if (!lwChart) {
+    initLWChart();
+    syncChartUI();
+    if (chartType === 'candle') loadCandleData(currentCandleInterval);
+    else loadChart(currentPeriod);
+  } else {
+    // Just redraw for new symbol
+    if (chartType === 'candle') loadCandleData(currentCandleInterval);
+    else loadChart(currentPeriod);
+  }
+}
+
+// Wrap selectStock to update chart + recent + Kabu stream
+const _origSelectStock = selectStock;
+window.selectStock = async function(symbol) {
+  await _origSelectStock(symbol);
+  pushRecentStock(symbol);
+  // Highlight in watchlist
+  document.querySelectorAll('.wl-row').forEach(r => r.classList.toggle('active', r.dataset.symbol === symbol));
+  // Update chart if visible
+  if (currentRoute === 'chart' || currentRoute === 'watchlists') {
+    if (chartType === 'candle') loadCandleData(currentCandleInterval);
+    else loadChart(currentPeriod);
+  }
+  // Restart Kabu stream for new symbol
+  if (kabuConnected && symbol.endsWith('.T')) startKabuStream(symbol);
+  else stopKabuStream();
+  // Update order book + trade overview
+  renderDpOrderBook(symbol);
+};
+
+// Wrap checkKabuStatus
+const _origCheckKabu = checkKabuStatus;
+// (already defined; no wrap needed — use our full version above)
+// Restore saved Kabu creds on boot
+function _restoreKabuCreds() {
+  const pw = localStorage.getItem('kabu_api_pw');
+  const op = localStorage.getItem('kabu_order_pw');
+  const pwEl = document.getElementById('kabu-api-pw');
+  const opEl = document.getElementById('kabu-order-pw');
+  if (pwEl && pw) pwEl.value = pw;
+  if (opEl && op) opEl.value = op;
 }
 
 // ═════════════════════════════════════════════════════════════
