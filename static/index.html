@@ -20,7 +20,7 @@
 <style>
 /* ═══════════════════ THEMES ═══════════════════ */
 [data-theme="dark"] {
-  --bg: #0a0e1a; --surface: #111827; --surface2: #1a2235; --border: #283a5c;
+  --bg: #0a0e1a; --surface: #111827; --surface2: #1a2235; --border: #1e2d45;
   --text: #e8eaf0; --text2: #7b8499; --accent: #00d4aa; --accent2: #0099ff;
   --green: #00d4aa; --red: #ff4d6a; --chart-grid: #1e2d45;
 }
@@ -37,8 +37,8 @@
 [data-theme="gold"] {
   /* Softer warm-charcoal instead of near-pure black — easier on eyes for long sessions.
      Text is warm cream (not pure white) so contrast is reduced without losing readability.
-     Borders are gold-tinted to match the theme aesthetic. */
-  --bg: #1a1610; --surface: #211c13; --surface2: #2b2518; --border: #6b5528;
+     Border is subtly gold-tinted but blends with the background. */
+  --bg: #1a1610; --surface: #211c13; --surface2: #2b2518; --border: #3a3120;
   --text: #ede3c6; --text2: #b39f75; --accent: #d4af37; --accent2: #c9a227;
   --green: #00d4aa; --red: #ff4d6a; --chart-grid: #2f2818;
 }
@@ -65,6 +65,18 @@ h1, h2, h3, h4 { font-weight: 600; }
 
 /* Hide elements with i18n keys until translations are applied, to prevent raw-key flash */
 body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
+
+/* ═══════════════════ SCROLLBARS (theme-matched, no browser white) ═══════════════════ */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text2) 25%, transparent) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text2) 25%, transparent);
+  border-radius: 4px;
+  border: 2px solid transparent; background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--text2) 50%, transparent); background-clip: content-box; }
+*::-webkit-scrollbar-corner { background: transparent; }
 
 /* ═══════════════════ ANIMATIONS ═══════════════════ */
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
@@ -109,11 +121,11 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   grid-template-rows: 1fr;
   min-height: 100vh; max-height: 100vh;
   overflow: hidden;
-  /* Subtle column separators — creates the Moomoo-style grid feel */
-  gap: 1px;
-  background: var(--border);
 }
 .app-shell.sidebar-collapsed { grid-template-columns: 58px 1fr 340px; }
+/* Subtle column edges (not visible lines — just part of background continuity) */
+.sidebar { border-right: 1px solid var(--border); }
+.detail { border-left: 1px solid var(--border); }
 
 /* ═══════════════════ SIDEBAR ═══════════════════ */
 .sidebar {
@@ -248,53 +260,30 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   border-bottom: 1px solid var(--border); overflow-x: auto;
   background: var(--surface); scrollbar-width: thin;
 }
-/* Panel cards have their own border + rounded corners — Moomoo grid feel */
-.panel { box-shadow: 0 1px 2px color-mix(in srgb, #000 8%, transparent); }
-.pf-stat { box-shadow: 0 1px 2px color-mix(in srgb, #000 6%, transparent); }
-.idx-card { box-shadow: 0 1px 2px color-mix(in srgb, #000 6%, transparent); }
+/* Panel cards: just a single 1px border, no shadows, blends with bg */
 .pf-header { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 16px 16px; }
-.holdings-list { box-shadow: 0 1px 2px color-mix(in srgb, #000 6%, transparent); }
-.chart-toolbar { box-shadow: 0 1px 2px color-mix(in srgb, #000 6%, transparent); }
-.chart-host { box-shadow: 0 1px 2px color-mix(in srgb, #000 6%, transparent); }
-/* Gold theme: slightly warmer subtle shadow instead of pure black */
-[data-theme="gold"] .panel, [data-theme="gold"] .pf-header, [data-theme="gold"] .holdings-list,
-[data-theme="gold"] .chart-toolbar, [data-theme="gold"] .chart-host, [data-theme="gold"] .pf-stat, [data-theme="gold"] .idx-card {
-  box-shadow: 0 1px 2px color-mix(in srgb, #1a1008 40%, transparent);
-}
 
-/* MOOMOO-STYLE STRONGER GRID BORDERS ────────────────────────── */
-/* Dividers between holding rows */
-.holding-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+/* Subtle row separators — ────────────────────────── */
+.holding-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
 .holding-row:last-child { border-bottom: none; }
-/* Dividers between watchlist rows (already there but make more visible) */
-.wl-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
-/* Dividers between mover rows */
-.mover-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+.wl-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent); }
+.mover-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent); }
 .mover-row:last-child { border-bottom: none; }
-/* Left accent bar on hover (Moomoo highlight) */
+/* Left accent bar on hover / active selection */
 .holding-row, .wl-row, .mover-row { border-left: 2px solid transparent; transition: border-left-color 0.1s, background 0.1s; }
 .holding-row:hover, .wl-row:hover, .mover-row:hover { border-left-color: var(--accent); }
 .wl-row.active { border-left-color: var(--accent); }
-/* Panel header bottom border — subtle but visible */
 .panel-header { border-bottom: 1px solid var(--border); }
-/* Section title under-lines */
-.holdings-title, .panel-title { position: relative; }
-/* Make main panel borders feel more like tiles — accent the top edge on dark themes */
-[data-theme="dark"] .panel, [data-theme="dark"] .pf-header, [data-theme="dark"] .pf-stat,
-[data-theme="dark"] .holdings-list, [data-theme="dark"] .chart-toolbar, [data-theme="dark"] .chart-host,
-[data-theme="dark"] .idx-card {
-  border-color: color-mix(in srgb, var(--border) 100%, transparent);
-}
+/* Gold theme: subtle gold-tint on panel borders — blends rather than stands out */
 [data-theme="gold"] .panel, [data-theme="gold"] .pf-header, [data-theme="gold"] .pf-stat,
-[data-theme="gold"] .holdings-list, [data-theme="gold"] .chart-toolbar, [data-theme="gold"] .chart-host,
+[data-theme="gold"] .holdings-list, [data-theme="gold"] .chart-host,
 [data-theme="gold"] .idx-card, [data-theme="gold"] .chart-panel {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 12%, var(--border));
 }
-/* Gold theme: row separators also gold-tinted */
 [data-theme="gold"] .holding-row,
 [data-theme="gold"] .wl-row,
 [data-theme="gold"] .mover-row {
-  border-bottom-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .idx-item {
   display: flex; flex-direction: column; gap: 2px;
