@@ -37,7 +37,8 @@
 [data-theme="gold"] {
   --bg: #0a0908; --surface: #15120c; --surface2: #1f1a10; --border: #3a2f14;
   --text: #f5ecd1; --text2: #a89361; --accent: #d4af37; --accent2: #c9a227;
-  --green: #c9a227; --red: #e5534b; --chart-grid: #2a2210;
+  /* Red/green stay as real red/green regardless of theme — these drive price indicators */
+  --green: #00d4aa; --red: #ff4d6a; --chart-grid: #2a2210;
 }
 
 /* ——— COLOR CONVENTION (rising/falling) ——— */
@@ -1104,9 +1105,14 @@ select.s-input { appearance: none; }
       <h3 data-i18n="s_appearance">Appearance</h3>
       <div class="s-desc" data-i18n="s_appearance_desc">Choose a theme for the app.</div>
       <div class="theme-grid">
+        <!-- Dark themes grouped together, then light themes -->
         <div class="theme-swatch swatch-dark" onclick="setTheme('dark')" id="swatch-dark">
           <div class="swatch-preview"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#0a0e1a;border:2px solid #1e2d45"></span></div>
           <div class="swatch-label" data-i18n="theme_dark">Dark</div>
+        </div>
+        <div class="theme-swatch swatch-gold" onclick="setTheme('gold')" id="swatch-gold">
+          <div class="swatch-preview" style="background:#0a0908"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#d4af37;border:2px solid #3a2f14"></span></div>
+          <div class="swatch-label" style="background:#15120c;color:#d4af37" data-i18n="theme_gold">Black &amp; Gold</div>
         </div>
         <div class="theme-swatch swatch-light" onclick="setTheme('light')" id="swatch-light">
           <div class="swatch-preview"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#f0f2f8;border:2px solid #dde1ea"></span></div>
@@ -1115,10 +1121,6 @@ select.s-input { appearance: none; }
         <div class="theme-swatch swatch-sand" onclick="setTheme('sand')" id="swatch-sand">
           <div class="swatch-preview"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#faf7f2;border:2px solid #e0d9c8"></span></div>
           <div class="swatch-label" style="background:#f3eedf;color:#2c2416" data-i18n="theme_sand">Sand</div>
-        </div>
-        <div class="theme-swatch swatch-gold" onclick="setTheme('gold')" id="swatch-gold">
-          <div class="swatch-preview" style="background:#0a0908"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#d4af37;border:2px solid #3a2f14"></span></div>
-          <div class="swatch-label" style="background:#15120c;color:#d4af37" data-i18n="theme_gold">Black &amp; Gold</div>
         </div>
       </div>
 
