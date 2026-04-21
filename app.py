@@ -921,57 +921,44 @@ def get_quotes_batch():
     results = {}
     to_fetch = []
 
-    # For JP stocks with Kabu connected: ALWAYS skip cache and read Kabu PUSH
-    # directly. PRICE_CACHE has a 5-min TTL which would otherwise make the
-    # watchlist show stale prices even while Kabu is pushing live ticks.
+    # Delegate JP symbols (and anything Kabu-capable) to _fetch_single_quote
+    # so the single- and batch-endpoints share identical Kabu-priority logic.
+    # This was previously a separate code path that silently fell through to
+    # cache when PUSH wasn't warm — causing watchlist prices to trail the
+    # right-panel by several yen.
     kabu = _get_kabu_client() if HAS_KABU else None
     kabu_live = bool(kabu and kabu.is_connected())
-    # Collect JP symbols we'll need to register for PUSH (first-time requests)
     to_register = []
 
     for sym in symbols:
-        # Kabu live path for JP stocks — no cache
         if kabu_live and not _is_us_symbol(sym):
-            try:
-                code, _ = KabuClient.to_kabu_symbol(sym)
-                push = kabu_ws.get_push_data(code)
-                if push and push.get('CurrentPrice'):
-                    r = {
-                        'symbol': sym,
-                        'price': round(float(push['CurrentPrice']), 2),
-                        'change': round(float(push.get('ChangePreviousClose') or 0), 2),
-                        'change_pct': round(float(push.get('ChangePreviousClosePer') or 0), 2),
-                        'prev_close': round(float(push.get('PreviousClose') or 0), 2),
-                        'volume': int(push.get('TradingVolume') or 0),
-                        'source': 'kabu_push',
-                    }
-                    results[sym] = r
-                    PRICE_CACHE[sym] = {'data': r.copy(), 'ts': now}
-                    continue
-                # No PUSH yet — kick a registration so subsequent polls get PUSH,
-                # and serve this call from REST board (one-time slow path).
+            # Track for registration — if PUSH wasn't hot, _fetch_single_quote
+            # may have used REST. Register so the next poll gets PUSH.
+            code, _ex = KabuClient.to_kabu_symbol(sym)
+            if not kabu_ws.get_push_data(code):
                 to_register.append(sym)
-                board = kabu.get_board_as_quote(sym)
-                if board and 'error' not in board and board.get('price'):
-                    r = board.copy()
+            try:
+                r = _fetch_single_quote(sym)
+                if r and 'error' not in r:
+                    r = r.copy()
                     r.pop('chart', None)
-                    r['source'] = 'kabu_rest'
+                    r.setdefault('source', 'single_quote')
                     results[sym] = r
-                    PRICE_CACHE[sym] = {'data': r.copy(), 'ts': now}
                     continue
             except Exception:
                 pass
-        # Fall through to cache
+        # Non-Kabu path: cache-first like before (US stocks, or Kabu offline)
         cached = PRICE_CACHE.get(sym)
         if cached and (now - cached['ts']).total_seconds() < PRICE_CACHE_TTL:
             r = cached['data'].copy()
             r.pop('chart', None)
+            r.setdefault('source', 'cached')
             results[sym] = r
         else:
             to_fetch.append(sym)
 
-    # Fire-and-forget Kabu registration for any symbols we didn't find in PUSH
-    # cache. Next call (~2s later at frontend poll rate) will hit the PUSH fast path.
+    # Fire-and-forget Kabu registration for any symbol that didn't have PUSH
+    # data at request time. Next call (~2s later) should hit the PUSH fast path.
     if kabu_live and to_register:
         try:
             threading.Thread(target=lambda: kabu.register_symbols(to_register[:50]),
