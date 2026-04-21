@@ -734,6 +734,18 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .sidebar-recent-item .sr-chg { margin-left: auto; font-size: 10px; font-variant-numeric: tabular-nums; }
 .app-shell.sidebar-collapsed .sidebar-recent { display: none; }
 
+/* ═══════════════════ Live price blink/flash ═══════════════════ */
+@keyframes price-flash-up {
+  0%   { background: color-mix(in srgb, var(--up) 35%, transparent); }
+  100% { background: transparent; }
+}
+@keyframes price-flash-down {
+  0%   { background: color-mix(in srgb, var(--down) 35%, transparent); }
+  100% { background: transparent; }
+}
+.flash-up   { animation: price-flash-up   0.8s ease-out; }
+.flash-down { animation: price-flash-down 0.8s ease-out; }
+
 /* ═══════════════════ Trade mode toggle (quick-trade modal) ═══════════════════ */
 .qt-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .qt-mode-opt {
@@ -2233,7 +2245,13 @@ function renderPortfolio() {
     </div>`;
     return;
   }
-  list.innerHTML = holdings.map(h => {
+  // In-place update if row structure unchanged — lets us flash on price change
+  const existing = {};
+  list.querySelectorAll('.holding-row').forEach(r => { existing[r.dataset.symbol] = r; });
+  const symsMatch = Object.keys(existing).length === holdings.length
+    && holdings.every(h => existing[h.symbol]);
+
+  const rowData = holdings.map(h => {
     const q = stockPrices[h.symbol] || {};
     const price = h.current_price || q.price || h.avg_cost || 0;
     const value = h.value != null ? h.value : (h.shares * price);
@@ -2241,18 +2259,46 @@ function renderPortfolio() {
     const pnl = h.pnl != null ? h.pnl : (value - cost);
     const pnlPct = cost ? (pnl / cost) * 100 : 0;
     const alloc = invested ? (value / invested * 100) : 0;
-    const cls = pnl >= 0 ? 'pos' : 'neg';
-    const s = pnl >= 0 ? '+' : '';
-    return `<div class="holding-row" onclick="selectStock('${h.symbol}')">
-      <div>
-        <div class="holding-name">${escHtml(h.name || h.symbol)}</div>
-        <div class="holding-sub">${h.shares} × ${fmtPrice(h.avg_cost)}</div>
-      </div>
-      <div class="holding-value">${fmt(value)}</div>
-      <div class="holding-pnl ${cls}">${s}${fmtPrice(Math.abs(pnl))} (${s}${Math.abs(pnlPct).toFixed(1)}%)</div>
-      <div class="holding-alloc">${alloc.toFixed(1)}%</div>
-    </div>`;
-  }).join('');
+    return { h, price, value, pnl, pnlPct, alloc };
+  });
+
+  if (symsMatch) {
+    rowData.forEach(({ h, price, value, pnl, pnlPct, alloc }) => {
+      const row = existing[h.symbol];
+      if (!row) return;
+      const prev = _prevPrices[h.symbol];
+      const valEl  = row.querySelector('.holding-value');
+      const pnlEl  = row.querySelector('.holding-pnl');
+      const allocEl= row.querySelector('.holding-alloc');
+      if (valEl) valEl.textContent = fmt(value);
+      if (pnlEl) {
+        const cls = pnl >= 0 ? 'pos' : 'neg';
+        const s = pnl >= 0 ? '+' : '';
+        pnlEl.className = 'holding-pnl ' + cls;
+        pnlEl.textContent = `${s}${fmtPrice(Math.abs(pnl))} (${s}${Math.abs(pnlPct).toFixed(1)}%)`;
+      }
+      if (allocEl) allocEl.textContent = alloc.toFixed(1) + '%';
+      if (prev != null && price !== prev && price > 0) {
+        _flashCell(row, price > prev);
+      }
+      if (price > 0) _prevPrices[h.symbol] = price;
+    });
+  } else {
+    list.innerHTML = rowData.map(({ h, price, value, pnl, pnlPct, alloc }) => {
+      const cls = pnl >= 0 ? 'pos' : 'neg';
+      const s = pnl >= 0 ? '+' : '';
+      if (price > 0) _prevPrices[h.symbol] = price;
+      return `<div class="holding-row" data-symbol="${escHtml(h.symbol)}" onclick="selectStock('${h.symbol}')">
+        <div>
+          <div class="holding-name">${escHtml(h.name || h.symbol)}</div>
+          <div class="holding-sub">${h.shares} × ${fmtPrice(h.avg_cost)}</div>
+        </div>
+        <div class="holding-value">${fmt(value)}</div>
+        <div class="holding-pnl ${cls}">${s}${fmtPrice(Math.abs(pnl))} (${s}${Math.abs(pnlPct).toFixed(1)}%)</div>
+        <div class="holding-alloc">${alloc.toFixed(1)}%</div>
+      </div>`;
+    }).join('');
+  }
 }
 async function loadPerfChart() {
   try {
@@ -3707,19 +3753,52 @@ function syncChartUI() {
   });
 }
 
+// For intraday data (today-is-still-moving), cache is worthless AND
+// harmful: _updateLiveCandle() mutates chartDataCache (which is the
+// SAME array stored in _LC by reference), so stale live-patched bars
+// linger on revisit. We now:
+//   - Skip the stale-first render entirely for intraday periods/intervals
+//   - Deep-clone on cache write for long-horizon data so live mutations
+//     don't corrupt the cached copy
+const INTRADAY_LINE_FOR_CACHE = new Set(['1d', '5d']);
+const INTRADAY_CANDLE_FOR_CACHE = new Set(['1m', '5m', '15m', '30m', '60m', '1d']);
+
+function _chartCachePut(key, data, isIntraday) {
+  if (isIntraday) return;  // don't cache live data
+  try {
+    // Deep copy so future _updateLiveCandle() mutations on chartDataCache
+    // don't retroactively corrupt the cache entry.
+    const clone = data.map(d => Object.assign({}, d));
+    _LC.set(key, clone, 86400000);
+  } catch(e) {}
+}
+function _chartCacheGet(key, isIntraday) {
+  if (isIntraday) return null;
+  const cached = _LC.get(key);
+  if (!cached || !cached.length) return null;
+  // Return a fresh copy so live updates don't mutate cache.
+  return cached.map(d => Object.assign({}, d));
+}
+
 async function loadChart(period) {
   currentPeriod = period;
   document.querySelectorAll('#line-periods .ct-btn').forEach(b => b.classList.toggle('active', b.dataset.period === period));
   if (!lwChart) { initLWChart(); syncChartUI(); }
   else lwChart.applyOptions({ timeScale: { timeVisible: INTRADAY_LINE_PERIODS.has(period), secondsVisible: false } });
   const cacheKey = `chart_line_${currentSymbol}_${period}`;
-  const cached = _LC.get(cacheKey);
-  if (cached && cached.length) { chartDataCache = cached; renderLWChart(); loadDrawingsForSymbol(); }
+  const isIntraday = INTRADAY_LINE_FOR_CACHE.has(period);
+  const cached = _chartCacheGet(cacheKey, isIntraday);
+  if (cached) { chartDataCache = cached; renderLWChart(); loadDrawingsForSymbol(); }
   try {
     const r = await apiFetch('/api/history/' + currentSymbol + '?period=' + period);
     const data = await r.json();
-    if (data.length && !data.error) { chartDataCache = data; _LC.set(cacheKey, data, 86400000); renderLWChart(); loadDrawingsForSymbol(); }
-  } catch(e) {}
+    if (data.length && !data.error) {
+      chartDataCache = data;
+      _chartCachePut(cacheKey, data, isIntraday);
+      renderLWChart();
+      loadDrawingsForSymbol();
+    }
+  } catch(e) { console.warn('[chart] history fetch failed:', e); }
 }
 function loadCandleInterval(interval) {
   currentCandleInterval = interval;
@@ -3731,13 +3810,19 @@ async function loadCandleData(interval) {
   if (!lwChart) { initLWChart(); syncChartUI(); }
   else lwChart.applyOptions({ timeScale: { timeVisible: INTRADAY_CANDLE_INTERVALS.has(interval), secondsVisible: false } });
   const cacheKey = `chart_candle_${currentSymbol}_${interval}`;
-  const cached = _LC.get(cacheKey);
-  if (cached && cached.length) { chartDataCache = cached; renderLWChart(); loadDrawingsForSymbol(); }
+  const isIntraday = INTRADAY_CANDLE_FOR_CACHE.has(interval);
+  const cached = _chartCacheGet(cacheKey, isIntraday);
+  if (cached) { chartDataCache = cached; renderLWChart(); loadDrawingsForSymbol(); }
   try {
     const r = await apiFetch('/api/history/' + currentSymbol + '?interval=' + interval);
     const data = await r.json();
-    if (data.length && !data.error) { chartDataCache = data; _LC.set(cacheKey, data, 86400000); renderLWChart(); loadDrawingsForSymbol(); }
-  } catch(e) {}
+    if (data.length && !data.error) {
+      chartDataCache = data;
+      _chartCachePut(cacheKey, data, isIntraday);
+      renderLWChart();
+      loadDrawingsForSymbol();
+    }
+  } catch(e) { console.warn('[chart] candle fetch failed:', e); }
 }
 
 // ─── Drawing tools ────────────────────────────────────────────
@@ -3910,32 +3995,88 @@ async function loadWatchlistBody() {
     body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">Failed to load</div></div>`;
   }
 }
+// Previous prices per symbol, for computing flash direction on updates
+const _prevPrices = {};
+function _flashCell(el, up) {
+  if (!el) return;
+  el.classList.remove('flash-up', 'flash-down');
+  // Force reflow so the animation restarts even if class was reapplied
+  void el.offsetWidth;
+  el.classList.add(up ? 'flash-up' : 'flash-down');
+}
+
 async function renderWatchlistRows(items) {
   const body = document.getElementById('wl-body');
   if (!body) return;
-  // Fetch quotes in parallel (use cache where possible)
-  const quotes = await Promise.all(items.map(async it => {
-    try { const r = await apiFetch('/api/quote/' + encodeURIComponent(it.symbol)); return {...it, quote: await r.json()}; }
-    catch(e) { return {...it, quote: null}; }
-  }));
-  body.innerHTML = quotes.map(it => {
-    const q = it.quote || {};
-    const price = q.price != null ? fmtPrice(q.price) : '—';
-    const c = q.change_pct || 0;
-    const cls = c >= 0 ? 'pos' : 'neg';
-    const s = c >= 0 ? '+' : '';
-    const active = it.symbol === currentSymbol;
-    return `<div class="wl-row ${active ? 'active' : ''}" data-symbol="${escHtml(it.symbol)}" onclick="selectStock('${escHtml(it.symbol)}')">
-      <div class="wl-row-sym">
-        <div class="wl-row-sym-code">${escHtml(it.symbol.replace('.T',''))}</div>
-        <div class="wl-row-sym-name">${escHtml(it.name || '')}</div>
-      </div>
-      <div class="wl-row-price">${price}</div>
-      <div class="wl-row-chg ${cls}">${s}${c.toFixed(2)}%</div>
-    </div>`;
-  }).join('');
-  // Update stockPrices cache
-  quotes.forEach(it => { if (it.quote && !it.quote.error) stockPrices[it.symbol] = it.quote; });
+  // Fetch all quotes in ONE batch call when we have multiple — much cheaper
+  // than N parallel calls, especially at 1s polling with Kabu connected.
+  let quotesBySym = {};
+  if (items.length) {
+    try {
+      const r = await apiFetch('/api/quotes', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ symbols: items.map(it => it.symbol) })
+      });
+      const batch = await r.json();
+      if (Array.isArray(batch)) batch.forEach(q => { if (q && q.symbol) quotesBySym[q.symbol] = q; });
+      else if (batch && typeof batch === 'object') quotesBySym = batch;
+    } catch(e) {}
+  }
+  const annotated = items.map(it => ({ ...it, quote: quotesBySym[it.symbol] || null }));
+
+  // If rows already exist for these symbols, update in-place so we can flash
+  // the changed cells. Otherwise do a full render.
+  const existing = {};
+  body.querySelectorAll('.wl-row').forEach(r => { existing[r.dataset.symbol] = r; });
+
+  if (Object.keys(existing).length === annotated.length
+      && annotated.every(it => existing[it.symbol])) {
+    // In-place update path — flash on price change
+    annotated.forEach(it => {
+      const row = existing[it.symbol];
+      if (!row) return;
+      const q = it.quote || {};
+      const priceEl = row.querySelector('.wl-row-price');
+      const chgEl   = row.querySelector('.wl-row-chg');
+      const newPrice = q.price;
+      const prev = _prevPrices[it.symbol];
+      if (priceEl) {
+        priceEl.textContent = newPrice != null ? fmtPrice(newPrice) : '—';
+        if (prev != null && newPrice != null && newPrice !== prev) {
+          _flashCell(row, newPrice > prev);
+        }
+      }
+      if (chgEl) {
+        const c = q.change_pct || 0;
+        const s = c >= 0 ? '+' : '';
+        chgEl.textContent = `${s}${c.toFixed(2)}%`;
+        chgEl.className = 'wl-row-chg ' + (c >= 0 ? 'pos' : 'neg');
+      }
+      row.classList.toggle('active', it.symbol === currentSymbol);
+      if (newPrice != null) _prevPrices[it.symbol] = newPrice;
+    });
+  } else {
+    // Structural change — full render
+    body.innerHTML = annotated.map(it => {
+      const q = it.quote || {};
+      const price = q.price != null ? fmtPrice(q.price) : '—';
+      const c = q.change_pct || 0;
+      const cls = c >= 0 ? 'pos' : 'neg';
+      const s = c >= 0 ? '+' : '';
+      const active = it.symbol === currentSymbol;
+      if (q.price != null) _prevPrices[it.symbol] = q.price;
+      return `<div class="wl-row ${active ? 'active' : ''}" data-symbol="${escHtml(it.symbol)}" onclick="selectStock('${escHtml(it.symbol)}')">
+        <div class="wl-row-sym">
+          <div class="wl-row-sym-code">${escHtml(it.symbol.replace('.T',''))}</div>
+          <div class="wl-row-sym-name">${escHtml(it.name || '')}</div>
+        </div>
+        <div class="wl-row-price">${price}</div>
+        <div class="wl-row-chg ${cls}">${s}${c.toFixed(2)}%</div>
+      </div>`;
+    }).join('');
+  }
+  // Update stockPrices cache (used by portfolio + other views)
+  annotated.forEach(it => { if (it.quote && !it.quote.error) stockPrices[it.symbol] = it.quote; });
 }
 let _wlPollTimer = null;
 function startWatchlistPoll() {
@@ -4243,7 +4384,14 @@ function _handleKabuTick(data) {
   // Update right panel price
   if (data.price && currentSymbol === data.symbol) {
     const priceEl = document.getElementById('dp-price');
-    if (priceEl) priceEl.textContent = fmtPrice(data.price);
+    if (priceEl) {
+      const prev = _prevPrices[data.symbol];
+      priceEl.textContent = fmtPrice(data.price);
+      if (prev != null && data.price !== prev) {
+        _flashCell(priceEl, data.price > prev);
+      }
+      _prevPrices[data.symbol] = data.price;
+    }
     const c = data.change || 0, cp = data.change_pct || 0;
     const chgEl = document.getElementById('dp-change');
     if (chgEl) {
