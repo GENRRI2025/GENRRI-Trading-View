@@ -3233,9 +3233,12 @@ function _impStockSearch(suffix) {
         apiFetch('/api/stocks?q=' + encodeURIComponent(q) + '&limit=6&region=jp'),
         apiFetch('/api/stocks?q=' + encodeURIComponent(q) + '&limit=6&region=us'),
       ]);
-      const jp = await jpR.json().catch(() => []);
-      const us = await usR.json().catch(() => []);
-      const items = [...(Array.isArray(jp)?jp:[]), ...(Array.isArray(us)?us:[])];
+      const jpRaw = await jpR.json().catch(() => null);
+      const usRaw = await usR.json().catch(() => null);
+      // Backend returns {total, stocks:[...]} — unwrap. Be tolerant of both
+      // shapes in case anything else calls this in the future.
+      const unwrap = (r) => Array.isArray(r) ? r : (r && Array.isArray(r.stocks) ? r.stocks : []);
+      const items = [...unwrap(jpRaw), ...unwrap(usRaw)];
       if (!items.length) { list.style.display = 'none'; list.innerHTML = ''; return; }
       list.innerHTML = items.slice(0, 10).map(it =>
         `<div class="ac-item" onmousedown="_impPickStock('${escHtml(it.symbol)}', '${escHtml((it.name||it.symbol).replace(/'/g, "&#39;"))}', '${suffix}')">
@@ -3245,6 +3248,34 @@ function _impStockSearch(suffix) {
       list.style.display = 'block';
     } catch(e) { list.style.display = 'none'; }
   }, 200);
+}
+
+// If the user typed a code/symbol but didn't click a suggestion, try to
+// resolve it automatically on submit so they don't have to re-type.
+async function _impResolveSymbol(suffix) {
+  suffix = suffix || '';
+  const symEl = document.getElementById('imp-symbol' + suffix);
+  if (symEl && symEl.value) return symEl.value;   // already picked
+  const text = (document.getElementById('imp-search' + suffix)?.value || '').trim();
+  if (!text) return '';
+  try {
+    const r = await apiFetch('/api/stocks?q=' + encodeURIComponent(text) + '&limit=1&region=jp');
+    const j = await r.json();
+    const stocks = Array.isArray(j) ? j : (j && j.stocks ? j.stocks : []);
+    if (stocks.length) {
+      if (symEl) symEl.value = stocks[0].symbol;
+      return stocks[0].symbol;
+    }
+    // Try US region
+    const r2 = await apiFetch('/api/stocks?q=' + encodeURIComponent(text) + '&limit=1&region=us');
+    const j2 = await r2.json();
+    const us = Array.isArray(j2) ? j2 : (j2 && j2.stocks ? j2.stocks : []);
+    if (us.length) {
+      if (symEl) symEl.value = us[0].symbol;
+      return us[0].symbol;
+    }
+  } catch(e) {}
+  return '';
 }
 function _impPickStock(symbol, name, suffix) {
   suffix = suffix || '';
@@ -3269,7 +3300,7 @@ function _impPickStock(symbol, name, suffix) {
 }
 
 async function _impSubmitTxn() {
-  const symbol = document.getElementById('imp-symbol').value;
+  const symbol = await _impResolveSymbol('');
   const pid    = document.getElementById('imp-pf').value;
   const action = document.getElementById('imp-action').value;
   const shares = parseFloat(document.getElementById('imp-shares').value);
@@ -3299,7 +3330,7 @@ async function _impSubmitTxn() {
 }
 
 async function _impSubmitSet() {
-  const symbol = document.getElementById('imp-symbol2').value;
+  const symbol = await _impResolveSymbol('2');
   const pid    = document.getElementById('imp-pf').value;
   const shares = parseFloat(document.getElementById('imp-set-shares').value);
   const price  = parseFloat(document.getElementById('imp-set-price').value);
