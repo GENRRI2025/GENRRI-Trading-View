@@ -2232,39 +2232,54 @@ async function loadPortfolio() {
 let _pfLivePollTimer = null;
 async function refreshPortfolioLivePrices() {
   if (!portfolio || !currentPortfolioId) return;
+  const holdings = portfolio.holdings || [];
+  if (!holdings.length) return;
+  const syms = holdings.map(h => h.symbol).filter(Boolean);
+  if (!syms.length) return;
   try {
-    const r = await apiFetch('/api/portfolio/live-prices?portfolio_id=' + encodeURIComponent(currentPortfolioId));
-    const live = await r.json();
-    if (!live || !live.prices) {
-      console.warn('[portfolio] live-prices empty response', live);
-      return;
-    }
-    // Diagnostic: record what each holding got and where it came from.
+    // Use the SAME /api/quotes batch endpoint the watchlist uses — it's
+    // proven to return live Kabu-backed prices for the user's symbols,
+    // and it auto-registers any JP symbols that aren't yet subscribed
+    // to PUSH. This makes portfolio holdings behave identically to the
+    // watchlist: the click-to-activate problem is gone.
+    const r = await apiFetch('/api/quotes', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ symbols: syms })
+    });
+    const raw = await r.json();
+    // Backend returns either {sym: {...}} object or [{symbol, ...}] array
+    const bySym = {};
+    if (Array.isArray(raw)) raw.forEach(q => { if (q && q.symbol) bySym[q.symbol] = q; });
+    else if (raw && typeof raw === 'object') Object.assign(bySym, raw);
+
     const diag = {};
-    (portfolio.holdings || []).forEach(h => {
-      const p = live.prices[h.symbol];
-      const sourceTag = (p && p.source) || 'no-data';
-      diag[h.symbol] = { price: p ? p.price : null, source: sourceTag };
-      if (p && p.price > 0) {
-        h.current_price = p.price;
-        h.value = p.value;
-        h.pnl = p.pnl;
+    holdings.forEach(h => {
+      const q = bySym[h.symbol];
+      const sourceTag = (q && q.source) || 'no-data';
+      diag[h.symbol] = { price: q ? q.price : null, source: sourceTag };
+      if (q && q.price != null && q.price > 0) {
+        h.current_price = q.price;
+        h.value = q.price * h.shares;
+        h.pnl = (q.price - h.avg_cost) * h.shares;
         h._source = sourceTag;
-        stockPrices[h.symbol] = Object.assign({}, stockPrices[h.symbol] || {}, { price: p.price });
+        stockPrices[h.symbol] = Object.assign({}, stockPrices[h.symbol] || {}, {
+          symbol: h.symbol, price: q.price,
+          change: q.change || 0, change_pct: q.change_pct || 0,
+        });
       } else {
         h._source = sourceTag;
       }
     });
-    // Log to console so the user can see exactly what's happening. Only
-    // log if ANY symbol lacks live data — avoids console spam when healthy.
+    // Console warn only if anything still lacks data — hover the holding
+    // row to see the source tag per symbol.
     const problemSyms = Object.entries(diag).filter(([_, d]) => !d.price || d.price === 0);
     if (problemSyms.length) {
       console.warn('[portfolio] symbols without live price:',
-        Object.fromEntries(problemSyms), 'kabu_connected:', live.kabu_connected);
+        Object.fromEntries(problemSyms));
     }
     renderPortfolio();
   } catch(e) {
-    console.warn('[portfolio] live-prices fetch failed:', e);
+    console.warn('[portfolio] /api/quotes batch failed:', e);
   }
 }
 function startPortfolioLivePoll() {
