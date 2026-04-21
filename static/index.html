@@ -4379,29 +4379,36 @@ async function renderWatchlistRows(items) {
 
   if (Object.keys(existing).length === annotated.length
       && annotated.every(it => existing[it.symbol])) {
-    // In-place update path — flash only when THIS ROW's displayed price changes
+    // In-place update path. Active symbol's row is driven by the Kabu
+    // board stream (_handleKabuTick); this loop SKIPS it so there's no
+    // dual-source write causing the price to oscillate.
+    // Also: we never overwrite a good displayed price with '—' — if this
+    // poll returned no price (PUSH not warm, REST failure), keep what's
+    // already shown. That was the OTHER cause of the "flashing between
+    // two values" user report.
     annotated.forEach(it => {
+      if (it.symbol === currentSymbol) return;  // Kabu stream owns active row
       const row = existing[it.symbol];
       if (!row) return;
       const q = it.quote || {};
       const priceEl = row.querySelector('.wl-row-price');
       const chgEl   = row.querySelector('.wl-row-chg');
       const newPrice = q.price;
-      if (priceEl) {
-        priceEl.textContent = newPrice != null ? fmtPrice(newPrice) : '—';
+      if (priceEl && newPrice != null) {
+        priceEl.textContent = fmtPrice(newPrice);
       }
-      // Diagnostic: set a tooltip showing where this price came from
-      // (kabu_push / kabu_rest / cached). Hover a row to inspect.
       if (q.source) row.title = `${it.symbol} · ${q.source}`;
-      if (chgEl) {
-        const c = q.change_pct || 0;
-        const s = c >= 0 ? '+' : '';
+      if (chgEl && q.change_pct != null) {
+        const c = q.change_pct, s = c >= 0 ? '+' : '';
         chgEl.textContent = `${s}${c.toFixed(2)}%`;
         chgEl.className = 'wl-row-chg ' + (c >= 0 ? 'pos' : 'neg');
       }
-      row.classList.toggle('active', it.symbol === currentSymbol);
-      _maybeFlashRow(row, newPrice);
+      row.classList.toggle('active', false);
+      if (newPrice != null) _maybeFlashRow(row, newPrice);
     });
+    // Highlight the current symbol's row (done separately since we skipped it)
+    const activeRow = existing[currentSymbol];
+    if (activeRow) activeRow.classList.add('active');
   } else {
     // Structural change — full render; each row's first paint establishes the
     // baseline (no flash until the NEXT poll).
@@ -4423,15 +4430,38 @@ async function renderWatchlistRows(items) {
       </div>`;
     }).join('');
   }
-  // Split of responsibility — avoid dual-source oscillation:
-  //   - Active symbol (currentSymbol): Kabu board-endpoint 1s poll drives it
-  //     via _handleKabuTick(). We SKIP it here.
-  //   - All other symbols: this batch poll is their only source.
+  // Propagate fresh prices to holding rows + stockPrices cache (wl-rows
+  // were already updated in the in-place path above). Skip the active
+  // symbol — Kabu board stream owns it.
   annotated.forEach(it => {
     if (it.symbol === currentSymbol) return;
     const q = it.quote;
     if (q && !q.error && q.price != null) {
-      _syncSymbolEverywhere(it.symbol, q.price, q.change, q.change_pct, /*authoritative*/ true);
+      stockPrices[it.symbol] = Object.assign({}, stockPrices[it.symbol] || {}, {
+        symbol: it.symbol, price: q.price,
+        change: q.change || 0, change_pct: q.change_pct || 0,
+      });
+      // Update the portfolio holding row if one exists for this symbol
+      const hRow = document.querySelector(`.holding-row[data-symbol="${CSS.escape(it.symbol)}"]`);
+      if (hRow && portfolio && portfolio.holdings) {
+        const h = portfolio.holdings.find(x => x.symbol === it.symbol);
+        if (h) {
+          const newValue = q.price * h.shares;
+          const newPnl   = (q.price - h.avg_cost) * h.shares;
+          const newPct   = h.avg_cost ? (newPnl / (h.avg_cost * h.shares) * 100) : 0;
+          h.current_price = q.price; h.value = newValue; h.pnl = newPnl;
+          const valEl = hRow.querySelector('.holding-value');
+          const pnlEl = hRow.querySelector('.holding-pnl');
+          if (valEl) valEl.textContent = fmt(newValue);
+          if (pnlEl) {
+            const cls = newPnl >= 0 ? 'pos' : 'neg';
+            const s = newPnl >= 0 ? '+' : '';
+            pnlEl.className = 'holding-pnl ' + cls;
+            pnlEl.textContent = `${s}${fmtPrice(Math.abs(newPnl))} (${s}${Math.abs(newPct).toFixed(1)}%)`;
+          }
+          _maybeFlashRow(hRow, q.price);
+        }
+      }
     }
   });
 }
