@@ -2420,10 +2420,14 @@ async function selectStock(symbol) {
   if (actions) actions.style.display = isTradeable(symbol) ? '' : 'none';
   // Mobile: open drawer
   if (window.innerWidth < 900) document.getElementById('detail')?.classList.add('open');
-  // Clear stats
+  // Clear stats AND reset the dp-price flash baseline so the first real
+  // price from the new stock doesn't flash relative to the PREVIOUS
+  // stock's last-seen value.
   ['dp-price','dp-change','dp-high','dp-low','dp-open','dp-prev','dp-vol','dp-turnover'].forEach(id => {
     const el = document.getElementById(id); if (el) el.textContent = '—';
   });
+  const dpPriceEl = document.getElementById('dp-price');
+  if (dpPriceEl) delete dpPriceEl.dataset.lastPrice;
   // Fetch quote
   let quote = null;
   try {
@@ -2948,9 +2952,12 @@ async function loadTxns() {
 
   // Populate portfolio filter
   const pfSel = document.getElementById('txn-pf-filter');
-  if (pfSel && pfSel.options.length <= 1 && Array.isArray(portfolios) && portfolios.length) {
+  // portfolios was an undeclared variable — ReferenceError made loadTxns()
+  // throw before the fetch, so the table stayed on "Loading…" forever.
+  // The correct global is portfolioList (loaded by loadPortfolios()).
+  if (pfSel && pfSel.options.length <= 1 && Array.isArray(portfolioList) && portfolioList.length) {
     pfSel.innerHTML = `<option value="__all__" data-i18n="txn_all_pf">${t('txn_all_pf') || 'All portfolios'}</option>`
-      + portfolios.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+      + portfolioList.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
     pfSel.value = currentPortfolioId || '__all__';
   }
 
@@ -4755,7 +4762,8 @@ function _handleKabuTick(data) {
   // watchlist row and portfolio holding row for the same symbol RIGHT NOW,
   // from the same source. This guarantees all views display identically.
   if (data.price && data.symbol) {
-    _syncSymbolEverywhere(data.symbol, data.price, data.change, data.change_pct);
+    // fromTick=true → this is the authoritative 1s Kabu stream
+    _syncSymbolEverywhere(data.symbol, data.price, data.change, data.change_pct, true);
   }
   // Update order book
   renderDpOrderBookFromData(data);
@@ -4766,7 +4774,13 @@ function _handleKabuTick(data) {
 // Push a fresh price into every visible row that references `symbol`.
 // Shared by the Kabu tick handler AND the polling renderers so everyone
 // ends up reading from whichever update arrives most recently.
-function _syncSymbolEverywhere(symbol, price, change, changePct) {
+//
+// `fromTick` = true when called from _handleKabuTick (authoritative 1s
+// Kabu stream). When false (watchlist/portfolio batch poll), we DO NOT
+// touch the right-panel DP price for the active symbol — the dedicated
+// Kabu stream owns that cell, and writing from two sources was causing
+// the flash to oscillate between two slightly different values.
+function _syncSymbolEverywhere(symbol, price, change, changePct, fromTick) {
   if (!symbol || !price) return;
   // 1. Mirror into the stockPrices global (used by other renderers)
   stockPrices[symbol] = Object.assign({}, stockPrices[symbol] || {}, {
@@ -4808,10 +4822,11 @@ function _syncSymbolEverywhere(symbol, price, change, changePct) {
       _maybeFlashRow(hRow, price);
     }
   }
-  // 4. If this is the currently-viewed symbol, also update right-panel price
-  //    (kept separate from the currentSymbol block above so watchlist-row
-  //    clicks that arrive via other code paths also sync the panel).
-  if (symbol === currentSymbol) {
+  // 4. If this is the currently-viewed symbol AND the caller is the Kabu
+  //    tick stream (authoritative), update the right-panel DP price.
+  //    Polls (watchlist/portfolio) skip this write to avoid oscillating
+  //    the DP cell against the Kabu stream's parallel updates.
+  if (fromTick && symbol === currentSymbol) {
     const dpPriceEl = document.getElementById('dp-price');
     if (dpPriceEl) {
       dpPriceEl.textContent = fmtPrice(price);

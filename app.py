@@ -4003,7 +4003,21 @@ def get_watchlist():
     conn = get_db()
     rows = conn.execute('SELECT symbol, name, added_at FROM watchlist WHERE user_id = ? ORDER BY added_at DESC', (uid,)).fetchall()
     conn.close()
-    return jsonify([dict(r) for r in rows])
+    out = [dict(r) for r in rows]
+    # Auto-register all JP symbols with Kabu PUSH — same as the named-watchlist
+    # endpoint does. Without this, only the single actively-viewed stock's
+    # price updates live; other watchlist rows stay on 5-min cached yfinance.
+    if HAS_KABU:
+        jp_syms = [r['symbol'] for r in out if r.get('symbol', '').endswith('.T')]
+        if jp_syms:
+            try:
+                k = _get_kabu_client()
+                if k and k.is_connected():
+                    threading.Thread(target=lambda: k.register_symbols(jp_syms[:50]),
+                                     daemon=True).start()
+            except Exception:
+                pass
+    return jsonify(out)
 
 
 @app.route('/api/watchlist', methods=['POST'])
@@ -4020,6 +4034,15 @@ def add_watchlist():
                  (uid, symbol, name, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     conn.commit()
     conn.close()
+    # Auto-register with Kabu PUSH so live quotes start flowing immediately
+    if HAS_KABU and symbol.endswith('.T'):
+        try:
+            k = _get_kabu_client()
+            if k and k.is_connected():
+                threading.Thread(target=lambda: k.register_symbols([symbol]),
+                                 daemon=True).start()
+        except Exception:
+            pass
     return jsonify({'success': True})
 
 
