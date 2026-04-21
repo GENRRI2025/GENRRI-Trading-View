@@ -2300,7 +2300,6 @@ function renderPortfolio() {
     rowData.forEach(({ h, price, value, pnl, pnlPct, alloc }) => {
       const row = existing[h.symbol];
       if (!row) return;
-      const prev = _prevPrices[h.symbol];
       const valEl  = row.querySelector('.holding-value');
       const pnlEl  = row.querySelector('.holding-pnl');
       const allocEl= row.querySelector('.holding-alloc');
@@ -2312,17 +2311,14 @@ function renderPortfolio() {
         pnlEl.textContent = `${s}${fmtPrice(Math.abs(pnl))} (${s}${Math.abs(pnlPct).toFixed(1)}%)`;
       }
       if (allocEl) allocEl.textContent = alloc.toFixed(1) + '%';
-      if (prev != null && price !== prev && price > 0) {
-        _flashCell(row, price > prev);
-      }
-      if (price > 0) _prevPrices[h.symbol] = price;
+      _maybeFlashRow(row, price > 0 ? price : null);
     });
   } else {
     list.innerHTML = rowData.map(({ h, price, value, pnl, pnlPct, alloc }) => {
       const cls = pnl >= 0 ? 'pos' : 'neg';
       const s = pnl >= 0 ? '+' : '';
-      if (price > 0) _prevPrices[h.symbol] = price;
-      return `<div class="holding-row" data-symbol="${escHtml(h.symbol)}" onclick="selectStock('${h.symbol}')">
+      const dataPrice = price > 0 ? ` data-last-price="${price}"` : '';
+      return `<div class="holding-row" data-symbol="${escHtml(h.symbol)}"${dataPrice} onclick="selectStock('${h.symbol}')">
         <div>
           <div class="holding-name">${escHtml(h.name || h.symbol)}</div>
           <div class="holding-sub">${h.shares} × ${fmtPrice(h.avg_cost)}</div>
@@ -4222,8 +4218,26 @@ async function loadWatchlistBody() {
     body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">Failed to load</div></div>`;
   }
 }
-// Previous prices per symbol, for computing flash direction on updates
+// Previous prices per symbol (used only for the right-panel DP price, since
+// there's exactly one DP price element at a time and no cross-talk risk).
 const _prevPrices = {};
+
+// Minimum price delta (in currency units) to trigger a flash. Below this we
+// treat the change as noise — Kabu sometimes re-sends the same PUSH with
+// tiny float-roundoff diffs.
+const _FLASH_MIN_DELTA = 0.01;
+
+// Store prev on the DOM element itself so each row only compares to the last
+// value SHOWN IN THAT ROW — no cross-renderer interference.
+function _maybeFlashRow(el, newPrice) {
+  if (!el || newPrice == null) return;
+  const prev = parseFloat(el.dataset.lastPrice);
+  el.dataset.lastPrice = newPrice;
+  if (isNaN(prev)) return;            // first-render: establish baseline, no flash
+  if (Math.abs(newPrice - prev) < _FLASH_MIN_DELTA) return;
+  _flashCell(el, newPrice > prev);
+}
+
 function _flashCell(el, up) {
   if (!el) return;
   el.classList.remove('flash-up', 'flash-down');
@@ -4258,7 +4272,7 @@ async function renderWatchlistRows(items) {
 
   if (Object.keys(existing).length === annotated.length
       && annotated.every(it => existing[it.symbol])) {
-    // In-place update path — flash on price change
+    // In-place update path — flash only when THIS ROW's displayed price changes
     annotated.forEach(it => {
       const row = existing[it.symbol];
       if (!row) return;
@@ -4266,13 +4280,12 @@ async function renderWatchlistRows(items) {
       const priceEl = row.querySelector('.wl-row-price');
       const chgEl   = row.querySelector('.wl-row-chg');
       const newPrice = q.price;
-      const prev = _prevPrices[it.symbol];
       if (priceEl) {
         priceEl.textContent = newPrice != null ? fmtPrice(newPrice) : '—';
-        if (prev != null && newPrice != null && newPrice !== prev) {
-          _flashCell(row, newPrice > prev);
-        }
       }
+      // Diagnostic: set a tooltip showing where this price came from
+      // (kabu_push / kabu_rest / cached). Hover a row to inspect.
+      if (q.source) row.title = `${it.symbol} · ${q.source}`;
       if (chgEl) {
         const c = q.change_pct || 0;
         const s = c >= 0 ? '+' : '';
@@ -4280,10 +4293,11 @@ async function renderWatchlistRows(items) {
         chgEl.className = 'wl-row-chg ' + (c >= 0 ? 'pos' : 'neg');
       }
       row.classList.toggle('active', it.symbol === currentSymbol);
-      if (newPrice != null) _prevPrices[it.symbol] = newPrice;
+      _maybeFlashRow(row, newPrice);
     });
   } else {
-    // Structural change — full render
+    // Structural change — full render; each row's first paint establishes the
+    // baseline (no flash until the NEXT poll).
     body.innerHTML = annotated.map(it => {
       const q = it.quote || {};
       const price = q.price != null ? fmtPrice(q.price) : '—';
@@ -4291,8 +4305,8 @@ async function renderWatchlistRows(items) {
       const cls = c >= 0 ? 'pos' : 'neg';
       const s = c >= 0 ? '+' : '';
       const active = it.symbol === currentSymbol;
-      if (q.price != null) _prevPrices[it.symbol] = q.price;
-      return `<div class="wl-row ${active ? 'active' : ''}" data-symbol="${escHtml(it.symbol)}" onclick="selectStock('${escHtml(it.symbol)}')">
+      const dataPrice = q.price != null ? ` data-last-price="${q.price}"` : '';
+      return `<div class="wl-row ${active ? 'active' : ''}" data-symbol="${escHtml(it.symbol)}"${dataPrice} onclick="selectStock('${escHtml(it.symbol)}')">
         <div class="wl-row-sym">
           <div class="wl-row-sym-code">${escHtml(it.symbol.replace('.T',''))}</div>
           <div class="wl-row-sym-name">${escHtml(it.name || '')}</div>
@@ -4612,12 +4626,8 @@ function _handleKabuTick(data) {
   if (data.price && currentSymbol === data.symbol) {
     const priceEl = document.getElementById('dp-price');
     if (priceEl) {
-      const prev = _prevPrices[data.symbol];
       priceEl.textContent = fmtPrice(data.price);
-      if (prev != null && data.price !== prev) {
-        _flashCell(priceEl, data.price > prev);
-      }
-      _prevPrices[data.symbol] = data.price;
+      _maybeFlashRow(priceEl, data.price);
     }
     const c = data.change || 0, cp = data.change_pct || 0;
     const chgEl = document.getElementById('dp-change');
