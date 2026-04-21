@@ -926,6 +926,8 @@ def get_quotes_batch():
     # watchlist show stale prices even while Kabu is pushing live ticks.
     kabu = _get_kabu_client() if HAS_KABU else None
     kabu_live = bool(kabu and kabu.is_connected())
+    # Collect JP symbols we'll need to register for PUSH (first-time requests)
+    to_register = []
 
     for sym in symbols:
         # Kabu live path for JP stocks — no cache
@@ -946,11 +948,14 @@ def get_quotes_batch():
                     results[sym] = r
                     PRICE_CACHE[sym] = {'data': r.copy(), 'ts': now}
                     continue
-                # No PUSH yet — try REST board (still fresh, adds cost but single call)
+                # No PUSH yet — kick a registration so subsequent polls get PUSH,
+                # and serve this call from REST board (one-time slow path).
+                to_register.append(sym)
                 board = kabu.get_board_as_quote(sym)
                 if board and 'error' not in board and board.get('price'):
                     r = board.copy()
                     r.pop('chart', None)
+                    r['source'] = 'kabu_rest'
                     results[sym] = r
                     PRICE_CACHE[sym] = {'data': r.copy(), 'ts': now}
                     continue
@@ -964,6 +969,15 @@ def get_quotes_batch():
             results[sym] = r
         else:
             to_fetch.append(sym)
+
+    # Fire-and-forget Kabu registration for any symbols we didn't find in PUSH
+    # cache. Next call (~2s later at frontend poll rate) will hit the PUSH fast path.
+    if kabu_live and to_register:
+        try:
+            threading.Thread(target=lambda: kabu.register_symbols(to_register[:50]),
+                             daemon=True).start()
+        except Exception:
+            pass
 
     # Split into US and JP symbols for different fetch strategies
     us_to_fetch = [s for s in to_fetch if _is_us_symbol(s)]
@@ -4135,6 +4149,20 @@ def get_watchlist_symbols(list_id):
         (list_id, uid)
     ).fetchall()
     conn.close()
+    # Ensure Kabu PUSH is subscribed for all JP symbols in this list. Register
+    # on every fetch is cheap — Kabu de-dupes internally — but guarantees we
+    # catch pre-existing items (added before auto-register existed) and
+    # post-restart state (token was reset).
+    if HAS_KABU:
+        jp_syms = [r['symbol'] for r in rows if r['symbol'].endswith('.T')]
+        if jp_syms:
+            try:
+                k = _get_kabu_client()
+                if k and k.is_connected():
+                    threading.Thread(target=lambda: k.register_symbols(jp_syms[:50]),
+                                     daemon=True).start()
+            except Exception:
+                pass
     return jsonify([dict(r) for r in rows])
 
 
@@ -4161,6 +4189,15 @@ def add_watchlist_symbol(list_id):
     except Exception:
         pass  # already in list — idempotent
     conn.close()
+    # Auto-register with Kabu PUSH so this symbol starts streaming live quotes
+    if HAS_KABU and symbol.endswith('.T'):
+        try:
+            k = _get_kabu_client()
+            if k and k.is_connected():
+                threading.Thread(target=lambda: k.register_symbols([symbol]),
+                                 daemon=True).start()
+        except Exception:
+            pass
     return jsonify({'success': True})
 
 
@@ -4212,33 +4249,36 @@ def kabu_status():
 
 
 def _register_kabu_watchlist():
-    """Register all watchlist + portfolio JP symbols for PUSH streaming."""
+    """Register all watchlist + portfolio JP symbols for PUSH streaming.
+
+    Scans BOTH the legacy `watchlist` table and the named-watchlists
+    `watchlist_items` table (Session 2+). Without this, symbols added to a
+    named watchlist never register with Kabu → kabu_ws.get_push_data()
+    returns empty → frontend falls back to slow REST board calls per
+    symbol per poll.
+    """
     try:
         kabu = _get_kabu_client()
         if not kabu or not kabu.is_connected():
             return
         conn = get_db()
         symbols = set()
-        # Get all holdings across all users (JP stocks only)
-        try:
-            rows = conn.execute('SELECT DISTINCT symbol FROM holdings WHERE symbol LIKE ?', ('%.T',)).fetchall()
-            for r in rows:
-                symbols.add(r[0])
-        except Exception:
-            pass
-        # Get all watchlist items (JP stocks only)
-        try:
-            rows = conn.execute('SELECT DISTINCT symbol FROM watchlist WHERE symbol LIKE ?', ('%.T',)).fetchall()
-            for r in rows:
-                symbols.add(r[0])
-        except Exception:
-            pass
+        for table in ('holdings', 'watchlist', 'watchlist_items'):
+            try:
+                rows = conn.execute(
+                    f'SELECT DISTINCT symbol FROM {table} WHERE symbol LIKE ?',
+                    ('%.T',)).fetchall()
+                for r in rows:
+                    symbols.add(r[0])
+            except Exception:
+                pass  # table may not exist on old DBs
         conn.close()
-        # Cap at 50 (Kabu Station limit)
+        # Cap at 50 (Kabu Station limit per register call)
         symbols = list(symbols)[:50]
         if symbols:
             kabu.register_symbols(symbols)
-            print(f'[kabu] Registered {len(symbols)} watchlist/portfolio symbols for PUSH', flush=True)
+            print(f'[kabu] Registered {len(symbols)} symbols for PUSH: '
+                  f'{symbols[:5]}{"…" if len(symbols) > 5 else ""}', flush=True)
     except Exception as e:
         print(f'[kabu] Watchlist registration error: {e}', flush=True)
 
