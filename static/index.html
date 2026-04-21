@@ -2201,20 +2201,21 @@ async function refreshPortfolioLivePrices() {
     const r = await apiFetch('/api/portfolio/live-prices?portfolio_id=' + encodeURIComponent(currentPortfolioId));
     const live = await r.json();
     if (!live || !live.prices) return;
-    // Patch holdings with fresh prices — don't reload full /api/portfolio
+    // Patch holdings with fresh prices — renderPortfolio() recomputes
+    // totals from patched holdings + existing cash. We DO NOT overwrite
+    // portfolio.total_value or portfolio.unrealized_pnl from the live
+    // endpoint — the /api/portfolio load is the source of truth for cash,
+    // and live-prices' total can be wrong when the sub_portfolios table's
+    // cash column is stale relative to fund_history.
     (portfolio.holdings || []).forEach(h => {
       const p = live.prices[h.symbol];
       if (p && p.price > 0) {
         h.current_price = p.price;
         h.value = p.value;
         h.pnl = p.pnl;
-        // Mirror into stockPrices for other renderers
         stockPrices[h.symbol] = Object.assign({}, stockPrices[h.symbol] || {}, { price: p.price });
       }
     });
-    // Update totals in-place
-    if (live.total_value != null) portfolio.total_value = live.total_value;
-    if (live.total_pnl != null) portfolio.unrealized_pnl = live.total_pnl;
     renderPortfolio();
   } catch(e) {}
 }
@@ -4347,8 +4348,14 @@ async function renderWatchlistRows(items) {
       </div>`;
     }).join('');
   }
-  // Update stockPrices cache (used by portfolio + other views)
-  annotated.forEach(it => { if (it.quote && !it.quote.error) stockPrices[it.symbol] = it.quote; });
+  // Sync every symbol to all views (right panel, portfolio, stockPrices)
+  // from this single batch result — ensures consistency across components.
+  annotated.forEach(it => {
+    const q = it.quote;
+    if (q && !q.error && q.price != null) {
+      _syncSymbolEverywhere(it.symbol, q.price, q.change, q.change_pct);
+    }
+  });
 }
 let _wlPollTimer = null;
 function startWatchlistPoll() {
@@ -4670,10 +4677,77 @@ function _handleKabuTick(data) {
     // Update live candle / line chart in real time
     _updateLiveCandle(data.price, data.volume);
   }
+  // ── Cross-component live sync ──
+  // The user correctly pointed out that polling the watchlist + portfolio
+  // from separate endpoints races against the right-panel's tick stream.
+  // Even if both use Kabu, they can land milliseconds apart with different
+  // prices. Solution: when a tick arrives for ANY symbol, also update the
+  // watchlist row and portfolio holding row for the same symbol RIGHT NOW,
+  // from the same source. This guarantees all views display identically.
+  if (data.price && data.symbol) {
+    _syncSymbolEverywhere(data.symbol, data.price, data.change, data.change_pct);
+  }
   // Update order book
   renderDpOrderBookFromData(data);
   // Update trade overview
   renderDpTradeOverview(data);
+}
+
+// Push a fresh price into every visible row that references `symbol`.
+// Shared by the Kabu tick handler AND the polling renderers so everyone
+// ends up reading from whichever update arrives most recently.
+function _syncSymbolEverywhere(symbol, price, change, changePct) {
+  if (!symbol || !price) return;
+  // 1. Mirror into the stockPrices global (used by other renderers)
+  stockPrices[symbol] = Object.assign({}, stockPrices[symbol] || {}, {
+    symbol, price, change: change || 0, change_pct: changePct || 0,
+  });
+  // 2. Update watchlist row
+  const wlRow = document.querySelector(`.wl-row[data-symbol="${CSS.escape(symbol)}"]`);
+  if (wlRow) {
+    const priceEl = wlRow.querySelector('.wl-row-price');
+    const chgEl   = wlRow.querySelector('.wl-row-chg');
+    if (priceEl) priceEl.textContent = fmtPrice(price);
+    if (chgEl && changePct != null) {
+      const c = changePct, s = c >= 0 ? '+' : '';
+      chgEl.textContent = `${s}${c.toFixed(2)}%`;
+      chgEl.className = 'wl-row-chg ' + (c >= 0 ? 'pos' : 'neg');
+    }
+    _maybeFlashRow(wlRow, price);
+  }
+  // 3. Update portfolio holding row
+  const hRow = document.querySelector(`.holding-row[data-symbol="${CSS.escape(symbol)}"]`);
+  if (hRow && portfolio && portfolio.holdings) {
+    const h = portfolio.holdings.find(x => x.symbol === symbol);
+    if (h) {
+      const newValue = price * h.shares;
+      const newPnl   = (price - h.avg_cost) * h.shares;
+      const newPct   = h.avg_cost ? (newPnl / (h.avg_cost * h.shares) * 100) : 0;
+      h.current_price = price;
+      h.value = newValue;
+      h.pnl   = newPnl;
+      const valEl = hRow.querySelector('.holding-value');
+      const pnlEl = hRow.querySelector('.holding-pnl');
+      if (valEl) valEl.textContent = fmt(newValue);
+      if (pnlEl) {
+        const cls = newPnl >= 0 ? 'pos' : 'neg';
+        const s = newPnl >= 0 ? '+' : '';
+        pnlEl.className = 'holding-pnl ' + cls;
+        pnlEl.textContent = `${s}${fmtPrice(Math.abs(newPnl))} (${s}${Math.abs(newPct).toFixed(1)}%)`;
+      }
+      _maybeFlashRow(hRow, price);
+    }
+  }
+  // 4. If this is the currently-viewed symbol, also update right-panel price
+  //    (kept separate from the currentSymbol block above so watchlist-row
+  //    clicks that arrive via other code paths also sync the panel).
+  if (symbol === currentSymbol) {
+    const dpPriceEl = document.getElementById('dp-price');
+    if (dpPriceEl) {
+      dpPriceEl.textContent = fmtPrice(price);
+      _maybeFlashRow(dpPriceEl, price);
+    }
+  }
 }
 
 // Keep the most recent chart bar live-updating from Kabu ticks.
