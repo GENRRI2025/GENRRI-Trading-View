@@ -4423,12 +4423,20 @@ async function renderWatchlistRows(items) {
       </div>`;
     }).join('');
   }
-  // Sync every symbol to all views (right panel, portfolio, stockPrices)
-  // from this single batch result — ensures consistency across components.
+  // Sync every symbol to all views from this single batch result. The batch
+  // poll is now the SINGLE authoritative price source — the Kabu board-endpoint
+  // poll only drives order book / trade overview. That's what finally eliminates
+  // the oscillating-flash between two sources returning slightly different ticks.
   annotated.forEach(it => {
     const q = it.quote;
     if (q && !q.error && q.price != null) {
-      _syncSymbolEverywhere(it.symbol, q.price, q.change, q.change_pct);
+      _syncSymbolEverywhere(it.symbol, q.price, q.change, q.change_pct, /*authoritative*/ true);
+      // For the active symbol, also live-update the chart's last candle.
+      // (Used to live in _handleKabuTick; moved here so the price-driving
+      // source and the chart-driving source are the same.)
+      if (it.symbol === currentSymbol && typeof _updateLiveCandle === 'function') {
+        _updateLiveCandle(q.price, q.volume);
+      }
     }
   });
 }
@@ -4739,37 +4747,12 @@ function stopKabuStream() {
   if (kabuSSE) { try { kabuSSE.close(); } catch(e) {} kabuSSE = null; }
 }
 function _handleKabuTick(data) {
-  // Update right panel price
-  if (data.price && currentSymbol === data.symbol) {
-    const priceEl = document.getElementById('dp-price');
-    if (priceEl) {
-      priceEl.textContent = fmtPrice(data.price);
-      _maybeFlashRow(priceEl, data.price);
-    }
-    const c = data.change || 0, cp = data.change_pct || 0;
-    const chgEl = document.getElementById('dp-change');
-    if (chgEl) {
-      const cls = c >= 0 ? 'pos' : 'neg', s = c >= 0 ? '+' : '';
-      chgEl.textContent = `${s}${c.toFixed(2)} (${s}${cp.toFixed(2)}%)`;
-      chgEl.className = 'dp-change ' + cls;
-    }
-    // Update live candle / line chart in real time
-    _updateLiveCandle(data.price, data.volume);
-  }
-  // ── Cross-component live sync ──
-  // The user correctly pointed out that polling the watchlist + portfolio
-  // from separate endpoints races against the right-panel's tick stream.
-  // Even if both use Kabu, they can land milliseconds apart with different
-  // prices. Solution: when a tick arrives for ANY symbol, also update the
-  // watchlist row and portfolio holding row for the same symbol RIGHT NOW,
-  // from the same source. This guarantees all views display identically.
-  if (data.price && data.symbol) {
-    // fromTick=true → this is the authoritative 1s Kabu stream
-    _syncSymbolEverywhere(data.symbol, data.price, data.change, data.change_pct, true);
-  }
-  // Update order book
+  // Order-book-endpoint poll. We ONLY use it for order book + trade overview
+  // now. Prices are exclusively driven by the /api/quotes batch poll so that
+  // every UI cell (watchlist row, holding row, right-panel DP price) reads
+  // from a single source and can never oscillate between two slightly
+  // different ticks landing at the same instant.
   renderDpOrderBookFromData(data);
-  // Update trade overview
   renderDpTradeOverview(data);
 }
 
@@ -4824,15 +4807,21 @@ function _syncSymbolEverywhere(symbol, price, change, changePct, fromTick) {
       _maybeFlashRow(hRow, price);
     }
   }
-  // 4. If this is the currently-viewed symbol AND the caller is the Kabu
-  //    tick stream (authoritative), update the right-panel DP price.
-  //    Polls (watchlist/portfolio) skip this write to avoid oscillating
-  //    the DP cell against the Kabu stream's parallel updates.
+  // 4. If this is the currently-viewed symbol AND the caller is authoritative
+  //    (now the batch poll, after moving the Kabu-board stream to OB-only),
+  //    update the right-panel DP price + change display.
   if (fromTick && symbol === currentSymbol) {
     const dpPriceEl = document.getElementById('dp-price');
     if (dpPriceEl) {
       dpPriceEl.textContent = fmtPrice(price);
       _maybeFlashRow(dpPriceEl, price);
+    }
+    const dpChgEl = document.getElementById('dp-change');
+    if (dpChgEl && (change != null || changePct != null)) {
+      const c = change || 0, cp = changePct || 0;
+      const cls = c >= 0 ? 'pos' : 'neg', s = c >= 0 ? '+' : '';
+      dpChgEl.textContent = `${s}${c.toFixed(2)} (${s}${cp.toFixed(2)}%)`;
+      dpChgEl.className = 'dp-change ' + cls;
     }
   }
 }
