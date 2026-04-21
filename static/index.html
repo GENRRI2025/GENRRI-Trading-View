@@ -2221,9 +2221,15 @@ async function refreshPortfolioLivePrices() {
 }
 function startPortfolioLivePoll() {
   if (_pfLivePollTimer) clearInterval(_pfLivePollTimer);
-  const delay = window.kabuConnected ? 2000 : 60000;
+  const delay = window.kabuConnected ? 1000 : 60000;
   _pfLivePollTimer = setInterval(() => {
-    if (currentRoute !== 'portfolio') return;
+    // Keep polling regardless of current route — when Kabu is connected the
+    // user expects ALL portfolio holdings to stay live in the background so
+    // that coming back to the portfolio page shows fresh data, and so that
+    // any watchlist row that's also a holding gets the live update too.
+    // The polled endpoint hits Kabu PUSH (in-memory), so this is cheap.
+    if (!portfolio || !currentPortfolioId) return;
+    if (!(portfolio.holdings || []).length) return;
     refreshPortfolioLivePrices();
   }, delay);
 }
@@ -3762,8 +3768,13 @@ async function initApp() {
   loadIndexStrip();
   // Navigate to last route
   go(currentRoute);
-  // Load watchlists early so they're ready
-  loadWatchlists().catch(() => {});
+  // Load watchlists early so they're ready, AND eagerly fetch their items
+  // so the global 1s poll can start streaming prices even before the user
+  // visits the watchlists page. Same for portfolio holdings.
+  loadWatchlists()
+    .then(() => loadWatchlistBody().catch(() => {}))
+    .catch(() => {});
+  loadPortfolio().catch(() => {});
   // Populate default stock in right panel
   selectStock(currentSymbol || '7203.T');
   // Restore Kabu creds + await initial status so auto-reconnect has truth
@@ -3775,6 +3786,11 @@ async function initApp() {
   setInterval(loadIndexStrip, 60000);
   setInterval(checkKabuStatus, 30000);
   setInterval(() => { if (currentRoute === 'markets') loadMarkets(); }, 5 * 60 * 1000);
+  // Start the live-price background polls regardless of which page the user
+  // is currently on — the rate is set based on window.kabuConnected, and the
+  // loops no-op when there's nothing to fetch.
+  startWatchlistPoll();
+  startPortfolioLivePoll();
   // Auto-reconnect Kabu ONLY if we have saved creds and are not already connected
   const savedApiPw = localStorage.getItem('kabu_api_pw');
   if (savedApiPw && !kabuConnected) {
@@ -4362,7 +4378,11 @@ function startWatchlistPoll() {
   if (_wlPollTimer) clearInterval(_wlPollTimer);
   const delay = window.kabuConnected ? 1000 : 60000;
   _wlPollTimer = setInterval(() => {
-    if (currentRoute !== 'watchlists') return;
+    // Always poll when Kabu is connected — keeps every watchlist symbol live
+    // regardless of which page the user is viewing. _syncSymbolEverywhere()
+    // then pushes each update into the correct DOM rows (watchlist list +
+    // portfolio holding + right panel when it's the active symbol) so views
+    // stay in lockstep. Backend reads Kabu PUSH in-memory, no Kabu REST.
     const items = watchlistItems[currentWatchlistId] || [];
     if (items.length) renderWatchlistRows(items);
   }, delay);
