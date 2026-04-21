@@ -734,6 +734,20 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .sidebar-recent-item .sr-chg { margin-left: auto; font-size: 10px; font-variant-numeric: tabular-nums; }
 .app-shell.sidebar-collapsed .sidebar-recent { display: none; }
 
+/* ═══════════════════ Quote tab — Moomoo-style stat grid ═══════════════════ */
+.dp-stat-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  border-top: 1px solid var(--border);
+}
+.dp-stat-cell {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 10px; border-bottom: 1px solid var(--border);
+  font-size: 11px; min-width: 0;
+}
+.dp-stat-cell:nth-child(2n-1) { border-right: 1px solid var(--border); }
+.dp-stat-key { color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-stat-val { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; margin-left: 6px; white-space: nowrap; }
+
 /* Holdings with no live price available — mark visually so the user
    knows they're looking at entry cost, not market value. */
 .holding-row.no-live-price .holding-value,
@@ -2602,16 +2616,64 @@ async function renderDpQuote(symbol, body) {
     const r = await apiFetch('/api/stock-info/' + encodeURIComponent(symbol));
     const info = await r.json();
     if (!info || info.error) { body.innerHTML = `<div class="dp-placeholder">—</div>`; return; }
-    const rows = [];
-    if (info.sector) rows.push([t('info_sector'), info.sector]);
-    if (info.industry) rows.push([t('info_industry'), info.industry]);
-    if (info.marketCap) rows.push([t('info_market_cap'), fmtBig(info.marketCap)]);
-    if (info.trailingPE) rows.push([t('info_pe'), info.trailingPE.toFixed(2)]);
-    if (info.dividendYield) rows.push([t('info_div_yield'), (info.dividendYield * 100).toFixed(2) + '%']);
-    if (info.fiftyTwoWeekHigh && info.fiftyTwoWeekLow) rows.push(['52W Range', `${fmtPrice(info.fiftyTwoWeekLow)} – ${fmtPrice(info.fiftyTwoWeekHigh)}`]);
-    if (info.beta != null) rows.push([t('info_beta'), info.beta.toFixed(2)]);
-    const html = rows.map(([k, v]) => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">${k}</span><span>${v}</span></div>`).join('');
-    body.innerHTML = `<div>${html}</div>${info.longBusinessSummary ? `<div style="font-size:10.5px;color:var(--text2);margin-top:10px;line-height:1.5;max-height:120px;overflow-y:auto">${escHtml(info.longBusinessSummary)}</div>` : ''}`;
+    const price = stockPrices[symbol]?.price || 0;
+    const prevClose = stockPrices[symbol]?.prev_close || 0;
+
+    // Compute derived fields
+    const floatMktCap = (info.floatShares && price) ? info.floatShares * price : null;
+    const rangePct = (info.dayHigh && info.dayLow && prevClose) ?
+      ((info.dayHigh - info.dayLow) / prevClose * 100) : null;
+    const volRatio = (info.volume && info.avgVolume10d) ?
+      (info.volume / info.avgVolume10d) : null;
+    // JP daily limit: ±10-30% typically based on price band. Use ±10% as rough.
+    const limitHigh = (symbol.endsWith('.T') && prevClose) ? prevClose * 1.3 : null;
+    const limitLow  = (symbol.endsWith('.T') && prevClose) ? prevClose * 0.7 : null;
+
+    // Two-column stat grid like Moomoo
+    const pairs = [
+      ['Sector',       info.sector  || '—'],
+      ['Industry',     info.industry || '—'],
+      ['Market Cap',   info.marketCap    ? fmtBig(info.marketCap)   : '—'],
+      ['Float Mkt Cap',floatMktCap       ? fmtBig(floatMktCap)       : '—'],
+      ['Total Shares', info.sharesOutstanding ? fmtBig(info.sharesOutstanding) : '—'],
+      ['Free Float',   info.floatShares  ? fmtBig(info.floatShares) : '—'],
+      ['EPS (TTM)',    info.eps != null  ? info.eps.toFixed(2)      : '—'],
+      ['EPS (Fwd)',    info.epsForward != null ? info.epsForward.toFixed(2) : '—'],
+      ['P/E (TTM)',    info.trailingPE   ? info.trailingPE.toFixed(2) : '—'],
+      ['P/E (Fwd)',    info.forwardPE    ? info.forwardPE.toFixed(2)  : '—'],
+      ['P/B',          info.priceToBook  ? info.priceToBook.toFixed(2) : '—'],
+      ['P/S',          info.priceToSales ? info.priceToSales.toFixed(2) : '—'],
+      ['Div Yield',    info.dividendYield ? (info.dividendYield * 100).toFixed(2) + '%' : '—'],
+      ['Dividend',     info.dividendRate ? fmtPrice(info.dividendRate) : '—'],
+      ['Beta',         info.beta != null ? info.beta.toFixed(2)      : '—'],
+      ['Volume',       info.volume       ? fmtBig(info.volume)       : '—'],
+      ['Avg Vol (10d)',info.avgVolume10d ? fmtBig(info.avgVolume10d) : '—'],
+      ['Vol Ratio',    volRatio          ? volRatio.toFixed(2) + 'x' : '—'],
+      ['Range %',      rangePct != null  ? rangePct.toFixed(2) + '%' : '—'],
+      ['Per Lot',      info.sharesPerLot ? info.sharesPerLot : '—'],
+      ['Limit High',   limitHigh         ? fmtPrice(limitHigh) : '—'],
+      ['Limit Low',    limitLow          ? fmtPrice(limitLow)  : '—'],
+      ['52W High',     info.fiftyTwoWeekHigh ? fmtPrice(info.fiftyTwoWeekHigh) : '—'],
+      ['52W Low',      info.fiftyTwoWeekLow  ? fmtPrice(info.fiftyTwoWeekLow)  : '—'],
+      ['50D Avg',      info.fiftyDayAvg      ? fmtPrice(info.fiftyDayAvg)      : '—'],
+      ['200D Avg',     info.twoHundredDayAvg ? fmtPrice(info.twoHundredDayAvg) : '—'],
+    ];
+
+    // Render as two-column grid
+    const gridHtml = pairs.map(([k, v]) =>
+      `<div class="dp-stat-cell">
+        <div class="dp-stat-key">${escHtml(k)}</div>
+        <div class="dp-stat-val">${v}</div>
+      </div>`
+    ).join('');
+
+    body.innerHTML = `
+      <div class="dp-stat-grid">${gridHtml}</div>
+      ${info.summary ? `
+        <div style="font-size:10.5px;color:var(--text2);margin-top:14px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);max-height:140px;overflow-y:auto">
+          ${escHtml(info.summary)}
+        </div>` : ''}
+    `;
   } catch(e) { body.innerHTML = `<div class="dp-placeholder">—</div>`; }
 }
 async function renderDpNews(symbol, body) {

@@ -1279,11 +1279,24 @@ def _build_stock_info(symbol):
         # Trading
         'volume': safe('volume'),
         'avgVolume': safe('averageVolume'),
+        'avgVolume10d': safe('averageDailyVolume10Day'),
+        'dayHigh': safe('dayHigh') or safe('regularMarketDayHigh'),
+        'dayLow':  safe('dayLow')  or safe('regularMarketDayLow'),
         'fiftyTwoWeekHigh': safe('fiftyTwoWeekHigh'),
         'fiftyTwoWeekLow': safe('fiftyTwoWeekLow'),
+        'fiftyTwoWeekChange': safe('52WeekChange') or safe('fiftyTwoWeekChange'),
         'fiftyDayAvg': safe('fiftyDayAverage'),
         'twoHundredDayAvg': safe('twoHundredDayAverage'),
         'beta': safe('beta'),
+
+        # Share structure (Moomoo: Total Shares / Float / Float Mkt Cap)
+        'sharesOutstanding': safe('sharesOutstanding'),
+        'floatShares':       safe('floatShares'),
+        'impliedSharesOutstanding': safe('impliedSharesOutstanding'),
+        'heldPercentInsiders':     safe('heldPercentInsiders'),
+        'heldPercentInstitutions': safe('heldPercentInstitutions'),
+        # JP stocks typically trade in lots of 100 (標準取引単位)
+        'sharesPerLot': 100 if symbol.endswith('.T') else 1,
 
         # Balance Sheet
         'totalCash': safe('totalCash'),
