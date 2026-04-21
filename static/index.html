@@ -1074,7 +1074,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
     <!-- Index strip -->
     <div class="index-strip" id="index-strip">
       <div class="idx-item" onclick="selectStock('^N225')"><span class="idx-label">Nikkei 225</span><span class="idx-value" id="si-n225">—</span><span class="idx-change" id="si-n225-c">—</span></div>
-      <div class="idx-item" onclick="selectStock('^TPX')"><span class="idx-label">TOPIX</span><span class="idx-value" id="si-topix">—</span><span class="idx-change" id="si-topix-c">—</span></div>
+      <div class="idx-item" onclick="selectStock('1306.T')"><span class="idx-label">TOPIX</span><span class="idx-value" id="si-topix">—</span><span class="idx-change" id="si-topix-c">—</span></div>
       <div class="idx-item" onclick="selectStock('^GSPC')"><span class="idx-label">S&amp;P 500</span><span class="idx-value" id="si-sp">—</span><span class="idx-change" id="si-sp-c">—</span></div>
       <div class="idx-item" onclick="selectStock('^DJI')"><span class="idx-label">Dow</span><span class="idx-value" id="si-dj">—</span><span class="idx-change" id="si-dj-c">—</span></div>
       <div class="idx-item" onclick="selectStock('^IXIC')"><span class="idx-label">Nasdaq</span><span class="idx-value" id="si-nq">—</span><span class="idx-change" id="si-nq-c">—</span></div>
@@ -2019,13 +2019,13 @@ window.addEventListener('resize', () => { if (typeof forceChartResize === 'funct
 async function loadIndexStrip() {
   const pairs = [
     ['^N225', 'si-n225', 'si-n225-c'],
-    ['^TPX', 'si-topix', 'si-topix-c'],
+    ['1306.T', 'si-topix', 'si-topix-c'],
     ['^GSPC', 'si-sp', 'si-sp-c'],
     ['^DJI', 'si-dj', 'si-dj-c'],
     ['^IXIC', 'si-nq', 'si-nq-c'],
     ['USDJPY=X', 'si-fx', 'si-fx-c'],
   ];
-  const names = {'^N225':'Nikkei 225','^TPX':'TOPIX','^GSPC':'S&P 500','^DJI':'Dow Jones','^IXIC':'Nasdaq','USDJPY=X':'USD/JPY'};
+  const names = {'^N225':'Nikkei 225','1306.T':'TOPIX','^GSPC':'S&P 500','^DJI':'Dow Jones','^IXIC':'Nasdaq','USDJPY=X':'USD/JPY'};
   const results = await Promise.all(pairs.map(async ([sym]) => {
     try { const r = await apiFetch('/api/quote/' + encodeURIComponent(sym)); return await r.json(); } catch(e) { return null; }
   }));
@@ -2047,7 +2047,7 @@ async function loadIndexStrip() {
 function renderIndexCards(region, results, pairs, names) {
   const container = document.getElementById('cards-' + region);
   if (!container) return;
-  const symSet = region === 'jp' ? ['^N225', '^TPX', 'USDJPY=X'] : ['^GSPC', '^DJI', '^IXIC'];
+  const symSet = region === 'jp' ? ['^N225', '1306.T', 'USDJPY=X'] : ['^GSPC', '^DJI', '^IXIC'];
   container.innerHTML = symSet.map(sym => {
     const i = pairs.findIndex(p => p[0] === sym);
     const d = results[i] || {};
@@ -2398,7 +2398,7 @@ function renderPerfChart(data) {
 // ═════════════════════════════════════════════════════════════
 // ═══ RIGHT DETAIL PANEL ══════════════════════════════════════
 // ═════════════════════════════════════════════════════════════
-// Indices (^N225, ^GSPC, ^DJI, ^IXIC, ^TOPX) and Yahoo FX pairs (USDJPY=X)
+// Indices (^N225, ^GSPC, ^DJI, ^IXIC, 1306.T) and Yahoo FX pairs (USDJPY=X)
 // are calculated benchmarks / quotes — not tradeable instruments.
 function isTradeable(sym) {
   if (!sym) return false;
@@ -4423,20 +4423,15 @@ async function renderWatchlistRows(items) {
       </div>`;
     }).join('');
   }
-  // Sync every symbol to all views from this single batch result. The batch
-  // poll is now the SINGLE authoritative price source — the Kabu board-endpoint
-  // poll only drives order book / trade overview. That's what finally eliminates
-  // the oscillating-flash between two sources returning slightly different ticks.
+  // Split of responsibility — avoid dual-source oscillation:
+  //   - Active symbol (currentSymbol): Kabu board-endpoint 1s poll drives it
+  //     via _handleKabuTick(). We SKIP it here.
+  //   - All other symbols: this batch poll is their only source.
   annotated.forEach(it => {
+    if (it.symbol === currentSymbol) return;
     const q = it.quote;
     if (q && !q.error && q.price != null) {
       _syncSymbolEverywhere(it.symbol, q.price, q.change, q.change_pct, /*authoritative*/ true);
-      // For the active symbol, also live-update the chart's last candle.
-      // (Used to live in _handleKabuTick; moved here so the price-driving
-      // source and the chart-driving source are the same.)
-      if (it.symbol === currentSymbol && typeof _updateLiveCandle === 'function') {
-        _updateLiveCandle(q.price, q.volume);
-      }
     }
   });
 }
@@ -4747,13 +4742,19 @@ function stopKabuStream() {
   if (kabuSSE) { try { kabuSSE.close(); } catch(e) {} kabuSSE = null; }
 }
 function _handleKabuTick(data) {
-  // Order-book-endpoint poll. We ONLY use it for order book + trade overview
-  // now. Prices are exclusively driven by the /api/quotes batch poll so that
-  // every UI cell (watchlist row, holding row, right-panel DP price) reads
-  // from a single source and can never oscillate between two slightly
-  // different ticks landing at the same instant.
+  // The Kabu board poll is AUTHORITATIVE for the currently-viewed symbol
+  // (prices, change, candle, watchlist row, holding row, order book, trade
+  // overview). The /api/quotes batch poll explicitly SKIPS the active
+  // symbol — that's how we avoid two sources writing to the same cell and
+  // oscillating. See renderWatchlistRows() for the skip logic.
   renderDpOrderBookFromData(data);
   renderDpTradeOverview(data);
+  if (data.price && data.symbol) {
+    _syncSymbolEverywhere(data.symbol, data.price, data.change, data.change_pct, /*authoritative*/ true);
+    if (data.symbol === currentSymbol && typeof _updateLiveCandle === 'function') {
+      _updateLiveCandle(data.price, data.volume);
+    }
+  }
 }
 
 // Push a fresh price into every visible row that references `symbol`.
