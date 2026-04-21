@@ -2260,26 +2260,47 @@ async function refreshPortfolioLivePrices() {
   if (!holdings.length) return;
   const syms = holdings.map(h => h.symbol).filter(Boolean);
   if (!syms.length) return;
-  // Ensure all holding symbols are subscribed to Kabu PUSH — this is what
-  // startKabuStream does for the active symbol; we now do it upfront for
-  // every holding, so polls return fresh prices without the user having to
-  // click into each position first.
-  _ensureKabuRegistered(syms);
   try {
-    // Use the SAME /api/quotes batch endpoint the watchlist uses — it's
-    // proven to return live Kabu-backed prices for the user's symbols,
-    // and it auto-registers any JP symbols that aren't yet subscribed
-    // to PUSH. This makes portfolio holdings behave identically to the
-    // watchlist: the click-to-activate problem is gone.
-    const r = await apiFetch('/api/quotes', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ symbols: syms })
-    });
-    const raw = await r.json();
-    // Backend returns either {sym: {...}} object or [{symbol, ...}] array
     const bySym = {};
-    if (Array.isArray(raw)) raw.forEach(q => { if (q && q.symbol) bySym[q.symbol] = q; });
-    else if (raw && typeof raw === 'object') Object.assign(bySym, raw);
+    const jp = syms.filter(s => s.endsWith('.T'));
+    const nonJp = syms.filter(s => !s.endsWith('.T'));
+    const jobs = [];
+    // JP symbols: hit Kabu board directly (same endpoint startKabuStream
+    // uses for the active stock — known to work). Falls to batch quotes
+    // if Kabu isn't connected.
+    if (window.kabuConnected && jp.length) {
+      jp.forEach(sym => {
+        jobs.push(apiFetch('/api/kabu/board/' + encodeURIComponent(sym))
+          .then(r => r.json())
+          .then(data => {
+            if (data && !data.error && data.price) {
+              bySym[sym] = {
+                symbol: sym, price: data.price,
+                change: data.change || 0, change_pct: data.change_pct || 0,
+                source: 'kabu_board',
+              };
+            }
+          }).catch(() => {}));
+      });
+    } else if (jp.length) {
+      jobs.push(apiFetch('/api/quotes', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ symbols: jp })
+      }).then(r => r.json()).then(raw => {
+        if (Array.isArray(raw)) raw.forEach(q => { if (q && q.symbol) bySym[q.symbol] = q; });
+        else if (raw && typeof raw === 'object') Object.assign(bySym, raw);
+      }).catch(() => {}));
+    }
+    if (nonJp.length) {
+      jobs.push(apiFetch('/api/quotes', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ symbols: nonJp })
+      }).then(r => r.json()).then(raw => {
+        if (Array.isArray(raw)) raw.forEach(q => { if (q && q.symbol) bySym[q.symbol] = q; });
+        else if (raw && typeof raw === 'object') Object.assign(bySym, raw);
+      }).catch(() => {}));
+    }
+    await Promise.all(jobs);
 
     const diag = {};
     holdings.forEach(h => {
@@ -4444,24 +4465,51 @@ function _flashCell(el, up) {
 async function renderWatchlistRows(items) {
   const body = document.getElementById('wl-body');
   if (!body) return;
-  // Explicitly register all watchlist JP symbols with Kabu PUSH on every
-  // render — _ensureKabuRegistered de-dupes via a local Set so subsequent
-  // calls are free. This is what was missing: polls couldn't return live
-  // data for symbols Kabu hadn't been told about.
-  _ensureKabuRegistered(items.map(it => it.symbol));
-  // Fetch all quotes in ONE batch call when we have multiple — much cheaper
-  // than N parallel calls, especially at 1s polling with Kabu connected.
   let quotesBySym = {};
   if (items.length) {
-    try {
-      const r = await apiFetch('/api/quotes', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ symbols: items.map(it => it.symbol) })
+    // When Kabu is connected, hit /api/kabu/board/<sym> DIRECTLY for each
+    // JP symbol — this is the same endpoint startKabuStream polls for the
+    // active symbol, and we know it reliably returns live data. Not relying
+    // on PUSH registration / batch endpoint side-effects anymore.
+    const jp = items.filter(it => it.symbol && it.symbol.endsWith('.T'));
+    const nonJp = items.filter(it => !it.symbol || !it.symbol.endsWith('.T'));
+
+    const jobs = [];
+    if (window.kabuConnected && jp.length) {
+      jp.forEach(it => {
+        jobs.push(apiFetch('/api/kabu/board/' + encodeURIComponent(it.symbol))
+          .then(r => r.json())
+          .then(data => {
+            if (data && !data.error && data.price) {
+              quotesBySym[it.symbol] = {
+                symbol: it.symbol, price: data.price,
+                change: data.change || 0, change_pct: data.change_pct || 0,
+                source: 'kabu_board',
+              };
+            }
+          }).catch(() => {}));
       });
-      const batch = await r.json();
-      if (Array.isArray(batch)) batch.forEach(q => { if (q && q.symbol) quotesBySym[q.symbol] = q; });
-      else if (batch && typeof batch === 'object') quotesBySym = batch;
-    } catch(e) {}
+    } else if (jp.length) {
+      // Kabu offline — fall back to batch quotes (hits yfinance cache)
+      jobs.push(apiFetch('/api/quotes', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ symbols: jp.map(it => it.symbol) })
+      }).then(r => r.json()).then(batch => {
+        if (Array.isArray(batch)) batch.forEach(q => { if (q && q.symbol) quotesBySym[q.symbol] = q; });
+        else if (batch && typeof batch === 'object') Object.assign(quotesBySym, batch);
+      }).catch(() => {}));
+    }
+    if (nonJp.length) {
+      // US / FX always goes through the batch endpoint (Finnhub / Yahoo)
+      jobs.push(apiFetch('/api/quotes', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ symbols: nonJp.map(it => it.symbol) })
+      }).then(r => r.json()).then(batch => {
+        if (Array.isArray(batch)) batch.forEach(q => { if (q && q.symbol) quotesBySym[q.symbol] = q; });
+        else if (batch && typeof batch === 'object') Object.assign(quotesBySym, batch);
+      }).catch(() => {}));
+    }
+    await Promise.all(jobs);
   }
   const annotated = items.map(it => ({ ...it, quote: quotesBySym[it.symbol] || null }));
 
