@@ -925,6 +925,11 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .to-bucket-row .bar-wrap { display: flex; height: 10px; background: transparent; border-radius: 2px; overflow: hidden; grid-column: 1 / -1; margin-top: -2px; margin-bottom: 3px; }
 .to-bucket-row .bar-buy  { background: color-mix(in srgb, var(--up)   40%, transparent); height: 100%; }
 .to-bucket-row .bar-sell { background: color-mix(in srgb, var(--down) 40%, transparent); height: 100%; }
+.to-bucket-row .bucket-label {
+  grid-column: 1 / -1; font-size: 9px; color: var(--text2);
+  text-align: center; margin-top: -3px; margin-bottom: 4px;
+  letter-spacing: 0.3px; opacity: 0.75;
+}
 
 /* Trade overview donut */
 .to-wrap { display: flex; align-items: center; gap: 14px; }
@@ -5190,13 +5195,21 @@ function renderDpTradeOverview(data) {
     1
   );
 
+  // Short human-readable tag per bucket
+  const BUCKET_LABELS = {
+    XL: 'Institutional',
+    L:  'Large trader',
+    M:  'Regular',
+    S:  'Retail',
+  };
+
   const bucketRows = BUCKETS.map(b => {
     const buy  = buyBuckets[b.key]  || 0;
     const sell = sellBuckets[b.key] || 0;
     const buyPct  = Math.round(buy  / maxSide * 50);
     const sellPct = Math.round(sell / maxSide * 50);
     return `
-      <div class="to-bucket-row">
+      <div class="to-bucket-row" title="${BUCKET_LABELS[b.key]} · ${b.key}">
         <span class="left">${buy  ? fmtBig(buy)  : '0'}</span>
         <span class="tag">${b.key}</span>
         <span class="right">${sell ? fmtBig(sell) : '0'}</span>
@@ -5204,13 +5217,26 @@ function renderDpTradeOverview(data) {
           <div class="bar-buy"  style="width:${buyPct}%; margin-left:${50 - buyPct}%"></div>
           <div class="bar-sell" style="width:${sellPct}%"></div>
         </div>
+        <div class="bucket-label">${BUCKET_LABELS[b.key]}</div>
       </div>`;
   }).join('');
 
+  // Pie chart: overall bid vs ask split (the big-picture summary),
+  // plus the per-bucket breakdown underneath like Moomoo.
+  const total = totalBuy + totalSell;
+  const bidPct = total > 0 ? (totalBuy  / total * 100) : 50;
+
   body.innerHTML = `
-    <div class="to-net" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div class="to-net" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <span style="color:var(--text2)">${netLabel}:</span>
       <span class="net-val ${netCls}" style="font-weight:600">${net >= 0 ? '+' : '−'}${fmtBig(Math.abs(net))}</span>
+    </div>
+    <div class="to-wrap" style="margin-bottom:10px">
+      <div class="to-donut" style="background: conic-gradient(var(--up) 0% ${bidPct}%, var(--down) ${bidPct}% 100%)"></div>
+      <div class="to-legend">
+        <div class="to-legend-row"><span class="to-dot" style="background:var(--up)"></span><span class="to-label">Bid (Buy)</span><span class="to-value">${bidPct.toFixed(1)}%</span></div>
+        <div class="to-legend-row"><span class="to-dot" style="background:var(--down)"></span><span class="to-label">Ask (Sell)</span><span class="to-value">${(100-bidPct).toFixed(1)}%</span></div>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;font-size:10px;color:var(--text2);padding:0 2px;margin-bottom:2px">
       <span style="text-align:right;color:var(--up)">Bid ¥</span>
@@ -5218,8 +5244,9 @@ function renderDpTradeOverview(data) {
       <span style="text-align:left;color:var(--down)">Ask ¥</span>
     </div>
     ${bucketRows}
-    <div style="margin-top:8px;font-size:9px;color:var(--text2);text-align:center;line-height:1.3">
-      XL ≥ ¥100M · L ≥ ¥10M · M ≥ ¥1M · S &lt; ¥1M<br>
+    <div style="margin-top:10px;font-size:9px;color:var(--text2);text-align:center;line-height:1.4">
+      <b>XL</b> Institutional (≥¥100M) · <b>L</b> Large (≥¥10M)<br>
+      <b>M</b> Regular (≥¥1M) · <b>S</b> Retail (&lt;¥1M)<br>
       <em>Current resting order book, not cumulative trades</em>
     </div>
   `;
