@@ -1505,6 +1505,20 @@ const LANG_DATA = {
     ai_no_key:'Add your Anthropic API key in Settings → AI Analyst to enable this feature.',
     ai_failed:'AI analysis failed',
     loading:'Loading…',
+    not_tradeable:'Indices and FX pairs are not tradeable.',
+    kabu_reconnected:'Kabu Station reconnected — live data resumed',
+    kabu_disconnected:'Kabu Station disconnected — falling back to 15-min delayed quotes',
+    kabu_status_error:'Could not reach server — Kabu status unknown',
+    kabu_connected_toast:'Kabu Station connected — live data active',
+    kabu_connecting:'Connecting...',
+    kabu_connect_btn:'Connect',
+    kabu_connected_title:'Kabu Station connected — click for details',
+    kabu_disconnected_title:'Delayed data. Click to open Kabu settings.',
+    kabu_err_no_password:'API password required',
+    kabu_err_not_running:'Could not reach Kabu Station at localhost:18080. Is the desktop app running and logged in?',
+    kabu_err_bad_password:'Wrong API password. This is the password you set inside Kabu Station (API settings), not your Rakuten login.',
+    kabu_err_api_disabled:'Kabu Station API is not enabled. Open the desktop app → Settings → check "APIを有効にする".',
+    kabu_err_network:'Network error contacting the server.',
     info_market_cap:'Market Cap', info_pe:'P/E', info_div_yield:'Div Yield',
     info_52w_high:'52W High', info_52w_low:'52W Low', info_beta:'Beta', info_avg_vol:'Avg Volume',
     info_sector:'Sector', info_industry:'Industry',
@@ -3285,19 +3299,11 @@ async function _addPfExec() {
 // ═════════════════════════════════════════════════════════════
 // ═══ KABU STATUS ═════════════════════════════════════════════
 // ═════════════════════════════════════════════════════════════
-async function checkKabuStatus() {
-  try {
-    const r = await apiFetch('/api/kabu/status');
-    const data = await r.json();
-    const pill = document.getElementById('conn-pill');
-    if (pill) {
-      const connected = !!data.connected;
-      pill.classList.toggle('live', connected);
-      const lbl = pill.querySelector('span:not(.dot)');
-      if (lbl) lbl.textContent = connected ? t('badge_live') : t('badge_delayed');
-    }
-  } catch(e) {}
-}
+// NOTE: full checkKabuStatus() with disconnect notifications is
+// defined further down (line ~3988). This stub was previously
+// duplicating the logic; left here as a no-op reference for
+// backward compat — the later definition wins.
+
 
 // ═════════════════════════════════════════════════════════════
 // ═══ INIT ════════════════════════════════════════════════════
@@ -3329,22 +3335,20 @@ async function initApp() {
   loadWatchlists().catch(() => {});
   // Populate default stock in right panel
   selectStock(currentSymbol || '7203.T');
-  // Restore Kabu creds + check status
+  // Restore Kabu creds + await initial status so auto-reconnect has truth
   _restoreKabuCreds();
-  checkKabuStatus();
+  await checkKabuStatus();
   // Render recent stocks
   renderRecent();
   // Pollers
   setInterval(loadIndexStrip, 60000);
   setInterval(checkKabuStatus, 30000);
   setInterval(() => { if (currentRoute === 'markets') loadMarkets(); }, 5 * 60 * 1000);
-  // Auto-reconnect Kabu if saved creds
+  // Auto-reconnect Kabu ONLY if we have saved creds and are not already connected
   const savedApiPw = localStorage.getItem('kabu_api_pw');
-  if (savedApiPw) {
-    setTimeout(() => {
-      const pwEl = document.getElementById('kabu-api-pw');
-      if (pwEl && pwEl.value && !kabuConnected) connectKabu();
-    }, 1000);
+  if (savedApiPw && !kabuConnected) {
+    const pwEl = document.getElementById('kabu-api-pw');
+    if (pwEl && pwEl.value) connectKabu();
   }
 }
 
@@ -3960,8 +3964,8 @@ async function connectKabu() {
   const btn = document.getElementById('kabu-connect-btn');
   const err = document.getElementById('kabu-err');
   err.style.display = 'none';
-  if (!apiPw) { err.textContent = 'API password required'; err.style.display = 'block'; return; }
-  btn.disabled = true; btn.textContent = 'Connecting...';
+  if (!apiPw) { err.textContent = t('kabu_err_no_password') || 'API password required'; err.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = t('kabu_connecting') || 'Connecting...';
   try {
     const r = await apiFetch('/api/kabu/connect', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -3971,19 +3975,38 @@ async function connectKabu() {
     if (data.success) {
       localStorage.setItem('kabu_api_pw', apiPw);
       if (orderPw) localStorage.setItem('kabu_order_pw', orderPw);
-      toast('Kabu Station connected', 'ok');
+      toast(t('kabu_connected_toast') || 'Kabu Station connected — live data active', 'ok');
+      _kabuReconnectAttempts = 0;
       await checkKabuStatus();
       // Start SSE stream for current symbol
       if (currentSymbol) startKabuStream(currentSymbol);
       // Restart watchlist poll with new rate
       if (currentRoute === 'watchlists') startWatchlistPoll();
     } else {
-      err.textContent = data.error || 'Connection failed';
+      // Map common Kabu errors to friendlier messages
+      const code = data.error_code || '';
+      const raw = data.error || 'Connection failed';
+      let friendly = raw;
+      if (code === 'kabu_err_not_available' || /ConnectionRefused|localhost:18080|refused|Failed to establish/i.test(raw)) {
+        friendly = t('kabu_err_not_running') || 'Could not reach Kabu Station at localhost:18080. Is the desktop app running and logged in?';
+      } else if (/4001000|authentication|unauthorized|invalid.*password/i.test(raw)) {
+        friendly = t('kabu_err_bad_password') || 'Wrong API password. This is the password you set inside Kabu Station (API settings), not your Rakuten login.';
+      } else if (/API.*not.*enabled|APIを有効/i.test(raw)) {
+        friendly = t('kabu_err_api_disabled') || 'Kabu Station API is not enabled. Open the desktop app → Settings → check "APIを有効にする".';
+      }
+      err.textContent = friendly;
       err.style.display = 'block';
     }
-  } catch(e) { err.textContent = 'Connection error'; err.style.display = 'block'; }
-  btn.disabled = false; btn.textContent = 'Connect';
+  } catch(e) {
+    err.textContent = t('kabu_err_network') || 'Network error contacting the server.';
+    err.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = t('kabu_connect_btn') || 'Connect';
 }
+
+// Track previous Kabu state so we can notify on transitions
+let _prevKabuConnected = null;   // null = unknown (first poll), then true/false
+let _kabuReconnectAttempts = 0;
 
 async function checkKabuStatus() {
   try {
@@ -3991,11 +4014,37 @@ async function checkKabuStatus() {
     const data = await r.json();
     kabuConnected = !!data.connected;
     window.kabuConnected = kabuConnected;
+
+    // Transition notifications (ignore very first poll — prev is null)
+    if (_prevKabuConnected !== null && _prevKabuConnected !== kabuConnected) {
+      if (kabuConnected) {
+        toast(t('kabu_reconnected') || 'Kabu Station reconnected — live data resumed', 'ok');
+        _kabuReconnectAttempts = 0;
+      } else {
+        // DISCONNECTED — surface the underlying reason if we have one
+        const reason = data.last_error ? ` (${data.last_error})` : '';
+        toast((t('kabu_disconnected') || 'Kabu Station disconnected — falling back to 15-min delayed quotes') + reason, 'err');
+        // Stop the 1s board poll so we don't spam failing calls
+        if (typeof stopKabuStream === 'function') stopKabuStream();
+        // Attempt silent reconnect if we have saved creds (3 tries, exponential backoff)
+        const savedPw = localStorage.getItem('kabu_api_pw');
+        if (savedPw && _kabuReconnectAttempts < 3) {
+          _kabuReconnectAttempts++;
+          const delay = 5000 * _kabuReconnectAttempts;
+          setTimeout(() => _silentReconnectKabu(savedPw), delay);
+        }
+      }
+    }
+    _prevKabuConnected = kabuConnected;
+
     const pill = document.getElementById('conn-pill');
     if (pill) {
       pill.classList.toggle('live', kabuConnected);
       const lbl = pill.querySelector('span:not(.dot)');
       if (lbl) lbl.textContent = kabuConnected ? t('badge_live') : t('badge_delayed');
+      pill.title = kabuConnected
+        ? (t('kabu_connected_title') || 'Kabu Station connected — click for details')
+        : (t('kabu_disconnected_title') || 'Delayed data. Click to open Kabu settings.');
     }
     const statusRow = document.getElementById('kabu-status-row');
     if (statusRow) {
@@ -4005,6 +4054,25 @@ async function checkKabuStatus() {
     }
     // Update DP order book + trade overview
     if (currentSymbol) renderDpOrderBook(currentSymbol);
+  } catch(e) {
+    // Network/app error — treat as disconnected but don't spam toasts
+    if (_prevKabuConnected === true) {
+      toast(t('kabu_status_error') || 'Could not reach server — Kabu status unknown', 'err');
+    }
+    _prevKabuConnected = false;
+  }
+}
+
+async function _silentReconnectKabu(apiPw) {
+  const orderPw = localStorage.getItem('kabu_order_pw') || '';
+  try {
+    const r = await apiFetch('/api/kabu/connect', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ api_password: apiPw, order_password: orderPw })
+    });
+    const data = await r.json();
+    if (data.success) { checkKabuStatus(); }
+    // If fails, the next 30s poll will either succeed or escalate again
   } catch(e) {}
 }
 
