@@ -44,15 +44,14 @@
 
 /* ═══════════════════ BASE ═══════════════════ */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-/* Global 0.85 scale of text vs the original 14/13 sizes. Everything
-   using em/rem cascades smaller; px values stay the same so viewport
-   math (vh calcs, chart heights) is unaffected. Restores the compact
-   feel of the original Edge 75%-zoom design target. */
-html { font-size: 12px; }
+/* Scale the entire app to 85% — everything shrinks proportionally
+   (fonts, padding, chart, buttons). Chart height uses calc(100vh*0.85)
+   compensated below so the chart still fits without a scrollbar. */
+html { font-size: 14px; zoom: 0.85; }
 body {
   background: var(--bg); color: var(--text); min-height: 100vh;
   font-family: 'Inter', 'Noto Sans SC', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif;
-  font-size: 11.5px; font-weight: 400; font-variant-numeric: tabular-nums;
+  font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility; letter-spacing: -0.003em;
   transition: background 0.2s, color 0.2s;
@@ -205,15 +204,12 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   background: var(--bg);
   display: flex; flex-direction: column;
   overflow-y: auto; overflow-x: hidden;
-  /* Only show the scrollbar when content actually overflows. The chart
-     page at v154 default fits in the viewport and the gutter scrollbar
-     was purely cosmetic noise next to the chart. */
-  scrollbar-gutter: auto;
+  /* Fully hide the scrollbar — content should fit without scrolling,
+     and the gutter next to the chart was cosmetic noise. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-.main::-webkit-scrollbar { width: 0; }
-.main { scrollbar-width: none; }
-.main:hover { scrollbar-width: thin; }
-.main:hover::-webkit-scrollbar { width: 8px; }
+.main::-webkit-scrollbar { display: none; }
 .main-header {
   position: sticky; top: 0; z-index: 10;
   background: color-mix(in srgb, var(--bg) 95%, transparent);
@@ -661,7 +657,9 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 }
 /* Chart fills available vertical space — no dead zone below */
 /* Chart fits the viewport — no page scroll needed */
-#lw-chart { height: calc(100vh - 230px); min-height: 340px; max-height: 620px; border-radius: 0; overflow: hidden; }
+/* With html zoom:0.85, 100vh refers to unzoomed viewport — divide by
+   0.85 so the calc produces height that, once zoomed, fills what's left. */
+#lw-chart { height: calc((100vh - 200px) / 0.85); min-height: 340px; max-height: 720px; border-radius: 0; overflow: hidden; }
 #draw-canvas { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; z-index: 5; }
 .ohlc-tooltip {
   position: absolute; top: 14px; left: 14px; z-index: 10;
