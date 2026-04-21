@@ -2657,6 +2657,9 @@ async function renderDpQuote(symbol, body) {
       ['52W Low',      info.fiftyTwoWeekLow  ? fmtPrice(info.fiftyTwoWeekLow)  : '—'],
       ['50D Avg',      info.fiftyDayAvg      ? fmtPrice(info.fiftyDayAvg)      : '—'],
       ['200D Avg',     info.twoHundredDayAvg ? fmtPrice(info.twoHundredDayAvg) : '—'],
+      // Placeholders — filled async below when /api/all-time-highs resolves
+      ['All-Time High', '<span id="dp-ath-hi" style="color:var(--text2)">…</span>'],
+      ['All-Time Low',  '<span id="dp-ath-lo" style="color:var(--text2)">…</span>'],
     ];
 
     // Render as two-column grid
@@ -2674,6 +2677,26 @@ async function renderDpQuote(symbol, body) {
           ${escHtml(info.summary)}
         </div>` : ''}
     `;
+
+    // Fetch all-time high/low in the background — first call takes ~2s
+    // (full history download), then cached 24h server-side, 1-2ms thereafter.
+    apiFetch('/api/all-time-highs/' + encodeURIComponent(symbol))
+      .then(r => r.json())
+      .then(ath => {
+        if (!ath || ath.error) return;
+        const hiEl = document.getElementById('dp-ath-hi');
+        const loEl = document.getElementById('dp-ath-lo');
+        if (hiEl) {
+          hiEl.style.color = 'var(--text)';
+          hiEl.textContent = fmtPrice(ath.high);
+          hiEl.title = `Set on ${ath.high_date}`;
+        }
+        if (loEl) {
+          loEl.style.color = 'var(--text)';
+          loEl.textContent = fmtPrice(ath.low);
+          loEl.title = `Set on ${ath.low_date}`;
+        }
+      }).catch(() => {});
   } catch(e) { body.innerHTML = `<div class="dp-placeholder">—</div>`; }
 }
 async function renderDpNews(symbol, body) {

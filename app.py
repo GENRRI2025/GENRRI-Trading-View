@@ -1320,6 +1320,87 @@ def _build_stock_info(symbol):
     return result
 
 
+# All-time high/low — computed from full price history (yfinance period='max').
+# Cached for 24h on disk since all-time values change at most a few times a year.
+_ATH_CACHE = {}   # { symbol: {'high': float, 'high_date': str, 'low': float, 'low_date': str, 'ts': datetime} }
+_ATH_CACHE_TTL = 86400  # 24h
+_ATH_DISK = os.path.join(os.path.dirname(DB_PATH), 'all_time_cache.json')
+
+def _load_ath_cache():
+    try:
+        if os.path.exists(_ATH_DISK):
+            import json as _json
+            with open(_ATH_DISK, 'r') as f:
+                saved = _json.load(f)
+            for sym, v in saved.items():
+                try:
+                    v['ts'] = datetime.fromisoformat(v['ts'])
+                    _ATH_CACHE[sym] = v
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+def _save_ath_cache():
+    try:
+        import json as _json
+        out = {}
+        for sym, v in _ATH_CACHE.items():
+            out[sym] = {**v, 'ts': v['ts'].isoformat()}
+        with open(_ATH_DISK, 'w') as f:
+            _json.dump(out, f)
+    except Exception:
+        pass
+
+_load_ath_cache()
+
+@app.route('/api/all-time-highs/<symbol>')
+def get_all_time_highs(symbol):
+    """Compute all-time high / low from full price history.
+    Cached for 24h per symbol on disk (changes very rarely)."""
+    now = datetime.now()
+    cached = _ATH_CACHE.get(symbol)
+    if cached and (now - cached['ts']).total_seconds() < _ATH_CACHE_TTL:
+        return jsonify({
+            'symbol': symbol,
+            'high': cached['high'], 'high_date': cached['high_date'],
+            'low':  cached['low'],  'low_date':  cached['low_date'],
+            'source': 'cached',
+        })
+    try:
+        t = yf.Ticker(symbol)
+        hist = t.history(period='max', interval='1d')
+        if hist is None or hist.empty:
+            return jsonify({'symbol': symbol, 'error': 'No history available'}), 200
+        hi_val = float(hist['High'].max())
+        lo_val = float(hist['Low'].min())
+        hi_date = hist['High'].idxmax().strftime('%Y-%m-%d')
+        lo_date = hist['Low'].idxmin().strftime('%Y-%m-%d')
+        result = {
+            'high': round(hi_val, 2), 'high_date': hi_date,
+            'low':  round(lo_val, 2), 'low_date':  lo_date,
+            'ts': now,
+        }
+        _ATH_CACHE[symbol] = result
+        threading.Thread(target=_save_ath_cache, daemon=True).start()
+        return jsonify({
+            'symbol': symbol,
+            'high': result['high'], 'high_date': hi_date,
+            'low':  result['low'],  'low_date':  lo_date,
+            'source': 'fresh',
+        })
+    except Exception as e:
+        # Stale cache fallback
+        if cached:
+            return jsonify({
+                'symbol': symbol,
+                'high': cached['high'], 'high_date': cached['high_date'],
+                'low':  cached['low'],  'low_date':  cached['low_date'],
+                'source': 'stale',
+            })
+        return jsonify({'symbol': symbol, 'error': str(e)}), 500
+
+
 @app.route('/api/stock-info/<symbol>')
 def get_stock_info(symbol):
     try:
