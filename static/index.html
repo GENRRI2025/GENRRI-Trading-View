@@ -746,6 +746,33 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .flash-up   { animation: price-flash-up   0.8s ease-out; }
 .flash-down { animation: price-flash-down 0.8s ease-out; }
 
+/* ═══════════════════ Import modal (Record / Set Position / CSV) ═══════════════════ */
+.imp-tab {
+  background: transparent; border: none; color: var(--text2);
+  padding: 9px 14px; font-size: 12px; font-weight: 500; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: all 0.15s;
+}
+.imp-tab:hover { color: var(--text); }
+.imp-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.stock-autocomplete { position: relative; }
+.stock-autocomplete-list {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; margin-top: 2px; max-height: 240px; overflow-y: auto;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+.stock-autocomplete-list .ac-item {
+  padding: 8px 10px; cursor: pointer; font-size: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+}
+.stock-autocomplete-list .ac-item:last-child { border-bottom: none; }
+.stock-autocomplete-list .ac-item:hover { background: var(--surface2); }
+.s-input {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 10px; color: var(--text); font-size: 13px; width: 100%;
+}
+.s-input:focus { outline: none; border-color: var(--accent); }
+
 /* ═══════════════════ Trade mode toggle (quick-trade modal) ═══════════════════ */
 .qt-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .qt-mode-opt {
@@ -1167,8 +1194,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         <div class="pf-actions">
           <button class="btn primary" onclick="openDepositModal()" data-i18n="btn_deposit">+ Deposit</button>
           <button class="btn" onclick="openWithdrawModal()" data-i18n="btn_withdraw">− Withdraw</button>
-          <button class="btn" onclick="openCsvImport()" data-i18n="btn_import_csv">Import CSV</button>
-          <button class="btn" onclick="openAddPortfolioModal()" data-i18n="add_portfolio">+ Portfolio</button>
+          <button class="btn" onclick="openImportModal()" data-i18n="btn_import">Import / Record</button>
         </div>
       </div>
 
@@ -1208,7 +1234,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
             <input type="text" id="txn-sym-filter" oninput="renderTxns()" placeholder="e.g. 7203 or AAPL"/>
           </div>
           <div class="txn-filter-actions">
-            <button class="btn" onclick="openCsvImport()" data-i18n="btn_import_csv">Import CSV</button>
+            <button class="btn" onclick="openImportModal('csv')" data-i18n="btn_import_csv">Import CSV</button>
           </div>
         </div>
         <div class="txn-table-wrap">
@@ -1527,7 +1553,15 @@ const LANG_DATA = {
     txn_all:'All', txn_trades:'Trades', txn_buys:'Buys', txn_sells:'Sells', txn_funds:'Deposits / Withdrawals', txn_fx:'FX conversions',
     col_date:'Date', col_portfolio:'Portfolio', col_action:'Action', col_shares:'Shares', col_total:'Total', col_pnl:'P/L',
     col_condition:'Condition', col_threshold:'Threshold', col_note:'Note', col_created:'Created',
-    btn_import_csv:'Import CSV', btn_new_alert:'+ New Alert', btn_delete:'Delete',
+    btn_import_csv:'Import CSV', btn_import:'Import / Record', btn_new_alert:'+ New Alert', btn_delete:'Delete',
+    import_title:'Import / Record Transaction',
+    imp_record_txn:'Record Transaction', imp_set_pos:'Set Position', imp_csv:'CSV Batch',
+    imp_stock_label:'Stock (code or name)', imp_date:'Date (optional — defaults to now)',
+    imp_submit_txn:'Record Transaction', imp_submit_set:'Set Position', imp_submit_csv:'Import All',
+    imp_avg_cost:'Avg Cost',
+    imp_set_desc:'Overrides the current holding without creating a transaction row. Cash balance is NOT changed. Set shares to 0 to remove the position.',
+    imp_csv_help:'Paste CSV. Columns:',
+    err_select_stock:'Select a stock',
     alerts_desc:'Price alerts are checked against latest quotes whenever portfolio refreshes.',
     new_alert:'New Price Alert', no_alerts:'No alerts. Click + New Alert above to create one.',
     cond_above:'Price crosses above', cond_below:'Price drops below', optional:'optional',
@@ -3061,71 +3095,263 @@ async function saveTxnEdit(id) {
 // ═════════════════════════════════════════════════════════════
 // ═══ SESSION 3: CSV IMPORT ══════════════════════════════════
 // ═════════════════════════════════════════════════════════════
-function openCsvImport() {
+// Full Import modal — matches legacy feature:
+//  1. Record Transaction — stock search + action + shares + price + date + commission
+//  2. Set Position Directly — just update avg_cost/shares, no transaction row
+//  3. CSV Batch — paste rows
+function openCsvImport() { openImportModal(); }  // back-compat alias
+function openImportModal(initialTab) {
+  const pfList = Array.isArray(portfolioList) ? portfolioList : [];
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  overlay.innerHTML = `<div class="modal" style="max-width:520px">
+  overlay.innerHTML = `<div class="modal" style="max-width:560px;width:94%;max-height:88vh;overflow-y:auto">
     <div class="modal-header">
-      <div class="modal-title">${t('btn_import_csv') || 'Import CSV'}</div>
+      <div class="modal-title">${t('import_title') || 'Import / Record Transaction'}</div>
       <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
     </div>
-    <div class="modal-body">
-      <div style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:10px">
-        ${t('csv_help') || 'Expected columns: <code>symbol,action,shares,price,commission,timestamp</code>. Action = buy/sell. Timestamp in YYYY-MM-DD or ISO format.'}
+    <div class="imp-tabs" style="display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:14px">
+      <button class="imp-tab active" data-tab="txn" onclick="_impSetTab('txn')">${t('imp_record_txn') || 'Record Transaction'}</button>
+      <button class="imp-tab" data-tab="set" onclick="_impSetTab('set')">${t('imp_set_pos') || 'Set Position'}</button>
+      <button class="imp-tab" data-tab="csv" onclick="_impSetTab('csv')">${t('imp_csv') || 'CSV Batch'}</button>
+    </div>
+    <div class="modal-field">
+      <label>${t('col_portfolio') || 'Portfolio'}</label>
+      <select id="imp-pf">
+        ${pfList.map(p => `<option value="${p.id}" ${p.id===currentPortfolioId?'selected':''}>${escHtml(p.name)}</option>`).join('')}
+      </select>
+    </div>
+
+    <!-- ═ Tab: Record Transaction ═ -->
+    <div class="imp-pane" data-pane="txn">
+      <div class="modal-field">
+        <label>${t('imp_stock_label') || 'Stock (code or name)'}</label>
+        <div class="stock-autocomplete">
+          <input class="s-input" id="imp-search" placeholder="7203 / トヨタ / AAPL" autocomplete="off"
+            oninput="_impStockSearch()" onblur="setTimeout(()=>{const el=document.getElementById('imp-ac');if(el)el.style.display='none'},180)"/>
+          <input type="hidden" id="imp-symbol"/>
+          <div id="imp-ac" class="stock-autocomplete-list" style="display:none"></div>
+        </div>
+        <div id="imp-sel" style="font-size:11px;color:var(--accent);margin-top:4px;min-height:14px"></div>
       </div>
-      <textarea id="csv-input" rows="10" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-family:monospace;font-size:11px" placeholder="symbol,action,shares,price,commission,timestamp
-7203,buy,100,2500,50,2024-01-15
-AAPL,buy,10,180.5,0,2024-02-01"></textarea>
-      <div class="modal-field" style="margin-top:10px"><label>Portfolio</label>
-        <select id="csv-portfolio">
-          ${Array.isArray(portfolios) ? portfolios.map(p => `<option value="${p.id}" ${p.id===currentPortfolioId?'selected':''}>${escHtml(p.name)}</option>`).join('') : ''}
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="modal-field">
+          <label>${t('col_action') || 'Action'}</label>
+          <select id="imp-action">
+            <option value="buy">${t('trade_buy') || 'Buy'}</option>
+            <option value="sell">${t('trade_sell') || 'Sell'}</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>${t('col_shares') || 'Shares'}</label>
+          <input type="number" id="imp-shares" min="0.0001" step="any" placeholder="100"/>
+        </div>
+        <div class="modal-field">
+          <label>${t('col_price') || 'Price'}</label>
+          <input type="number" id="imp-price" min="0.01" step="any" placeholder="3400"/>
+        </div>
+        <div class="modal-field">
+          <label>${t('trade_commission') || 'Commission'} %</label>
+          <input type="number" id="imp-comm" min="0" max="100" step="0.01" value="${localStorage.getItem('genrri_commission_pct') || '0.1'}"/>
+        </div>
+        <div class="modal-field" style="grid-column:1/-1">
+          <label>${t('imp_date') || 'Date (optional — defaults to now)'}</label>
+          <input type="date" id="imp-date"/>
+        </div>
       </div>
-      <div class="modal-msg" id="csv-msg"></div>
+      <div class="modal-msg" id="imp-msg"></div>
       <div class="modal-actions">
-        <button class="btn" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-        <button class="btn primary" onclick="submitCsv()" id="csv-submit">Import</button>
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">${t('btn_cancel') || 'Cancel'}</button>
+        <button class="btn primary" onclick="_impSubmitTxn()">${t('imp_submit_txn') || 'Record Transaction'}</button>
+      </div>
+    </div>
+
+    <!-- ═ Tab: Set Position Directly ═ -->
+    <div class="imp-pane" data-pane="set" style="display:none">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.4">
+        ${t('imp_set_desc') || 'Overrides the current holding without creating a transaction row. Cash balance is NOT changed. Set shares to 0 to remove the position.'}
+      </div>
+      <div class="modal-field">
+        <label>${t('imp_stock_label') || 'Stock (code or name)'}</label>
+        <div class="stock-autocomplete">
+          <input class="s-input" id="imp-search2" placeholder="7203 / トヨタ / AAPL" autocomplete="off"
+            oninput="_impStockSearch('2')" onblur="setTimeout(()=>{const el=document.getElementById('imp-ac2');if(el)el.style.display='none'},180)"/>
+          <input type="hidden" id="imp-symbol2"/>
+          <div id="imp-ac2" class="stock-autocomplete-list" style="display:none"></div>
+        </div>
+        <div id="imp-sel2" style="font-size:11px;color:var(--accent);margin-top:4px;min-height:14px"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="modal-field">
+          <label>${t('col_shares') || 'Shares'}</label>
+          <input type="number" id="imp-set-shares" min="0" step="any" placeholder="100"/>
+        </div>
+        <div class="modal-field">
+          <label>${t('imp_avg_cost') || 'Avg Cost'}</label>
+          <input type="number" id="imp-set-price" min="0" step="any" placeholder="3400"/>
+        </div>
+      </div>
+      <div class="modal-msg" id="imp-msg2"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">${t('btn_cancel') || 'Cancel'}</button>
+        <button class="btn primary" onclick="_impSubmitSet()">${t('imp_submit_set') || 'Set Position'}</button>
+      </div>
+    </div>
+
+    <!-- ═ Tab: CSV Batch ═ -->
+    <div class="imp-pane" data-pane="csv" style="display:none">
+      <div style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:10px">
+        ${t('imp_csv_help') || 'Paste CSV. Columns:'} <code style="background:var(--surface2);padding:2px 5px;border-radius:3px;font-size:10px">symbol,action,shares,price,date,commission</code>
+      </div>
+      <textarea id="imp-csv" rows="9" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-family:monospace;font-size:11px" placeholder="7203.T,buy,100,3400,2025-01-15,50
+9984.T,buy,50,8500,2025-02-01,0
+AAPL,buy,10,180.5,2025-03-01,0"></textarea>
+      <div class="modal-msg" id="imp-msg3"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">${t('btn_cancel') || 'Cancel'}</button>
+        <button class="btn primary" onclick="_impSubmitCsv()" id="imp-csv-btn">${t('imp_submit_csv') || 'Import All'}</button>
       </div>
     </div>
   </div>`;
   document.body.appendChild(overlay);
+  if (initialTab) _impSetTab(initialTab);
+  setTimeout(() => { document.getElementById('imp-search')?.focus(); }, 80);
 }
 
-async function submitCsv() {
-  const text = document.getElementById('csv-input').value.trim();
-  const pid = document.getElementById('csv-portfolio').value;
-  const msg = document.getElementById('csv-msg');
-  const btn = document.getElementById('csv-submit');
-  if (!text) { msg.textContent = 'Paste CSV data first'; msg.className = 'modal-msg err'; return; }
+function _impSetTab(tab) {
+  document.querySelectorAll('.imp-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.imp-pane').forEach(p => p.style.display = p.dataset.pane === tab ? '' : 'none');
+}
 
-  // Parse
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+// Stock autocomplete (suffix "2" for Set Position tab to keep IDs unique)
+let _impSearchTimer = null;
+function _impStockSearch(suffix) {
+  suffix = suffix || '';
+  const q = (document.getElementById('imp-search' + suffix)?.value || '').trim();
+  const list = document.getElementById('imp-ac' + suffix);
+  if (!list) return;
+  if (_impSearchTimer) clearTimeout(_impSearchTimer);
+  if (!q) { list.style.display = 'none'; list.innerHTML = ''; return; }
+  _impSearchTimer = setTimeout(async () => {
+    try {
+      const [jpR, usR] = await Promise.all([
+        apiFetch('/api/stocks?q=' + encodeURIComponent(q) + '&limit=6&region=jp'),
+        apiFetch('/api/stocks?q=' + encodeURIComponent(q) + '&limit=6&region=us'),
+      ]);
+      const jp = await jpR.json().catch(() => []);
+      const us = await usR.json().catch(() => []);
+      const items = [...(Array.isArray(jp)?jp:[]), ...(Array.isArray(us)?us:[])];
+      if (!items.length) { list.style.display = 'none'; list.innerHTML = ''; return; }
+      list.innerHTML = items.slice(0, 10).map(it =>
+        `<div class="ac-item" onmousedown="_impPickStock('${escHtml(it.symbol)}', '${escHtml((it.name||it.symbol).replace(/'/g, "&#39;"))}', '${suffix}')">
+          <span style="font-weight:600">${escHtml(it.symbol.replace('.T',''))}</span>
+          <span style="color:var(--text2);margin-left:8px;font-size:11px">${escHtml(it.name || '')}</span>
+        </div>`).join('');
+      list.style.display = 'block';
+    } catch(e) { list.style.display = 'none'; }
+  }, 200);
+}
+function _impPickStock(symbol, name, suffix) {
+  suffix = suffix || '';
+  const searchEl = document.getElementById('imp-search' + suffix);
+  const symEl = document.getElementById('imp-symbol' + suffix);
+  const labelEl = document.getElementById('imp-sel' + suffix);
+  const list = document.getElementById('imp-ac' + suffix);
+  if (searchEl) searchEl.value = `${symbol.replace('.T','')} — ${name}`;
+  if (symEl) symEl.value = symbol;
+  if (labelEl) labelEl.textContent = `${symbol} · ${name}`;
+  if (list) list.style.display = 'none';
+  // For Set Position, if the stock is already held, prefill current shares + avg cost
+  if (suffix === '2' && portfolio && portfolio.holdings) {
+    const h = portfolio.holdings.find(x => x.symbol === symbol);
+    if (h) {
+      const sE = document.getElementById('imp-set-shares');
+      const pE = document.getElementById('imp-set-price');
+      if (sE) sE.value = h.shares;
+      if (pE) pE.value = h.avg_cost;
+    }
+  }
+}
+
+async function _impSubmitTxn() {
+  const symbol = document.getElementById('imp-symbol').value;
+  const pid    = document.getElementById('imp-pf').value;
+  const action = document.getElementById('imp-action').value;
+  const shares = parseFloat(document.getElementById('imp-shares').value);
+  const price  = parseFloat(document.getElementById('imp-price').value);
+  const comm   = parseFloat(document.getElementById('imp-comm').value) || 0;
+  const dateV  = document.getElementById('imp-date').value;
+  const msg    = document.getElementById('imp-msg');
+  if (!symbol) { msg.textContent = t('err_select_stock') || 'Select a stock'; msg.className='modal-msg err'; return; }
+  if (!shares || shares <= 0) { msg.textContent = 'Invalid shares'; msg.className='modal-msg err'; return; }
+  if (!price || price <= 0)  { msg.textContent = 'Invalid price';  msg.className='modal-msg err'; return; }
+  const date = dateV ? `${dateV} 00:00:00` : '';
+  // Find display name from search field
+  const name = (document.getElementById('imp-search').value.split('—')[1] || '').trim() || symbol;
+  try {
+    const r = await apiFetch('/api/import-transaction', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ symbol, name, action, shares, price, date, commission_pct: comm, portfolio_id: pid })
+    });
+    const d = await r.json();
+    if (d.error) { msg.textContent = d.error; msg.className='modal-msg err'; return; }
+    msg.textContent = `${action === 'buy' ? 'Bought' : 'Sold'} ${shares} × ${symbol.replace('.T','')} @ ${fmtPrice(price)}`;
+    msg.className = 'modal-msg ok';
+    if (currentRoute === 'portfolio') loadPortfolio();
+    if (currentRoute === 'transactions') loadTxns();
+    setTimeout(() => document.querySelector('.modal-overlay')?.remove(), 1200);
+  } catch(e) { msg.textContent = 'Failed'; msg.className='modal-msg err'; }
+}
+
+async function _impSubmitSet() {
+  const symbol = document.getElementById('imp-symbol2').value;
+  const pid    = document.getElementById('imp-pf').value;
+  const shares = parseFloat(document.getElementById('imp-set-shares').value);
+  const price  = parseFloat(document.getElementById('imp-set-price').value);
+  const msg    = document.getElementById('imp-msg2');
+  if (!symbol) { msg.textContent = t('err_select_stock') || 'Select a stock'; msg.className='modal-msg err'; return; }
+  if (isNaN(shares) || shares < 0) { msg.textContent = 'Invalid shares'; msg.className='modal-msg err'; return; }
+  if (shares > 0 && (!price || price <= 0)) { msg.textContent = 'Invalid avg cost'; msg.className='modal-msg err'; return; }
+  const name = (document.getElementById('imp-search2').value.split('—')[1] || '').trim() || symbol;
+  try {
+    const r = await apiFetch('/api/holdings/set', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ symbol, name, shares, avg_cost: price || 0, portfolio_id: pid })
+    });
+    const d = await r.json();
+    if (d.error) { msg.textContent = d.error; msg.className='modal-msg err'; return; }
+    msg.textContent = shares === 0 ? `Removed ${symbol.replace('.T','')}` : `Set ${shares} × ${symbol.replace('.T','')} @ ${fmtPrice(price)}`;
+    msg.className = 'modal-msg ok';
+    if (currentRoute === 'portfolio') loadPortfolio();
+    setTimeout(() => document.querySelector('.modal-overlay')?.remove(), 1200);
+  } catch(e) { msg.textContent = 'Failed'; msg.className='modal-msg err'; }
+}
+
+async function _impSubmitCsv() {
+  const text = document.getElementById('imp-csv').value.trim();
+  const pid  = document.getElementById('imp-pf').value;
+  const msg  = document.getElementById('imp-msg3');
+  const btn  = document.getElementById('imp-csv-btn');
+  if (!text) { msg.textContent = 'Paste CSV rows first'; msg.className='modal-msg err'; return; }
   const rows = [];
   let skipped = 0;
-  for (const line of lines) {
-    if (/^symbol/i.test(line)) continue;  // header
-    const parts = line.split(',').map(s => s.trim());
-    if (parts.length < 4) { skipped++; continue; }
-    const [symbol, action, shares, price, commission, timestamp] = parts;
-    if (!symbol || !['buy','sell'].includes(action.toLowerCase())) { skipped++; continue; }
+  for (const raw of text.split(/\r?\n/).map(s => s.trim()).filter(Boolean)) {
+    if (/^symbol/i.test(raw)) continue;  // header
+    const [symbol, action, shares, price, dateStr, commission] = raw.split(',').map(s => s.trim());
+    if (!symbol || !['buy','sell'].includes((action||'').toLowerCase())) { skipped++; continue; }
     const sharesN = parseFloat(shares), priceN = parseFloat(price);
+    if (!sharesN || !priceN) { skipped++; continue; }
     const commN = parseFloat(commission || 0);
-    // Backend expects `date` (not `timestamp`) and `commission_pct` (not abs amount).
-    // Convert the CSV's absolute commission to percent-of-total so the backend
-    // stores the same yen amount we imported.
     const total = sharesN * priceN;
-    const commissionPct = (total > 0 && commN > 0) ? (commN / total * 100) : 0;
+    const commPct = (total > 0 && commN > 0) ? (commN / total * 100) : 0;
     rows.push({
-      symbol, action: action.toLowerCase(),
-      shares: sharesN, price: priceN,
-      commission_pct: commissionPct,
-      date: (timestamp || '').trim() || new Date().toISOString().slice(0, 19).replace('T', ' '),
+      symbol, action: action.toLowerCase(), shares: sharesN, price: priceN,
+      commission_pct: commPct,
+      date: (dateStr ? `${dateStr} 00:00:00` : ''),
       portfolio_id: pid,
     });
   }
-  if (!rows.length) { msg.textContent = 'No valid rows found'; msg.className = 'modal-msg err'; return; }
-
-  btn.disabled = true; btn.textContent = 'Importing…';
+  if (!rows.length) { msg.textContent = 'No valid rows'; msg.className='modal-msg err'; return; }
+  btn.disabled = true; btn.textContent = '…';
   let ok = 0, fail = 0;
   for (const row of rows) {
     try {
@@ -3138,15 +3364,16 @@ async function submitCsv() {
   }
   msg.textContent = `Imported ${ok} · Failed ${fail}${skipped ? ` · Skipped ${skipped}` : ''}`;
   msg.className = ok > 0 ? 'modal-msg ok' : 'modal-msg err';
-  btn.disabled = false; btn.textContent = 'Import';
+  btn.disabled = false; btn.textContent = t('imp_submit_csv') || 'Import All';
   if (ok > 0) {
-    setTimeout(() => {
-      document.querySelector('.modal-overlay')?.remove();
-      if (currentRoute === 'transactions') loadTxns();
-      if (currentRoute === 'portfolio') loadPortfolio();
-    }, 1500);
+    if (currentRoute === 'portfolio') loadPortfolio();
+    if (currentRoute === 'transactions') loadTxns();
+    setTimeout(() => document.querySelector('.modal-overlay')?.remove(), 1500);
   }
 }
+
+// Legacy submitCsv() replaced by _impSubmitCsv above; thin alias kept for back-compat
+async function submitCsv() { return _impSubmitCsv(); }
 
 // ═════════════════════════════════════════════════════════════
 // ═══ SESSION 3: PRICE ALERTS ════════════════════════════════
