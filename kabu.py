@@ -199,11 +199,27 @@ class KabuClient:
 
     # ── Symbol conversion ─────────────────────────────────────────
 
+    # Kabu Station index codes on exchange 1 (Tokyo).
+    # Reference: Kabu Station API docs, 指数コード.
+    INDEX_CODE_MAP = {
+        '^N225':  ('101', 1),   # Nikkei 225 (日経平均株価)
+        '^TPX':   ('108', 1),   # TOPIX (東証株価指数)
+        '^TOPX':  ('108', 1),   # TOPIX alias
+        '^JPX400':('112', 1),   # JPX-Nikkei 400
+        '^N400':  ('112', 1),   # JPX-Nikkei 400 alias
+    }
+
     @staticmethod
     def to_kabu_symbol(app_symbol):
         """Convert app symbol to Kabu Station format.
-        '9984.T' -> ('9984', 1)   # Tokyo
+        '9984.T' -> ('9984', 1)   # Tokyo stock
+        '^N225'  -> ('101', 1)    # Nikkei 225 index
+        '^TPX'   -> ('108', 1)    # TOPIX index
         """
+        # Index symbols (^...)
+        if app_symbol in KabuClient.INDEX_CODE_MAP:
+            return KabuClient.INDEX_CODE_MAP[app_symbol]
+        # Regular Tokyo stock
         code = app_symbol.replace('.T', '')
         return code, 1  # exchange=1 for Tokyo
 

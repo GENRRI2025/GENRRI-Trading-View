@@ -1084,7 +1084,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
     <!-- Index strip -->
     <div class="index-strip" id="index-strip">
       <div class="idx-item" onclick="selectStock('^N225')"><span class="idx-label">Nikkei 225</span><span class="idx-value" id="si-n225">—</span><span class="idx-change" id="si-n225-c">—</span></div>
-      <div class="idx-item" onclick="selectStock('1306.T')"><span class="idx-label">TOPIX</span><span class="idx-value" id="si-topix">—</span><span class="idx-change" id="si-topix-c">—</span></div>
+      <div class="idx-item" onclick="selectStock('^TPX')"><span class="idx-label">TOPIX</span><span class="idx-value" id="si-topix">—</span><span class="idx-change" id="si-topix-c">—</span></div>
       <div class="idx-item" onclick="selectStock('^GSPC')"><span class="idx-label">S&amp;P 500</span><span class="idx-value" id="si-sp">—</span><span class="idx-change" id="si-sp-c">—</span></div>
       <div class="idx-item" onclick="selectStock('^DJI')"><span class="idx-label">Dow</span><span class="idx-value" id="si-dj">—</span><span class="idx-change" id="si-dj-c">—</span></div>
       <div class="idx-item" onclick="selectStock('^IXIC')"><span class="idx-label">Nasdaq</span><span class="idx-value" id="si-nq">—</span><span class="idx-change" id="si-nq-c">—</span></div>
@@ -2029,13 +2029,13 @@ window.addEventListener('resize', () => { if (typeof forceChartResize === 'funct
 async function loadIndexStrip() {
   const pairs = [
     ['^N225', 'si-n225', 'si-n225-c'],
-    ['1306.T', 'si-topix', 'si-topix-c'],
+    ['^TPX', 'si-topix', 'si-topix-c'],
     ['^GSPC', 'si-sp', 'si-sp-c'],
     ['^DJI', 'si-dj', 'si-dj-c'],
     ['^IXIC', 'si-nq', 'si-nq-c'],
     ['USDJPY=X', 'si-fx', 'si-fx-c'],
   ];
-  const names = {'^N225':'Nikkei 225','1306.T':'TOPIX','^GSPC':'S&P 500','^DJI':'Dow Jones','^IXIC':'Nasdaq','USDJPY=X':'USD/JPY'};
+  const names = {'^N225':'Nikkei 225','^TPX':'TOPIX','^GSPC':'S&P 500','^DJI':'Dow Jones','^IXIC':'Nasdaq','USDJPY=X':'USD/JPY'};
   const results = await Promise.all(pairs.map(async ([sym]) => {
     try { const r = await apiFetch('/api/quote/' + encodeURIComponent(sym)); return await r.json(); } catch(e) { return null; }
   }));
@@ -2057,7 +2057,7 @@ async function loadIndexStrip() {
 function renderIndexCards(region, results, pairs, names) {
   const container = document.getElementById('cards-' + region);
   if (!container) return;
-  const symSet = region === 'jp' ? ['^N225', '1306.T', 'USDJPY=X'] : ['^GSPC', '^DJI', '^IXIC'];
+  const symSet = region === 'jp' ? ['^N225', '^TPX', 'USDJPY=X'] : ['^GSPC', '^DJI', '^IXIC'];
   container.innerHTML = symSet.map(sym => {
     const i = pairs.findIndex(p => p[0] === sym);
     const d = results[i] || {};
@@ -2427,7 +2427,7 @@ function renderPerfChart(data) {
 // ═════════════════════════════════════════════════════════════
 // ═══ RIGHT DETAIL PANEL ══════════════════════════════════════
 // ═════════════════════════════════════════════════════════════
-// Indices (^N225, ^GSPC, ^DJI, ^IXIC, 1306.T) and Yahoo FX pairs (USDJPY=X)
+// Indices (^N225, ^GSPC, ^DJI, ^IXIC, ^TPX) and Yahoo FX pairs (USDJPY=X)
 // are calculated benchmarks / quotes — not tradeable instruments.
 function isTradeable(sym) {
   if (!sym) return false;

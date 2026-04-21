@@ -2717,20 +2717,44 @@ def live_portfolio_prices():
     for h in holdings:
         sym = h['symbol']
         cp = 0
-        src = 'delayed'
-        # Prefer Kabu position price (exists only if stock is held in Kabu account)
+        src = 'no-data'
+        # 1. Kabu position (if stock is held in live Kabu account)
         if sym in kabu_prices:
             cp = kabu_prices[sym]
             src = 'kabu_position'
-            used_kabu += 1
-        else:
-            # Fall through to _fetch_single_quote — it will itself prefer Kabu PUSH
-            # for any JP stock when connected, otherwise Finnhub/Yahoo cached.
-            quote = _fetch_single_quote(sym)
-            if quote and 'error' not in quote:
-                cp = quote.get('price', 0) or 0
-                src = quote.get('source', 'delayed')
-            used_delayed += 1
+        # 2. Kabu PUSH (in-memory, no API call) for any JP stock when connected
+        elif kabu_connected and sym.endswith('.T'):
+            try:
+                code, _ex = KabuClient.to_kabu_symbol(sym)
+                push = kabu_ws.get_push_data(code)
+                if push and push.get('CurrentPrice'):
+                    cp = float(push['CurrentPrice'])
+                    src = 'kabu_push'
+            except Exception:
+                pass
+        # 3. Fall through to _fetch_single_quote (Kabu REST board → yfinance/Finnhub)
+        if cp == 0:
+            try:
+                quote = _fetch_single_quote(sym)
+                if quote and 'error' not in quote:
+                    cp = quote.get('price', 0) or 0
+                    if cp > 0:
+                        src = quote.get('source') or 'yfinance'
+            except Exception as e:
+                print(f'[live-prices] fetch error for {sym}: {e}', flush=True)
+        # 4. Last resort: try yfinance directly with period=5d (most reliable
+        #    for thin-volume JP stocks — fast_info sometimes returns None).
+        if cp == 0:
+            try:
+                import yfinance as _yf
+                hist = _yf.Ticker(sym).history(period='5d', interval='1d')
+                if len(hist) >= 1:
+                    cp = float(hist['Close'].iloc[-1])
+                    src = 'yfinance_hist'
+            except Exception as e:
+                print(f'[live-prices] yfinance-hist error for {sym}: {e}', flush=True)
+        if src in ('kabu_push', 'kabu_position'): used_kabu += 1
+        else: used_delayed += 1
         val = cp * h['shares'] if cp else h['avg_cost'] * h['shares']
         pnl = (cp - h['avg_cost']) * h['shares'] if cp else 0
         total_valuation += val
