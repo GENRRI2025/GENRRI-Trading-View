@@ -44,11 +44,15 @@
 
 /* ═══════════════════ BASE ═══════════════════ */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 14px; }
+/* Global 0.85 scale of text vs the original 14/13 sizes. Everything
+   using em/rem cascades smaller; px values stay the same so viewport
+   math (vh calcs, chart heights) is unaffected. Restores the compact
+   feel of the original Edge 75%-zoom design target. */
+html { font-size: 12px; }
 body {
   background: var(--bg); color: var(--text); min-height: 100vh;
   font-family: 'Inter', 'Noto Sans SC', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif;
-  font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums;
+  font-size: 11.5px; font-weight: 400; font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility; letter-spacing: -0.003em;
   transition: background 0.2s, color 0.2s;
@@ -201,7 +205,15 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   background: var(--bg);
   display: flex; flex-direction: column;
   overflow-y: auto; overflow-x: hidden;
+  /* Only show the scrollbar when content actually overflows. The chart
+     page at v154 default fits in the viewport and the gutter scrollbar
+     was purely cosmetic noise next to the chart. */
+  scrollbar-gutter: auto;
 }
+.main::-webkit-scrollbar { width: 0; }
+.main { scrollbar-width: none; }
+.main:hover { scrollbar-width: thin; }
+.main:hover::-webkit-scrollbar { width: 8px; }
 .main-header {
   position: sticky; top: 0; z-index: 10;
   background: color-mix(in srgb, var(--bg) 95%, transparent);
