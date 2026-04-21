@@ -921,8 +921,42 @@ def get_quotes_batch():
     results = {}
     to_fetch = []
 
-    # Check cache first
+    # For JP stocks with Kabu connected: ALWAYS skip cache and read Kabu PUSH
+    # directly. PRICE_CACHE has a 5-min TTL which would otherwise make the
+    # watchlist show stale prices even while Kabu is pushing live ticks.
+    kabu = _get_kabu_client() if HAS_KABU else None
+    kabu_live = bool(kabu and kabu.is_connected())
+
     for sym in symbols:
+        # Kabu live path for JP stocks — no cache
+        if kabu_live and not _is_us_symbol(sym):
+            try:
+                code, _ = KabuClient.to_kabu_symbol(sym)
+                push = kabu_ws.get_push_data(code)
+                if push and push.get('CurrentPrice'):
+                    r = {
+                        'symbol': sym,
+                        'price': round(float(push['CurrentPrice']), 2),
+                        'change': round(float(push.get('ChangePreviousClose') or 0), 2),
+                        'change_pct': round(float(push.get('ChangePreviousClosePer') or 0), 2),
+                        'prev_close': round(float(push.get('PreviousClose') or 0), 2),
+                        'volume': int(push.get('TradingVolume') or 0),
+                        'source': 'kabu_push',
+                    }
+                    results[sym] = r
+                    PRICE_CACHE[sym] = {'data': r.copy(), 'ts': now}
+                    continue
+                # No PUSH yet — try REST board (still fresh, adds cost but single call)
+                board = kabu.get_board_as_quote(sym)
+                if board and 'error' not in board and board.get('price'):
+                    r = board.copy()
+                    r.pop('chart', None)
+                    results[sym] = r
+                    PRICE_CACHE[sym] = {'data': r.copy(), 'ts': now}
+                    continue
+            except Exception:
+                pass
+        # Fall through to cache
         cached = PRICE_CACHE.get(sym)
         if cached and (now - cached['ts']).total_seconds() < PRICE_CACHE_TTL:
             r = cached['data'].copy()
