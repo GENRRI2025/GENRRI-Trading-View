@@ -789,16 +789,13 @@ def _fetch_finnhub_quote(symbol):
 
 
 def _fetch_single_quote(symbol, with_chart=False):
-    """Fetch a single quote, using cache when possible."""
+    """Fetch a single quote. For JP stocks with Kabu connected, always
+    prefer Kabu PUSH (in-memory, freshest) BEFORE checking the cache —
+    otherwise the 5-min cache would serve stale prices over live ticks.
+    For everything else, cache-first."""
     now = datetime.now()
-    cached = PRICE_CACHE.get(symbol)
-    if cached and (now - cached['ts']).total_seconds() < PRICE_CACHE_TTL:
-        result = cached['data'].copy()
-        if not with_chart:
-            result.pop('chart', None)
-        return result
 
-    # Try Kabu Station for JP stocks (real-time via PUSH or REST)
+    # ── Kabu PUSH path (JP stocks, Kabu connected) — bypass cache ──
     if not _is_us_symbol(symbol) and HAS_KABU:
         kabu = _get_kabu_client()
         if kabu and kabu.is_connected():
@@ -818,11 +815,19 @@ def _fetch_single_quote(symbol, with_chart=False):
                 }
                 PRICE_CACHE[symbol] = {'data': result, 'ts': now}
                 return result
-            # Fallback to REST board
+            # PUSH not ready yet — fall back to REST board (still live)
             board_quote = kabu.get_board_as_quote(symbol)
             if 'error' not in board_quote and board_quote.get('price'):
                 PRICE_CACHE[symbol] = {'data': board_quote, 'ts': now}
                 return board_quote
+
+    # ── Cache-first path for non-Kabu / non-JP / Kabu-offline ──
+    cached = PRICE_CACHE.get(symbol)
+    if cached and (now - cached['ts']).total_seconds() < PRICE_CACHE_TTL:
+        result = cached['data'].copy()
+        if not with_chart:
+            result.pop('chart', None)
+        return result
 
     # Try Finnhub first for US stocks (real-time)
     if _is_us_symbol(symbol) and FINNHUB_API_KEY:
@@ -2607,68 +2612,93 @@ def get_portfolio():
 
 @app.route('/api/portfolio/live-prices')
 def live_portfolio_prices():
-    """Fast price update for live portfolio holdings — used by frontend 5s polling."""
+    """Live price update for portfolio holdings.
+
+    Source-of-truth strategy (merge, not exclusive):
+    - For each DB holding, prefer Kabu CurrentPrice when connected AND the
+      stock exists in the user's Kabu account.
+    - For holdings not in Kabu (US stocks, manually-entered JP trades,
+      simulation positions), fall back to _fetch_single_quote which itself
+      uses Kabu PUSH when possible, otherwise Finnhub/Yahoo.
+    - Cash = app's tracked cash (simulation-style); we don't overwrite it
+      with Kabu wallet here because the user may keep both worlds.
+    """
     uid, err = get_auth_user()
     if err: return err
     pid = get_portfolio_id(uid, request.args.get('portfolio_id'))
 
-    # Try Kabu Station first
-    if HAS_KABU:
-        kabu = _get_kabu_client()
-        if kabu and kabu.is_connected():
-            try:
-                positions = kabu.get_positions()
-                wallet = kabu.get_wallet_cash()
-                if isinstance(positions, list) and isinstance(wallet, dict) and 'error' not in wallet:
-                    cash = float(wallet.get('StockAccountWallet') or 0)
-                    if cash == 0:
-                        for key in ('FreeMargin', 'CashBalance', 'BuyingPower'):
-                            val = wallet.get(key)
-                            if val:
-                                cash = float(val)
-                                break
-                    prices = {}
-                    total_valuation = 0
-                    total_pnl = 0
-                    for p in positions:
-                        symbol = KabuClient.from_kabu_symbol(str(p.get('Symbol', '')), p.get('Exchange', 1))
-                        qty = float(p.get('LeavesQty') or p.get('Qty') or 0)
-                        if qty <= 0:
-                            continue
-                        cp = float(p.get('CurrentPrice') or 0)
-                        pnl = float(p.get('ProfitLoss') or 0)
-                        val = float(p.get('Valuation') or 0)
-                        total_valuation += val
-                        total_pnl += pnl
-                        prices[symbol] = {'price': cp, 'pnl': round(pnl, 2), 'value': round(val, 2)}
-                    return jsonify({'source': 'kabu_live', 'cash': round(cash, 2),
-                                    'total_value': round(cash + total_valuation, 2),
-                                    'total_pnl': round(total_pnl, 2), 'prices': prices})
-            except Exception:
-                pass
-
-    # Fallback: fetch from price cache (Yahoo/Finnhub) — uses PRICE_CACHE so no burst of API calls
+    # Always load DB holdings — they are the source of truth for shares/avg_cost
     conn = get_db()
     try:
-        holdings = conn.execute('SELECT symbol, shares, avg_cost FROM holdings WHERE user_id = ? AND portfolio_id = ?', (uid, pid)).fetchall()
+        holdings = conn.execute(
+            'SELECT symbol, shares, avg_cost FROM holdings WHERE user_id = ? AND portfolio_id = ?',
+            (uid, pid)).fetchall()
         sp = conn.execute('SELECT cash FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
         cash = sp['cash'] if sp else 0
     finally:
         conn.close()
+
+    # Build Kabu symbol → live price map if connected
+    kabu_prices = {}   # { app_symbol: {price, pnl, value} }
+    kabu_connected = False
+    if HAS_KABU:
+        kabu = _get_kabu_client()
+        if kabu and kabu.is_connected():
+            kabu_connected = True
+            try:
+                positions = kabu.get_positions()
+                if isinstance(positions, list):
+                    for p in positions:
+                        sym = KabuClient.from_kabu_symbol(str(p.get('Symbol', '')), p.get('Exchange', 1))
+                        qty = float(p.get('LeavesQty') or p.get('Qty') or 0)
+                        if qty <= 0:
+                            continue
+                        cp = float(p.get('CurrentPrice') or 0)
+                        if cp > 0:
+                            kabu_prices[sym] = cp
+            except Exception:
+                pass
+
+    # Build the unified response — always indexed by DB holdings
     prices = {}
     total_valuation = 0
     total_pnl = 0
+    used_kabu = 0
+    used_delayed = 0
     for h in holdings:
-        quote = _fetch_single_quote(h['symbol'])
-        cp = quote.get('price', 0) if quote and 'error' not in quote else 0
+        sym = h['symbol']
+        cp = 0
+        src = 'delayed'
+        # Prefer Kabu position price (exists only if stock is held in Kabu account)
+        if sym in kabu_prices:
+            cp = kabu_prices[sym]
+            src = 'kabu_position'
+            used_kabu += 1
+        else:
+            # Fall through to _fetch_single_quote — it will itself prefer Kabu PUSH
+            # for any JP stock when connected, otherwise Finnhub/Yahoo cached.
+            quote = _fetch_single_quote(sym)
+            if quote and 'error' not in quote:
+                cp = quote.get('price', 0) or 0
+                src = quote.get('source', 'delayed')
+            used_delayed += 1
         val = cp * h['shares'] if cp else h['avg_cost'] * h['shares']
         pnl = (cp - h['avg_cost']) * h['shares'] if cp else 0
         total_valuation += val
         total_pnl += pnl
-        prices[h['symbol']] = {'price': cp, 'pnl': round(pnl, 2), 'value': round(val, 2)}
-    return jsonify({'source': 'delayed', 'cash': round(cash, 2),
-                    'total_value': round(cash + total_valuation, 2),
-                    'total_pnl': round(total_pnl, 2), 'prices': prices})
+        prices[sym] = {'price': round(cp, 2), 'pnl': round(pnl, 2), 'value': round(val, 2), 'source': src}
+
+    overall_src = 'kabu_live' if kabu_connected and used_kabu > 0 else ('mixed' if kabu_connected else 'delayed')
+    return jsonify({
+        'source': overall_src,
+        'kabu_connected': kabu_connected,
+        'kabu_count': used_kabu,
+        'delayed_count': used_delayed,
+        'cash': round(cash, 2),
+        'total_value': round(cash + total_valuation, 2),
+        'total_pnl': round(total_pnl, 2),
+        'prices': prices,
+    })
 
 @app.route('/api/transactions')
 def get_transactions():

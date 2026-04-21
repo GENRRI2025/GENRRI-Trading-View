@@ -734,6 +734,24 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .sidebar-recent-item .sr-chg { margin-left: auto; font-size: 10px; font-variant-numeric: tabular-nums; }
 .app-shell.sidebar-collapsed .sidebar-recent { display: none; }
 
+/* ═══════════════════ Trade mode toggle (quick-trade modal) ═══════════════════ */
+.qt-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.qt-mode-opt {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer; transition: all 0.15s; font-size: 11px;
+}
+.qt-mode-opt:hover { border-color: var(--accent); }
+.qt-mode-opt.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.qt-mode-opt.selected.live { border-color: var(--down); background: color-mix(in srgb, var(--down) 10%, transparent); }
+.qt-mode-opt.disabled { opacity: 0.4; cursor: not-allowed; }
+.qt-mode-opt.disabled:hover { border-color: var(--border); }
+.qt-mode-opt input[type="radio"] { display: none; }
+.qt-mode-opt span:first-of-type { font-weight: 600; color: var(--text); }
+.qt-mode-opt .qt-mode-sub { color: var(--text2); font-size: 10px; line-height: 1.3; }
+.qt-mode-opt.selected.live .qt-mode-sub { color: var(--down); }
+.modal-btn.live-mode { background: var(--down) !important; border-color: var(--down) !important; }
+
 /* ═══════════════════ SESSION 3: TRANSACTIONS / ALERTS TABLES ═══════════════════ */
 .txn-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; padding: 6px 4px 14px; }
 .txn-filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
@@ -1137,6 +1155,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         <div class="pf-actions">
           <button class="btn primary" onclick="openDepositModal()" data-i18n="btn_deposit">+ Deposit</button>
           <button class="btn" onclick="openWithdrawModal()" data-i18n="btn_withdraw">− Withdraw</button>
+          <button class="btn" onclick="openCsvImport()" data-i18n="btn_import_csv">Import CSV</button>
           <button class="btn" onclick="openAddPortfolioModal()" data-i18n="add_portfolio">+ Portfolio</button>
         </div>
       </div>
@@ -1514,6 +1533,14 @@ const LANG_DATA = {
     ai_failed:'AI analysis failed',
     loading:'Loading…',
     not_tradeable:'Indices and FX pairs are not tradeable.',
+    trade_mode:'Trade Mode', trade_mode_sim:'Simulation',
+    trade_mode_sim_sub:'Practice — stored locally only',
+    trade_mode_live:'Live (Kabu Station)',
+    trade_mode_live_sub:'Real order via your Rakuten/kabu.com account',
+    trade_mode_live_unavail:'Requires Kabu Station connected + JP stock',
+    trade_live_confirm:'LIVE ORDER — this will place a real order via your Kabu Station account.',
+    trade_live_confirm_ask:'Continue?',
+    trade_verb_bought:'Bought', trade_verb_sold:'Sold',
     kabu_reconnected:'Kabu Station reconnected — live data resumed',
     kabu_disconnected:'Kabu Station disconnected — falling back to 15-min delayed quotes',
     kabu_status_error:'Could not reach server — Kabu status unknown',
@@ -2110,9 +2137,51 @@ async function loadPortfolio() {
     portfolio = await r.json();
     renderPortfolio();
     loadPerfChart();
+    // Overlay live prices (Kabu when connected, Yahoo cache otherwise)
+    refreshPortfolioLivePrices();
+    startPortfolioLivePoll();
   } catch (e) {
     console.error('[portfolio] load failed:', e);
   }
+}
+
+// Live price overlay — runs 2s when Kabu connected, 60s otherwise.
+// Uses /api/portfolio/live-prices which merges Kabu positions + Yahoo
+// cache so manually-entered holdings also update.
+let _pfLivePollTimer = null;
+async function refreshPortfolioLivePrices() {
+  if (!portfolio || !currentPortfolioId) return;
+  try {
+    const r = await apiFetch('/api/portfolio/live-prices?portfolio_id=' + encodeURIComponent(currentPortfolioId));
+    const live = await r.json();
+    if (!live || !live.prices) return;
+    // Patch holdings with fresh prices — don't reload full /api/portfolio
+    (portfolio.holdings || []).forEach(h => {
+      const p = live.prices[h.symbol];
+      if (p && p.price > 0) {
+        h.current_price = p.price;
+        h.value = p.value;
+        h.pnl = p.pnl;
+        // Mirror into stockPrices for other renderers
+        stockPrices[h.symbol] = Object.assign({}, stockPrices[h.symbol] || {}, { price: p.price });
+      }
+    });
+    // Update totals in-place
+    if (live.total_value != null) portfolio.total_value = live.total_value;
+    if (live.total_pnl != null) portfolio.unrealized_pnl = live.total_pnl;
+    renderPortfolio();
+  } catch(e) {}
+}
+function startPortfolioLivePoll() {
+  if (_pfLivePollTimer) clearInterval(_pfLivePollTimer);
+  const delay = window.kabuConnected ? 2000 : 60000;
+  _pfLivePollTimer = setInterval(() => {
+    if (currentRoute !== 'portfolio') return;
+    refreshPortfolioLivePrices();
+  }, delay);
+}
+function stopPortfolioLivePoll() {
+  if (_pfLivePollTimer) { clearInterval(_pfLivePollTimer); _pfLivePollTimer = null; }
 }
 function renderPortfolio() {
   if (!portfolio) return;
@@ -2663,6 +2732,21 @@ async function openTradeModal(action) {
       <span class="qt-price" id="qt-price">${price ? fmtPrice(price) : '—'}</span>
     </div>
     <div class="modal-field">
+      <label>${t('trade_mode') || 'Trade Mode'}</label>
+      <div class="qt-mode" id="qt-mode">
+        <label class="qt-mode-opt ${(window.kabuConnected && sym.endsWith('.T')) ? '' : 'selected'}">
+          <input type="radio" name="qt-mode" value="sim" ${(window.kabuConnected && sym.endsWith('.T')) ? '' : 'checked'} onchange="_qtSetMode('sim')"/>
+          <span>${t('trade_mode_sim') || 'Simulation'}</span>
+          <span class="qt-mode-sub">${t('trade_mode_sim_sub') || 'Practice — stored locally only'}</span>
+        </label>
+        <label class="qt-mode-opt ${(window.kabuConnected && sym.endsWith('.T')) ? 'selected live' : 'disabled'}" title="${(window.kabuConnected && sym.endsWith('.T')) ? '' : (t('trade_mode_live_unavail') || 'Requires Kabu Station connected + JP stock')}">
+          <input type="radio" name="qt-mode" value="live" ${(window.kabuConnected && sym.endsWith('.T')) ? 'checked' : ''} ${(window.kabuConnected && sym.endsWith('.T')) ? '' : 'disabled'} onchange="_qtSetMode('live')"/>
+          <span>${t('trade_mode_live') || 'Live (Kabu Station)'}</span>
+          <span class="qt-mode-sub">${t('trade_mode_live_sub') || 'Real order via your Rakuten/kabu.com account'}</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-field">
       <label>${t('trade_shares')}</label>
       <input type="number" id="qt-shares" min="1" step="1" value="1" oninput="_qtUpdate()"/>
     </div>
@@ -2696,25 +2780,63 @@ function _qtUpdate() {
   document.getElementById('qt-fee-v').textContent = fmt(fee);
   document.getElementById('qt-grand').textContent = fmt(total + fee);
 }
+function _qtSetMode(mode) {
+  document.querySelectorAll('.qt-mode-opt').forEach(el => el.classList.remove('selected'));
+  const sel = document.querySelector(`.qt-mode-opt input[value="${mode}"]`)?.closest('.qt-mode-opt');
+  if (sel) sel.classList.add('selected');
+  // Highlight confirm button if Live
+  const confirmBtn = document.getElementById('qt-confirm');
+  if (confirmBtn) confirmBtn.classList.toggle('live-mode', mode === 'live');
+}
+function _qtMode() {
+  const checked = document.querySelector('input[name="qt-mode"]:checked');
+  return checked ? checked.value : 'sim';
+}
 async function _qtExec(symbol, action, price) {
   const msg = document.getElementById('qt-msg');
   const btn = document.getElementById('qt-confirm');
   const shares = parseFloat(document.getElementById('qt-shares').value || 0);
   const commission_pct = parseFloat(document.getElementById('qt-fee').value || 0);
+  const mode = _qtMode();
   if (!shares || shares <= 0) { msg.textContent = 'Invalid shares'; msg.className = 'modal-msg err'; return; }
   if (!price || price <= 0) { msg.textContent = 'No price'; msg.className = 'modal-msg err'; return; }
+
+  // LIVE mode: show confirmation first
+  if (mode === 'live') {
+    const confirmMsg = (t('trade_live_confirm') || 'LIVE ORDER — this will place a real order via your Kabu Station account.')
+      + `\n\n${action.toUpperCase()} ${shares} × ${symbol.replace('.T','')} @ ~${fmtPrice(price)}`
+      + `\n\n${t('trade_live_confirm_ask') || 'Continue?'}`;
+    if (!confirm(confirmMsg)) return;
+  }
+
   btn.disabled = true; btn.textContent = '...';
+  const payload = {
+    symbol, action, shares, price, commission_pct,
+    portfolio_id: currentPortfolioId,
+    simulation_mode: mode !== 'live',
+    live_trade: mode === 'live',
+  };
   try {
     const r = await apiFetch('/api/trade', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ symbol, action, shares, price, commission_pct, portfolio_id: currentPortfolioId })
+      body: JSON.stringify(payload)
     });
     const data = await r.json();
-    if (data.error) { msg.textContent = data.error; msg.className = 'modal-msg err'; btn.disabled = false; btn.textContent = action === 'buy' ? t('trade_buy') : t('trade_sell'); return; }
-    msg.textContent = (action === 'buy' ? 'Bought' : 'Sold') + ` ${shares} @ ${fmtPrice(price)}`;
+    if (data.error) {
+      // Backend may ask for live confirmation — shouldn't happen since we send live_trade:true
+      msg.textContent = data.error;
+      msg.className = 'modal-msg err';
+      btn.disabled = false;
+      btn.textContent = action === 'buy' ? t('trade_buy') : t('trade_sell');
+      return;
+    }
+    const verb = action === 'buy' ? (t('trade_verb_bought') || 'Bought') : (t('trade_verb_sold') || 'Sold');
+    const via = (mode === 'live' && data.kabu_order_id)
+      ? ` (Kabu order #${data.kabu_order_id})` : '';
+    msg.textContent = `${verb} ${shares} @ ${fmtPrice(price)}${via}`;
     msg.className = 'modal-msg ok';
     if (currentRoute === 'portfolio') loadPortfolio();
-    setTimeout(() => { document.querySelector('.modal-overlay')?.remove(); }, 1200);
+    setTimeout(() => { document.querySelector('.modal-overlay')?.remove(); }, 1500);
   } catch(e) {
     msg.textContent = 'Trade failed'; msg.className = 'modal-msg err';
     btn.disabled = false; btn.textContent = action === 'buy' ? t('trade_buy') : t('trade_sell');
@@ -4028,12 +4150,18 @@ async function checkKabuStatus() {
       if (kabuConnected) {
         toast(t('kabu_reconnected') || 'Kabu Station reconnected — live data resumed', 'ok');
         _kabuReconnectAttempts = 0;
+        // Restart polls at fast rate now that Kabu is live
+        if (currentRoute === 'watchlists') startWatchlistPoll();
+        if (currentRoute === 'portfolio') startPortfolioLivePoll();
       } else {
         // DISCONNECTED — surface the underlying reason if we have one
         const reason = data.last_error ? ` (${data.last_error})` : '';
         toast((t('kabu_disconnected') || 'Kabu Station disconnected — falling back to 15-min delayed quotes') + reason, 'err');
         // Stop the 1s board poll so we don't spam failing calls
         if (typeof stopKabuStream === 'function') stopKabuStream();
+        // Downshift polls to slow rate
+        if (currentRoute === 'watchlists') startWatchlistPoll();
+        if (currentRoute === 'portfolio') startPortfolioLivePoll();
         // Attempt silent reconnect if we have saved creds (3 tries, exponential backoff)
         const savedPw = localStorage.getItem('kabu_api_pw');
         if (savedPw && _kabuReconnectAttempts < 3) {
