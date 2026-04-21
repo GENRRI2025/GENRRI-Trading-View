@@ -814,17 +814,26 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 }
 
 /* ═══════════════════ SESSION 2: DP ORDER BOOK INLINE ═══════════════════ */
-.dp-ob-row { position: relative; display: grid; grid-template-columns: 18px 1fr 1fr; gap: 6px; padding: 3px 6px; font-size: 11px; }
+/* Compact rows — 10 asks + spread + 10 bids must fit without scrolling
+   the whole right panel off-screen. Explicit column widths prevent the
+   qty number from wrapping to a second line on narrow panels. */
+.dp-ob-list { max-height: 280px; overflow-y: auto; }
+.dp-ob-row {
+  position: relative; display: grid;
+  grid-template-columns: 16px 1fr 62px; gap: 4px;
+  padding: 1px 6px; font-size: 10.5px; line-height: 1.5;
+  white-space: nowrap;
+}
 .dp-ob-bar { position: absolute; top: 0; bottom: 0; right: 0; border-radius: 3px; z-index: 0; }
 .dp-ob-bar.ask { background: color-mix(in srgb, var(--down) 18%, transparent); }
 .dp-ob-bar.bid { background: color-mix(in srgb, var(--up) 18%, transparent); }
-.dp-ob-row > * { position: relative; z-index: 1; }
-.dp-ob-lvl { color: var(--text2); font-size: 10px; }
-.dp-ob-price { font-weight: 500; }
+.dp-ob-row > * { position: relative; z-index: 1; overflow: hidden; text-overflow: ellipsis; }
+.dp-ob-lvl { color: var(--text2); font-size: 9.5px; }
+.dp-ob-price { font-weight: 500; font-variant-numeric: tabular-nums; }
 .dp-ob-price.ask { color: var(--down); }
 .dp-ob-price.bid { color: var(--up); }
-.dp-ob-qty { text-align: right; color: var(--text); }
-.dp-ob-spread { text-align: center; padding: 5px 0; margin: 3px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text); }
+.dp-ob-qty { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.dp-ob-spread { text-align: center; padding: 3px 0; margin: 2px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 10.5px; font-weight: 600; color: var(--text); }
 
 /* Trade overview donut */
 .to-wrap { display: flex; align-items: center; gap: 14px; }
@@ -4115,11 +4124,59 @@ function _handleKabuTick(data) {
       chgEl.textContent = `${s}${c.toFixed(2)} (${s}${cp.toFixed(2)}%)`;
       chgEl.className = 'dp-change ' + cls;
     }
+    // Update live candle / line chart in real time
+    _updateLiveCandle(data.price, data.volume);
   }
   // Update order book
   renderDpOrderBookFromData(data);
   // Update trade overview
   renderDpTradeOverview(data);
+}
+
+// Keep the most recent chart bar live-updating from Kabu ticks.
+// For intraday intervals we compute which bucket the current price
+// belongs to and either update the last bar's close/high/low or
+// append a new bar if we crossed into the next bucket.
+// For daily/weekly/monthly we just update the last bar's close.
+const _INTRADAY_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '30m': 1800, '60m': 3600 };
+function _updateLiveCandle(price, volume) {
+  if (!lwChart || !mainSeries || !chartDataCache.length) return;
+  if (!currentSymbol || !currentSymbol.endsWith('.T')) return;
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const last = chartDataCache[chartDataCache.length - 1];
+    const lastTime = typeof last.time === 'number' ? last.time : null;
+    let bucketSize = null;
+    if (chartType === 'candle' && _INTRADAY_SECONDS[currentCandleInterval]) {
+      bucketSize = _INTRADAY_SECONDS[currentCandleInterval];
+    }
+    // INTRADAY CANDLE MODE — bucket-aware live update
+    if (chartType === 'candle' && bucketSize && lastTime != null) {
+      const currentBucket = Math.floor(now / bucketSize) * bucketSize;
+      if (currentBucket <= lastTime) {
+        // Still within the last bar — update close/high/low
+        last.close = price;
+        if (price > last.high) last.high = price;
+        if (price < last.low) last.low = price;
+        mainSeries.update({ time: last.time, open: last.open, high: last.high, low: last.low, close: last.close });
+      } else {
+        // New bar — append with open=price (no prior close available at bucket boundary)
+        const bar = { time: currentBucket, open: price, high: price, low: price, close: price, volume: 0 };
+        chartDataCache.push(bar);
+        mainSeries.update({ time: bar.time, open: bar.open, high: bar.high, low: bar.low, close: bar.close });
+      }
+    } else if (chartType === 'candle') {
+      // Daily/weekly/monthly candle — just update last close
+      last.close = price;
+      if (price > last.high) last.high = price;
+      if (price < last.low) last.low = price;
+      mainSeries.update({ time: last.time, open: last.open, high: last.high, low: last.low, close: last.close });
+    } else {
+      // LINE mode
+      last.close = price;
+      mainSeries.update({ time: last.time, value: price });
+    }
+  } catch(e) { /* LWC throws if time is out of order — ignore */ }
 }
 
 // Order book in right panel
@@ -4169,7 +4226,12 @@ function renderDpOrderBookFromData(data) {
   const bestBid = bids.length ? bids[0].price : null;
   const spread = (bestAsk && bestBid) ? (bestAsk - bestBid) : null;
   const spreadPct = spread && bestBid ? (spread / bestBid * 100).toFixed(3) : '—';
-  body.innerHTML = rows(asks, 'ask') + `<div class="dp-ob-spread">${data.price ? fmtPrice(data.price) : '—'} · Spread: ${spread != null ? fmtPrice(spread) : '—'} (${spreadPct}%)</div>` + rows(bids, 'bid');
+  // Wrap in scrollable container — keeps whole right panel from stretching
+  body.innerHTML = `<div class="dp-ob-list">`
+    + rows(asks, 'ask')
+    + `<div class="dp-ob-spread">${data.price ? fmtPrice(data.price) : '—'} · Spread: ${spread != null ? fmtPrice(spread) : '—'} (${spreadPct}%)</div>`
+    + rows(bids, 'bid')
+    + `</div>`;
 }
 function renderDpTradeOverview(data) {
   const body = document.getElementById('dp-to-body');
