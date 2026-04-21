@@ -891,25 +891,40 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 }
 
 /* ═══════════════════ SESSION 2: DP ORDER BOOK INLINE ═══════════════════ */
-/* Compact rows — 10 asks + spread + 10 bids must fit without scrolling
-   the whole right panel off-screen. Explicit column widths prevent the
-   qty number from wrapping to a second line on narrow panels. */
+/* Flex layout — grid was breaking onto two rows on narrow panels when qty
+   numbers got near the column boundary. Flex with explicit flex-basis is
+   immune to that. */
 .dp-ob-row {
-  position: relative; display: grid;
-  grid-template-columns: 16px 1fr 62px; gap: 4px;
-  padding: 0 6px; font-size: 10.5px; line-height: 1.45;
+  position: relative;
+  display: flex; align-items: center; gap: 6px;
+  padding: 1px 8px; font-size: 10.5px; line-height: 1.45;
   white-space: nowrap;
 }
-.dp-ob-bar { position: absolute; top: 0; bottom: 0; right: 0; border-radius: 3px; z-index: 0; }
-.dp-ob-bar.ask { background: color-mix(in srgb, var(--down) 18%, transparent); }
-.dp-ob-bar.bid { background: color-mix(in srgb, var(--up) 18%, transparent); }
-.dp-ob-row > * { position: relative; z-index: 1; overflow: hidden; text-overflow: ellipsis; }
-.dp-ob-lvl { color: var(--text2); font-size: 9.5px; }
-.dp-ob-price { font-weight: 500; font-variant-numeric: tabular-nums; }
+.dp-ob-bar { position: absolute; top: 1px; bottom: 1px; right: 0; border-radius: 2px; z-index: 0; min-width: 2px; }
+.dp-ob-bar.ask { background: color-mix(in srgb, var(--down) 22%, transparent); }
+.dp-ob-bar.bid { background: color-mix(in srgb, var(--up) 22%, transparent); }
+.dp-ob-row > *:not(.dp-ob-bar) { position: relative; z-index: 1; }
+.dp-ob-lvl    { flex: 0 0 18px; color: var(--text2); font-size: 9.5px; text-align: center; }
+.dp-ob-price  { flex: 0 0 60px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: left; }
 .dp-ob-price.ask { color: var(--down); }
 .dp-ob-price.bid { color: var(--up); }
-.dp-ob-qty { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
-.dp-ob-spread { text-align: center; padding: 2px 0; margin: 1px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 10.5px; font-weight: 600; color: var(--text); }
+.dp-ob-qty    { flex: 1 1 auto; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dp-ob-spread { text-align: center; padding: 3px 0; margin: 2px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 10.5px; font-weight: 600; color: var(--text); }
+
+/* Trade overview — size buckets (XL/L/M/S) like Moomoo */
+.to-buckets { display: grid; grid-template-columns: auto 1fr auto; gap: 3px 8px; font-size: 10.5px; align-items: center; margin-top: 8px; }
+.to-bucket-label { color: var(--text2); font-weight: 600; width: 18px; text-align: center; }
+.to-bucket-bar { height: 12px; background: var(--surface2); border-radius: 3px; overflow: hidden; position: relative; }
+.to-bucket-fill { height: 100%; border-radius: 3px; }
+.to-bucket-fill.buy  { background: var(--up);   float: right; }
+.to-bucket-fill.sell { background: var(--down); }
+.to-bucket-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center; font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.to-bucket-row .left  { text-align: right; color: var(--up);   }
+.to-bucket-row .tag   { font-weight: 700; color: var(--text2); width: 18px; text-align: center; }
+.to-bucket-row .right { text-align: left;  color: var(--down); }
+.to-bucket-row .bar-wrap { display: flex; height: 10px; background: transparent; border-radius: 2px; overflow: hidden; grid-column: 1 / -1; margin-top: -2px; margin-bottom: 3px; }
+.to-bucket-row .bar-buy  { background: color-mix(in srgb, var(--up)   40%, transparent); height: 100%; }
+.to-bucket-row .bar-sell { background: color-mix(in srgb, var(--down) 40%, transparent); height: 100%; }
 
 /* Trade overview donut */
 .to-wrap { display: flex; align-items: center; gap: 14px; }
@@ -5000,10 +5015,13 @@ function renderDpOrderBookFromData(data) {
   const asks = (data.asks || []).slice().reverse();
   const bids = data.bids || [];
   if (!asks.length && !bids.length) { body.innerHTML = `<div class="dp-placeholder">No depth data</div>`; return; }
+  // Scale bars so the BIGGEST qty fills the whole row width. Previous
+  // layout was scaling bars correctly but the CSS grid was breaking on
+  // narrow panels — switched to flex + the bar uses % of the whole row.
   const maxQty = Math.max(...asks.map(a => a.qty || 0), ...bids.map(b => b.qty || 0), 1);
   function rows(items, side) {
     return items.slice(0, 10).map((it, i) => {
-      const pct = Math.round((it.qty / maxQty) * 100);
+      const pct = Math.max(2, Math.round((it.qty / maxQty) * 100));
       const lvl = side === 'ask' ? (items.length - i) : (i + 1);
       return `<div class="dp-ob-row">
         <div class="dp-ob-bar ${side}" style="width:${pct}%"></div>
@@ -5026,24 +5044,67 @@ function renderDpTradeOverview(data) {
   if (!body) return;
   if (!data || data.error) { body.innerHTML = `<div class="dp-placeholder">Requires Kabu Station</div>`; return; }
   const bids = data.bids || [], asks = data.asks || [];
-  const bidVal = bids.slice(0, 5).reduce((s, b) => s + (b.price || 0) * (b.qty || 0), 0);
-  const askVal = asks.slice(0, 5).reduce((s, a) => s + (a.price || 0) * (a.qty || 0), 0);
+  const bidVal = bids.slice(0, 10).reduce((s, b) => s + (b.price || 0) * (b.qty || 0), 0);
+  const askVal = asks.slice(0, 10).reduce((s, a) => s + (a.price || 0) * (a.qty || 0), 0);
   const total = bidVal + askVal;
   if (!total) { body.innerHTML = `<div class="dp-placeholder">No depth</div>`; return; }
-  const bidPct = bidVal / total * 100;
-  const askPct = askVal / total * 100;
   const net = bidVal - askVal;
   const netCls = net >= 0 ? 'pos' : 'neg';
   const netLabel = net >= 0 ? 'Net Inflow' : 'Net Outflow';
+
+  // ─── Size buckets (Moomoo-style): categorize each depth level by its
+  // YEN value, then aggregate buy vs sell side totals per bucket.
+  // JP market conventions: S<1M, M<10M, L<100M, XL≥100M.
+  const BUCKETS = [
+    { key: 'XL', min: 100_000_000 },
+    { key: 'L',  min:  10_000_000 },
+    { key: 'M',  min:   1_000_000 },
+    { key: 'S',  min:            0 },
+  ];
+  function bucketize(items) {
+    const out = { XL: 0, L: 0, M: 0, S: 0 };
+    items.forEach(it => {
+      const v = (it.price || 0) * (it.qty || 0);
+      for (const b of BUCKETS) { if (v >= b.min) { out[b.key] += v; break; } }
+    });
+    return out;
+  }
+  const buyBuckets  = bucketize(bids.slice(0, 10));
+  const sellBuckets = bucketize(asks.slice(0, 10));
+  // Normalize to percentage of (buy+sell) total for each bucket's bar width
+  const bucketMax = Math.max(
+    ...BUCKETS.map(b => buyBuckets[b.key] + sellBuckets[b.key]), 1);
+  const bucketRows = BUCKETS.map(b => {
+    const buy = buyBuckets[b.key] || 0;
+    const sell = sellBuckets[b.key] || 0;
+    const buyPct  = Math.round(buy  / bucketMax * 100);
+    const sellPct = Math.round(sell / bucketMax * 100);
+    return `
+      <div class="to-bucket-row">
+        <span class="left">${buy  ? fmtBig(buy)  : '0'}</span>
+        <span class="tag">${b.key}</span>
+        <span class="right">${sell ? fmtBig(sell) : '0'}</span>
+        <div class="bar-wrap">
+          <div class="bar-buy"  style="width:${buyPct/2}%; margin-left:${50 - buyPct/2}%"></div>
+          <div class="bar-sell" style="width:${sellPct/2}%"></div>
+        </div>
+      </div>`;
+  }).join('');
+
   body.innerHTML = `
-    <div class="to-wrap">
-      <div class="to-donut" style="background: conic-gradient(var(--up) 0% ${bidPct}%, var(--down) ${bidPct}% 100%)"></div>
-      <div class="to-legend">
-        <div class="to-legend-row"><span class="to-dot" style="background:var(--up)"></span><span class="to-label">Bid (Buy)</span><span class="to-value">${bidPct.toFixed(1)}%</span></div>
-        <div class="to-legend-row"><span class="to-dot" style="background:var(--down)"></span><span class="to-label">Ask (Sell)</span><span class="to-value">${askPct.toFixed(1)}%</span></div>
-      </div>
+    <div class="to-net" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="color:var(--text2)">${netLabel}:</span>
+      <span class="net-val ${netCls}" style="font-weight:600">${net >= 0 ? '+' : '−'}${fmtBig(Math.abs(net))}</span>
     </div>
-    <div class="to-net">${netLabel}: <span class="net-val ${netCls}">${net >= 0 ? '+' : '-'}${fmtBig(Math.abs(net))}</span></div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;font-size:10px;color:var(--text2);padding:0 2px;margin-bottom:2px">
+      <span style="text-align:right;color:var(--up)">Buy (¥)</span>
+      <span style="width:18px;text-align:center">Size</span>
+      <span style="text-align:left;color:var(--down)">Sell (¥)</span>
+    </div>
+    ${bucketRows}
+    <div style="margin-top:8px;font-size:9px;color:var(--text2);text-align:center">
+      XL ≥ ¥100M · L ≥ ¥10M · M ≥ ¥1M · S &lt; ¥1M
+    </div>
   `;
 }
 
