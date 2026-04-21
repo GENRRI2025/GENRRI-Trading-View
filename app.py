@@ -4392,6 +4392,47 @@ def kabu_connect():
         return jsonify({'error': str(e), 'error_code': 'kabu_err_unknown'}), 400
 
 
+@app.route('/api/kabu/trade-flow/<path:symbol>')
+def kabu_trade_flow(symbol):
+    """Return aggregated executed-trade flow for a symbol, bucketed by
+    order value (XL/L/M/S). Computed by observing volume deltas in PUSH
+    messages and classifying direction from bid/ask crossing. Resets daily.
+
+    Response:
+      {
+        'symbol': '7203.T', 'session_date': '2026-04-21',
+        'buckets': {
+          'XL': {'buy': 12345678.0, 'sell': 98765432.0},
+          'L':  {...}, 'M': {...}, 'S': {...},
+        },
+        'total_buy':  ...,   // ¥ sum
+        'total_sell': ...,
+        'net': ...,           // total_buy - total_sell (positive = net inflow)
+      }
+    """
+    if not HAS_KABU:
+        return jsonify({'error': 'Kabu Station not available'}), 400
+    try:
+        code, _ = KabuClient.to_kabu_symbol(symbol)
+        flow = kabu_ws.get_trade_flow(code)
+        if not flow:
+            return jsonify({
+                'symbol': symbol, 'session_date': None,
+                'buckets': {k: {'buy': 0, 'sell': 0} for k, _ in kabu_ws.TF_BUCKETS},
+                'total_buy': 0, 'total_sell': 0, 'net': 0,
+            })
+        flow['symbol'] = symbol
+        flow['net'] = round(flow['total_buy'] - flow['total_sell'], 2)
+        flow['total_buy']  = round(flow['total_buy'], 2)
+        flow['total_sell'] = round(flow['total_sell'], 2)
+        for k in flow['buckets']:
+            flow['buckets'][k]['buy']  = round(flow['buckets'][k]['buy'], 2)
+            flow['buckets'][k]['sell'] = round(flow['buckets'][k]['sell'], 2)
+        return jsonify(flow)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/kabu/register', methods=['POST'])
 def kabu_register():
     """Register symbols for PUSH streaming."""

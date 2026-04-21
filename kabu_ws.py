@@ -24,6 +24,116 @@ _push_lock = threading.Lock()
 _callbacks = []       # list of callback functions called on each push message
 _callbacks_lock = threading.Lock()
 
+# Trade flow accumulator — aggregates executed trade value per size bucket
+# per side. Kabu's PUSH doesn't emit individual trade events, so we infer
+# them from deltas in TradingVolume between successive messages, and
+# classify each delta's direction from whether it hit the ask (buy) or
+# bid (sell) side.
+#   { 'symbol_code': {
+#       'last_volume': int, 'last_price': float, 'last_bid': float, 'last_ask': float,
+#       'session_date': 'YYYY-MM-DD',
+#       'buckets': { 'XL': {'buy': yen, 'sell': yen}, 'L': {...}, 'M': {...}, 'S': {...} },
+#     } }
+_trade_flow = {}
+_tf_lock = threading.Lock()
+TF_BUCKETS = [('XL', 100_000_000), ('L', 10_000_000), ('M', 1_000_000), ('S', 0)]
+
+def _classify_bucket(yen_value):
+    for key, threshold in TF_BUCKETS:
+        if yen_value >= threshold:
+            return key
+    return 'S'
+
+def _update_trade_flow(symbol_code, msg):
+    """Process a PUSH message — compute volume delta, classify as buy/sell,
+    bucket by size, accumulate. Called from the main WS loop."""
+    try:
+        cur_price = msg.get('CurrentPrice')
+        cur_vol   = msg.get('TradingVolume')
+        if not cur_price or cur_vol is None:
+            return
+        cur_price = float(cur_price)
+        cur_vol = int(cur_vol)
+        # Best bid/ask to determine direction
+        best_ask = None
+        s1 = msg.get('Sell1')
+        if isinstance(s1, dict): best_ask = s1.get('Price')
+        else: best_ask = msg.get('Sell1Price')
+        best_bid = None
+        b1 = msg.get('Buy1')
+        if isinstance(b1, dict): best_bid = b1.get('Price')
+        else: best_bid = msg.get('Buy1Price')
+        best_ask = float(best_ask) if best_ask else None
+        best_bid = float(best_bid) if best_bid else None
+
+        today = datetime.now().strftime('%Y-%m-%d')
+        with _tf_lock:
+            entry = _trade_flow.get(symbol_code)
+            if not entry or entry.get('session_date') != today:
+                # New session (or first message) — reset
+                _trade_flow[symbol_code] = {
+                    'last_volume': cur_vol, 'last_price': cur_price,
+                    'last_bid': best_bid, 'last_ask': best_ask,
+                    'session_date': today,
+                    'buckets': {k: {'buy': 0.0, 'sell': 0.0} for k, _ in TF_BUCKETS},
+                    'total_buy': 0.0, 'total_sell': 0.0,
+                }
+                return
+
+            delta_vol = cur_vol - entry['last_volume']
+            if delta_vol > 0:
+                # A trade (or batch of trades) happened. Estimate direction:
+                #   - If cur_price >= last_ask: buyer lifted the offer → BUY
+                #   - If cur_price <= last_bid: seller hit the bid → SELL
+                #   - Else: use price delta. Up → buy, down → sell, flat → split
+                last_ask = entry.get('last_ask')
+                last_bid = entry.get('last_bid')
+                last_price = entry.get('last_price')
+                direction = None
+                if last_ask and cur_price >= last_ask:
+                    direction = 'buy'
+                elif last_bid and cur_price <= last_bid:
+                    direction = 'sell'
+                elif last_price:
+                    if cur_price > last_price: direction = 'buy'
+                    elif cur_price < last_price: direction = 'sell'
+                if direction:
+                    trade_yen = delta_vol * cur_price
+                    bucket = _classify_bucket(trade_yen)
+                    entry['buckets'][bucket][direction] += trade_yen
+                    if direction == 'buy': entry['total_buy'] += trade_yen
+                    else: entry['total_sell'] += trade_yen
+                # If direction was unclear (price flat, no bid/ask), split
+                # 50/50 to avoid losing the volume completely
+                else:
+                    trade_yen = delta_vol * cur_price
+                    bucket = _classify_bucket(trade_yen)
+                    entry['buckets'][bucket]['buy']  += trade_yen / 2
+                    entry['buckets'][bucket]['sell'] += trade_yen / 2
+                    entry['total_buy']  += trade_yen / 2
+                    entry['total_sell'] += trade_yen / 2
+
+            entry['last_volume'] = cur_vol
+            entry['last_price']  = cur_price
+            if best_ask: entry['last_ask'] = best_ask
+            if best_bid: entry['last_bid'] = best_bid
+    except Exception:
+        pass
+
+
+def get_trade_flow(symbol_code):
+    """Return accumulated trade flow for a symbol. Deep-copied snapshot."""
+    with _tf_lock:
+        entry = _trade_flow.get(str(symbol_code))
+        if not entry:
+            return None
+        return {
+            'session_date': entry['session_date'],
+            'buckets': {k: {'buy': v['buy'], 'sell': v['sell']} for k, v in entry['buckets'].items()},
+            'total_buy':  entry['total_buy'],
+            'total_sell': entry['total_sell'],
+        }
+
 # Price tick history for building candles
 _price_history = {}   # { 'symbol_code': [(unix_ts, price, volume), ...] }
 _history_lock = threading.Lock()
@@ -134,6 +244,9 @@ async def _ws_loop():
                             parsed = _parse_push_message(msg)
                             with _push_lock:
                                 _push_data[symbol] = parsed
+
+                            # Update trade flow buckets from volume delta
+                            _update_trade_flow(symbol, msg)
 
                             # Store price tick for candle building
                             cur_price = msg.get('CurrentPrice')

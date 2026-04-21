@@ -2230,12 +2230,41 @@ async function loadPortfolio() {
 // Uses /api/portfolio/live-prices which merges Kabu positions + Yahoo
 // cache so manually-entered holdings also update.
 let _pfLivePollTimer = null;
+// Keep track of which symbols we've explicitly registered with Kabu PUSH
+// from the frontend — set once we get a successful register response.
+const _kabuRegistered = new Set();
+
+async function _ensureKabuRegistered(symbols) {
+  if (!window.kabuConnected) return;
+  const jpSyms = (symbols || []).filter(s => s && s.endsWith('.T') && !_kabuRegistered.has(s));
+  if (!jpSyms.length) return;
+  // Mark as registered immediately to avoid duplicate calls while one is in flight
+  jpSyms.forEach(s => _kabuRegistered.add(s));
+  try {
+    const r = await apiFetch('/api/kabu/register', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ symbols: jpSyms })
+    });
+    if (!r.ok) {
+      // Roll back so next cycle retries
+      jpSyms.forEach(s => _kabuRegistered.delete(s));
+    }
+  } catch(e) {
+    jpSyms.forEach(s => _kabuRegistered.delete(s));
+  }
+}
+
 async function refreshPortfolioLivePrices() {
   if (!portfolio || !currentPortfolioId) return;
   const holdings = portfolio.holdings || [];
   if (!holdings.length) return;
   const syms = holdings.map(h => h.symbol).filter(Boolean);
   if (!syms.length) return;
+  // Ensure all holding symbols are subscribed to Kabu PUSH — this is what
+  // startKabuStream does for the active symbol; we now do it upfront for
+  // every holding, so polls return fresh prices without the user having to
+  // click into each position first.
+  _ensureKabuRegistered(syms);
   try {
     // Use the SAME /api/quotes batch endpoint the watchlist uses — it's
     // proven to return live Kabu-backed prices for the user's symbols,
@@ -4415,6 +4444,11 @@ function _flashCell(el, up) {
 async function renderWatchlistRows(items) {
   const body = document.getElementById('wl-body');
   if (!body) return;
+  // Explicitly register all watchlist JP symbols with Kabu PUSH on every
+  // render — _ensureKabuRegistered de-dupes via a local Set so subsequent
+  // calls are free. This is what was missing: polls couldn't return live
+  // data for symbols Kabu hadn't been told about.
+  _ensureKabuRegistered(items.map(it => it.symbol));
   // Fetch all quotes in ONE batch call when we have multiple — much cheaper
   // than N parallel calls, especially at 1s polling with Kabu connected.
   let quotesBySym = {};
@@ -4745,6 +4779,9 @@ async function checkKabuStatus() {
         if (currentRoute === 'watchlists') startWatchlistPoll();
         if (currentRoute === 'portfolio') startPortfolioLivePoll();
       } else {
+        // Kabu went offline — clear the registration cache so we re-subscribe
+        // on reconnect (new Kabu session → old subscriptions are gone).
+        _kabuRegistered.clear();
         // DISCONNECTED — surface the underlying reason if we have one
         const reason = data.last_error ? ` (${data.last_error})` : '';
         toast((t('kabu_disconnected') || 'Kabu Station disconnected — falling back to 15-min delayed quotes') + reason, 'err');
@@ -5054,54 +5091,59 @@ function renderDpOrderBookFromData(data) {
     + `<div class="dp-ob-spread">${data.price ? fmtPrice(data.price) : '—'} · Spread: ${spread != null ? fmtPrice(spread) : '—'} (${spreadPct}%)</div>`
     + rows(bids, 'bid');
 }
-function renderDpTradeOverview(data) {
+// Trade Overview — now pulls aggregated EXECUTED trade flow from
+// /api/kabu/trade-flow/<symbol> (computed by the backend from PUSH
+// volume deltas) instead of categorizing resting order-book depth.
+// This matches how Moomoo shows real per-order-size buy/sell flow.
+async function renderDpTradeOverview(data) {
   const body = document.getElementById('dp-to-body');
   if (!body) return;
   if (!data || data.error) { body.innerHTML = `<div class="dp-placeholder">Requires Kabu Station</div>`; return; }
-  const bids = data.bids || [], asks = data.asks || [];
-  const bidVal = bids.slice(0, 10).reduce((s, b) => s + (b.price || 0) * (b.qty || 0), 0);
-  const askVal = asks.slice(0, 10).reduce((s, a) => s + (a.price || 0) * (a.qty || 0), 0);
-  const total = bidVal + askVal;
-  if (!total) { body.innerHTML = `<div class="dp-placeholder">No depth</div>`; return; }
-  const net = bidVal - askVal;
+  const sym = data.symbol || currentSymbol;
+  if (!sym || !sym.endsWith('.T')) {
+    body.innerHTML = `<div class="dp-placeholder">JP stocks only</div>`;
+    return;
+  }
+  let flow;
+  try {
+    const r = await apiFetch('/api/kabu/trade-flow/' + encodeURIComponent(sym));
+    flow = await r.json();
+  } catch(e) {
+    body.innerHTML = `<div class="dp-placeholder">Trade flow unavailable</div>`;
+    return;
+  }
+  if (!flow || flow.error || flow.total_buy + flow.total_sell === 0) {
+    body.innerHTML = `<div class="dp-placeholder" style="padding:8px 0;font-size:10.5px;line-height:1.4">
+      Trade flow aggregates since this session started.<br>
+      Waiting for trades to execute…
+    </div>`;
+    return;
+  }
+  const BUCKETS = ['XL', 'L', 'M', 'S'];
+  const net = flow.net || 0;
   const netCls = net >= 0 ? 'pos' : 'neg';
   const netLabel = net >= 0 ? 'Net Inflow' : 'Net Outflow';
 
-  // ─── Size buckets (Moomoo-style): categorize each depth level by its
-  // YEN value, then aggregate buy vs sell side totals per bucket.
-  // JP market conventions: S<1M, M<10M, L<100M, XL≥100M.
-  const BUCKETS = [
-    { key: 'XL', min: 100_000_000 },
-    { key: 'L',  min:  10_000_000 },
-    { key: 'M',  min:   1_000_000 },
-    { key: 'S',  min:            0 },
-  ];
-  function bucketize(items) {
-    const out = { XL: 0, L: 0, M: 0, S: 0 };
-    items.forEach(it => {
-      const v = (it.price || 0) * (it.qty || 0);
-      for (const b of BUCKETS) { if (v >= b.min) { out[b.key] += v; break; } }
-    });
-    return out;
-  }
-  const buyBuckets  = bucketize(bids.slice(0, 10));
-  const sellBuckets = bucketize(asks.slice(0, 10));
-  // Normalize to percentage of (buy+sell) total for each bucket's bar width
-  const bucketMax = Math.max(
-    ...BUCKETS.map(b => buyBuckets[b.key] + sellBuckets[b.key]), 1);
-  const bucketRows = BUCKETS.map(b => {
-    const buy = buyBuckets[b.key] || 0;
-    const sell = sellBuckets[b.key] || 0;
-    const buyPct  = Math.round(buy  / bucketMax * 100);
-    const sellPct = Math.round(sell / bucketMax * 100);
+  // Scale bars to the biggest single bucket-side value so the most active
+  // bucket fills the full row width.
+  const maxSide = Math.max(
+    ...BUCKETS.flatMap(k => [flow.buckets[k]?.buy || 0, flow.buckets[k]?.sell || 0]),
+    1
+  );
+
+  const bucketRows = BUCKETS.map(key => {
+    const buy  = flow.buckets[key]?.buy  || 0;
+    const sell = flow.buckets[key]?.sell || 0;
+    const buyPct  = Math.round(buy  / maxSide * 50);  // 0..50% of row width
+    const sellPct = Math.round(sell / maxSide * 50);
     return `
       <div class="to-bucket-row">
         <span class="left">${buy  ? fmtBig(buy)  : '0'}</span>
-        <span class="tag">${b.key}</span>
+        <span class="tag">${key}</span>
         <span class="right">${sell ? fmtBig(sell) : '0'}</span>
         <div class="bar-wrap">
-          <div class="bar-buy"  style="width:${buyPct/2}%; margin-left:${50 - buyPct/2}%"></div>
-          <div class="bar-sell" style="width:${sellPct/2}%"></div>
+          <div class="bar-buy"  style="width:${buyPct}%; margin-left:${50 - buyPct}%"></div>
+          <div class="bar-sell" style="width:${sellPct}%"></div>
         </div>
       </div>`;
   }).join('');
@@ -5118,7 +5160,7 @@ function renderDpTradeOverview(data) {
     </div>
     ${bucketRows}
     <div style="margin-top:8px;font-size:9px;color:var(--text2);text-align:center">
-      XL ≥ ¥100M · L ≥ ¥10M · M ≥ ¥1M · S &lt; ¥1M
+      XL ≥ ¥100M · L ≥ ¥10M · M ≥ ¥1M · S &lt; ¥1M · session ${flow.session_date || '—'}
     </div>
   `;
 }
