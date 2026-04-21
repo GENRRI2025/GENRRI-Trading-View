@@ -44,7 +44,9 @@
 
 /* ═══════════════════ BASE ═══════════════════ */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 14px; }
+/* App was designed at Edge 75% browser zoom. Apply 0.75 at the root so
+   the same visual scale renders at 100% browser zoom in any browser. */
+html { font-size: 14px; zoom: 0.75; }
 body {
   background: var(--bg); color: var(--text); min-height: 100vh;
   font-family: 'Inter', 'Noto Sans SC', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif;
