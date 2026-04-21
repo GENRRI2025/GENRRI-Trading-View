@@ -1659,6 +1659,23 @@ const LANG_DATA = {
     info_sector:'Sector', info_industry:'Industry',
     info_prev_close:'Prev Close', info_open:'Open', info_high:'High', info_low:'Low', info_volume:'Volume',
     info_loading:'Loading...', info_country:'Japan',
+    // Expanded Quote tab fields (v149+)
+    info_float_mkt_cap:'Float Mkt Cap', info_total_shares:'Total Shares', info_free_float:'Free Float',
+    info_eps_ttm:'EPS (TTM)', info_eps_fwd:'EPS (Fwd)', info_pe_ttm:'P/E (TTM)', info_pe_fwd:'P/E (Fwd)',
+    info_pb:'P/B', info_ps:'P/S', info_dividend:'Dividend',
+    info_avg_vol_10d:'Avg Vol (10d)', info_vol_ratio:'Vol Ratio', info_range_pct:'Range %',
+    info_per_lot:'Per Lot', info_limit_high:'Limit High', info_limit_low:'Limit Low',
+    info_50d_avg:'50D Avg', info_200d_avg:'200D Avg',
+    info_ath_high:'All-Time High', info_ath_low:'All-Time Low', info_ath_set_on:'Set on',
+    // Trade Overview labels (v147+)
+    to_bid_pressure:'Bid Pressure', to_ask_pressure:'Ask Pressure',
+    to_bid_buy:'Bid (Buy)', to_ask_sell:'Ask (Sell)',
+    to_bid_yen:'Bid ¥', to_ask_yen:'Ask ¥', to_size:'Size',
+    to_bucket_xl:'Institutional', to_bucket_l:'Large trader',
+    to_bucket_m:'Regular', to_bucket_s:'Retail',
+    to_legend_xl:'XL Institutional (≥¥100M)', to_legend_l:'L Large (≥¥10M)',
+    to_legend_m:'M Regular (≥¥1M)', to_legend_s:'S Retail (<¥1M)',
+    to_caveat:'Current resting order book, not cumulative trades',
     btn_cancel:'Cancel', btn_save:'Save', btn_deposit:'+ Deposit', btn_withdraw:'− Withdraw', btn_submit:'Submit',
     port_performance:'Portfolio Performance',
     login_sign_in:'Sign In', login_create_account:'Create Account',
@@ -1706,6 +1723,21 @@ const LANG_DATA = {
     info_market_cap:'時価総額', info_pe:'PER', info_div_yield:'配当利回り',
     info_52w_high:'52週高値', info_52w_low:'52週安値', info_beta:'ベータ', info_avg_vol:'平均出来高',
     info_sector:'セクター', info_industry:'業種',
+    info_float_mkt_cap:'浮動時価総額', info_total_shares:'発行済株式数', info_free_float:'浮動株式数',
+    info_eps_ttm:'EPS(直近12ヶ月)', info_eps_fwd:'予想EPS', info_pe_ttm:'PER(実績)', info_pe_fwd:'予想PER',
+    info_pb:'PBR', info_ps:'PSR', info_dividend:'配当金',
+    info_avg_vol_10d:'10日平均出来高', info_vol_ratio:'出来高比率', info_range_pct:'値幅%',
+    info_per_lot:'売買単位', info_limit_high:'ストップ高', info_limit_low:'ストップ安',
+    info_50d_avg:'50日平均', info_200d_avg:'200日平均',
+    info_ath_high:'上場来高値', info_ath_low:'上場来安値', info_ath_set_on:'記録日',
+    to_bid_pressure:'買い圧力', to_ask_pressure:'売り圧力',
+    to_bid_buy:'買い板', to_ask_sell:'売り板',
+    to_bid_yen:'買い(¥)', to_ask_yen:'売り(¥)', to_size:'サイズ',
+    to_bucket_xl:'機関投資家', to_bucket_l:'大口',
+    to_bucket_m:'一般', to_bucket_s:'個人',
+    to_legend_xl:'XL 機関投資家 (≥¥1億)', to_legend_l:'L 大口 (≥¥1000万)',
+    to_legend_m:'M 一般 (≥¥100万)', to_legend_s:'S 個人 (<¥100万)',
+    to_caveat:'現在の指値注文板に基づく(約定履歴ではありません)',
     info_prev_close:'前日終値', info_open:'始値', info_high:'高値', info_low:'安値', info_volume:'出来高',
     info_loading:'読み込み中...', info_country:'日本',
     btn_cancel:'キャンセル', btn_save:'保存', btn_deposit:'+ 入金', btn_withdraw:'− 出金', btn_submit:'送信',
@@ -1755,6 +1787,21 @@ const LANG_DATA = {
     info_market_cap:'市值', info_pe:'市盈率', info_div_yield:'股息率',
     info_52w_high:'52周最高', info_52w_low:'52周最低', info_beta:'贝塔', info_avg_vol:'平均成交量',
     info_sector:'行业', info_industry:'产业',
+    info_float_mkt_cap:'流通市值', info_total_shares:'总股本', info_free_float:'流通股本',
+    info_eps_ttm:'EPS(TTM)', info_eps_fwd:'预测EPS', info_pe_ttm:'市盈率(TTM)', info_pe_fwd:'预测市盈率',
+    info_pb:'市净率', info_ps:'市销率', info_dividend:'每股股息',
+    info_avg_vol_10d:'10日均量', info_vol_ratio:'量比', info_range_pct:'振幅',
+    info_per_lot:'每手股数', info_limit_high:'涨停价', info_limit_low:'跌停价',
+    info_50d_avg:'50日均价', info_200d_avg:'200日均价',
+    info_ath_high:'历史最高', info_ath_low:'历史最低', info_ath_set_on:'创于',
+    to_bid_pressure:'买盘压力', to_ask_pressure:'卖盘压力',
+    to_bid_buy:'买盘', to_ask_sell:'卖盘',
+    to_bid_yen:'买(¥)', to_ask_yen:'卖(¥)', to_size:'规模',
+    to_bucket_xl:'机构', to_bucket_l:'大户',
+    to_bucket_m:'中户', to_bucket_s:'散户',
+    to_legend_xl:'XL 机构 (≥¥1亿)', to_legend_l:'L 大户 (≥¥1000万)',
+    to_legend_m:'M 中户 (≥¥100万)', to_legend_s:'S 散户 (<¥100万)',
+    to_caveat:'当前挂单簿快照，非累计成交',
     info_prev_close:'昨收', info_open:'开盘', info_high:'最高', info_low:'最低', info_volume:'成交量',
     info_loading:'加载中...', info_country:'日本',
     btn_cancel:'取消', btn_save:'保存', btn_deposit:'+ 存入', btn_withdraw:'− 取出', btn_submit:'提交',
@@ -2629,37 +2676,37 @@ async function renderDpQuote(symbol, body) {
     const limitHigh = (symbol.endsWith('.T') && prevClose) ? prevClose * 1.3 : null;
     const limitLow  = (symbol.endsWith('.T') && prevClose) ? prevClose * 0.7 : null;
 
-    // Two-column stat grid like Moomoo
+    // Two-column stat grid like Moomoo — labels via t() for JP/CN
     const pairs = [
-      ['Sector',       info.sector  || '—'],
-      ['Industry',     info.industry || '—'],
-      ['Market Cap',   info.marketCap    ? fmtBig(info.marketCap)   : '—'],
-      ['Float Mkt Cap',floatMktCap       ? fmtBig(floatMktCap)       : '—'],
-      ['Total Shares', info.sharesOutstanding ? fmtBig(info.sharesOutstanding) : '—'],
-      ['Free Float',   info.floatShares  ? fmtBig(info.floatShares) : '—'],
-      ['EPS (TTM)',    info.eps != null  ? info.eps.toFixed(2)      : '—'],
-      ['EPS (Fwd)',    info.epsForward != null ? info.epsForward.toFixed(2) : '—'],
-      ['P/E (TTM)',    info.trailingPE   ? info.trailingPE.toFixed(2) : '—'],
-      ['P/E (Fwd)',    info.forwardPE    ? info.forwardPE.toFixed(2)  : '—'],
-      ['P/B',          info.priceToBook  ? info.priceToBook.toFixed(2) : '—'],
-      ['P/S',          info.priceToSales ? info.priceToSales.toFixed(2) : '—'],
-      ['Div Yield',    info.dividendYield ? (info.dividendYield * 100).toFixed(2) + '%' : '—'],
-      ['Dividend',     info.dividendRate ? fmtPrice(info.dividendRate) : '—'],
-      ['Beta',         info.beta != null ? info.beta.toFixed(2)      : '—'],
-      ['Volume',       info.volume       ? fmtBig(info.volume)       : '—'],
-      ['Avg Vol (10d)',info.avgVolume10d ? fmtBig(info.avgVolume10d) : '—'],
-      ['Vol Ratio',    volRatio          ? volRatio.toFixed(2) + 'x' : '—'],
-      ['Range %',      rangePct != null  ? rangePct.toFixed(2) + '%' : '—'],
-      ['Per Lot',      info.sharesPerLot ? info.sharesPerLot : '—'],
-      ['Limit High',   limitHigh         ? fmtPrice(limitHigh) : '—'],
-      ['Limit Low',    limitLow          ? fmtPrice(limitLow)  : '—'],
-      ['52W High',     info.fiftyTwoWeekHigh ? fmtPrice(info.fiftyTwoWeekHigh) : '—'],
-      ['52W Low',      info.fiftyTwoWeekLow  ? fmtPrice(info.fiftyTwoWeekLow)  : '—'],
-      ['50D Avg',      info.fiftyDayAvg      ? fmtPrice(info.fiftyDayAvg)      : '—'],
-      ['200D Avg',     info.twoHundredDayAvg ? fmtPrice(info.twoHundredDayAvg) : '—'],
+      [t('info_sector'),        info.sector  || '—'],
+      [t('info_industry'),      info.industry || '—'],
+      [t('info_market_cap'),    info.marketCap    ? fmtBig(info.marketCap)   : '—'],
+      [t('info_float_mkt_cap'), floatMktCap       ? fmtBig(floatMktCap)       : '—'],
+      [t('info_total_shares'),  info.sharesOutstanding ? fmtBig(info.sharesOutstanding) : '—'],
+      [t('info_free_float'),    info.floatShares  ? fmtBig(info.floatShares) : '—'],
+      [t('info_eps_ttm'),       info.eps != null  ? info.eps.toFixed(2)      : '—'],
+      [t('info_eps_fwd'),       info.epsForward != null ? info.epsForward.toFixed(2) : '—'],
+      [t('info_pe_ttm'),        info.trailingPE   ? info.trailingPE.toFixed(2) : '—'],
+      [t('info_pe_fwd'),        info.forwardPE    ? info.forwardPE.toFixed(2)  : '—'],
+      [t('info_pb'),            info.priceToBook  ? info.priceToBook.toFixed(2) : '—'],
+      [t('info_ps'),            info.priceToSales ? info.priceToSales.toFixed(2) : '—'],
+      [t('info_div_yield'),     info.dividendYield ? (info.dividendYield * 100).toFixed(2) + '%' : '—'],
+      [t('info_dividend'),      info.dividendRate ? fmtPrice(info.dividendRate) : '—'],
+      [t('info_beta'),          info.beta != null ? info.beta.toFixed(2)      : '—'],
+      [t('info_volume'),        info.volume       ? fmtBig(info.volume)       : '—'],
+      [t('info_avg_vol_10d'),   info.avgVolume10d ? fmtBig(info.avgVolume10d) : '—'],
+      [t('info_vol_ratio'),     volRatio          ? volRatio.toFixed(2) + 'x' : '—'],
+      [t('info_range_pct'),     rangePct != null  ? rangePct.toFixed(2) + '%' : '—'],
+      [t('info_per_lot'),       info.sharesPerLot ? info.sharesPerLot : '—'],
+      [t('info_limit_high'),    limitHigh         ? fmtPrice(limitHigh) : '—'],
+      [t('info_limit_low'),     limitLow          ? fmtPrice(limitLow)  : '—'],
+      [t('info_52w_high'),      info.fiftyTwoWeekHigh ? fmtPrice(info.fiftyTwoWeekHigh) : '—'],
+      [t('info_52w_low'),       info.fiftyTwoWeekLow  ? fmtPrice(info.fiftyTwoWeekLow)  : '—'],
+      [t('info_50d_avg'),       info.fiftyDayAvg      ? fmtPrice(info.fiftyDayAvg)      : '—'],
+      [t('info_200d_avg'),      info.twoHundredDayAvg ? fmtPrice(info.twoHundredDayAvg) : '—'],
       // Placeholders — filled async below when /api/all-time-highs resolves
-      ['All-Time High', '<span id="dp-ath-hi" style="color:var(--text2)">…</span>'],
-      ['All-Time Low',  '<span id="dp-ath-lo" style="color:var(--text2)">…</span>'],
+      [t('info_ath_high'), '<span id="dp-ath-hi" style="color:var(--text2)">…</span>'],
+      [t('info_ath_low'),  '<span id="dp-ath-lo" style="color:var(--text2)">…</span>'],
     ];
 
     // Render as two-column grid
@@ -2689,12 +2736,12 @@ async function renderDpQuote(symbol, body) {
         if (hiEl) {
           hiEl.style.color = 'var(--text)';
           hiEl.textContent = fmtPrice(ath.high);
-          hiEl.title = `Set on ${ath.high_date}`;
+          hiEl.title = `${t('info_ath_set_on')} ${ath.high_date}`;
         }
         if (loEl) {
           loEl.style.color = 'var(--text)';
           loEl.textContent = fmtPrice(ath.low);
-          loEl.title = `Set on ${ath.low_date}`;
+          loEl.title = `${t('info_ath_set_on')} ${ath.low_date}`;
         }
       }).catch(() => {});
   } catch(e) { body.innerHTML = `<div class="dp-placeholder">—</div>`; }
@@ -5272,7 +5319,7 @@ function renderDpTradeOverview(data) {
   }
   const net = totalBuy - totalSell;
   const netCls = net >= 0 ? 'pos' : 'neg';
-  const netLabel = net >= 0 ? 'Bid Pressure' : 'Ask Pressure';
+  const netLabel = net >= 0 ? (t('to_bid_pressure') || 'Bid Pressure') : (t('to_ask_pressure') || 'Ask Pressure');
 
   // Scale bars so the biggest bucket-side value fills half the row.
   const maxSide = Math.max(
@@ -5280,12 +5327,12 @@ function renderDpTradeOverview(data) {
     1
   );
 
-  // Short human-readable tag per bucket
+  // Short human-readable tag per bucket — translated
   const BUCKET_LABELS = {
-    XL: 'Institutional',
-    L:  'Large trader',
-    M:  'Regular',
-    S:  'Retail',
+    XL: t('to_bucket_xl') || 'Institutional',
+    L:  t('to_bucket_l')  || 'Large trader',
+    M:  t('to_bucket_m')  || 'Regular',
+    S:  t('to_bucket_s')  || 'Retail',
   };
 
   const bucketRows = BUCKETS.map(b => {
@@ -5319,20 +5366,20 @@ function renderDpTradeOverview(data) {
     <div class="to-wrap" style="margin-bottom:10px">
       <div class="to-donut" style="background: conic-gradient(var(--up) 0% ${bidPct}%, var(--down) ${bidPct}% 100%)"></div>
       <div class="to-legend">
-        <div class="to-legend-row"><span class="to-dot" style="background:var(--up)"></span><span class="to-label">Bid (Buy)</span><span class="to-value">${bidPct.toFixed(1)}%</span></div>
-        <div class="to-legend-row"><span class="to-dot" style="background:var(--down)"></span><span class="to-label">Ask (Sell)</span><span class="to-value">${(100-bidPct).toFixed(1)}%</span></div>
+        <div class="to-legend-row"><span class="to-dot" style="background:var(--up)"></span><span class="to-label">${t('to_bid_buy') || 'Bid (Buy)'}</span><span class="to-value">${bidPct.toFixed(1)}%</span></div>
+        <div class="to-legend-row"><span class="to-dot" style="background:var(--down)"></span><span class="to-label">${t('to_ask_sell') || 'Ask (Sell)'}</span><span class="to-value">${(100-bidPct).toFixed(1)}%</span></div>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;font-size:10px;color:var(--text2);padding:0 2px;margin-bottom:2px">
-      <span style="text-align:right;color:var(--up)">Bid ¥</span>
-      <span style="width:18px;text-align:center">Size</span>
-      <span style="text-align:left;color:var(--down)">Ask ¥</span>
+      <span style="text-align:right;color:var(--up)">${t('to_bid_yen') || 'Bid ¥'}</span>
+      <span style="width:18px;text-align:center">${t('to_size') || 'Size'}</span>
+      <span style="text-align:left;color:var(--down)">${t('to_ask_yen') || 'Ask ¥'}</span>
     </div>
     ${bucketRows}
     <div style="margin-top:10px;font-size:9px;color:var(--text2);text-align:center;line-height:1.4">
-      <b>XL</b> Institutional (≥¥100M) · <b>L</b> Large (≥¥10M)<br>
-      <b>M</b> Regular (≥¥1M) · <b>S</b> Retail (&lt;¥1M)<br>
-      <em>Current resting order book, not cumulative trades</em>
+      ${t('to_legend_xl') || 'XL Institutional (≥¥100M)'} · ${t('to_legend_l') || 'L Large (≥¥10M)'}<br>
+      ${t('to_legend_m') || 'M Regular (≥¥1M)'} · ${t('to_legend_s') || 'S Retail (<¥1M)'}<br>
+      <em>${t('to_caveat') || 'Current resting order book, not cumulative trades'}</em>
     </div>
   `;
 }
