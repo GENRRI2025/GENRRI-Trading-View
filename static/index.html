@@ -3347,7 +3347,9 @@ async function _impSubmitTxn() {
     if (d.error) { msg.textContent = d.error; msg.className='modal-msg err'; return; }
     msg.textContent = `${action === 'buy' ? 'Bought' : 'Sold'} ${shares} × ${symbol.replace('.T','')} @ ${fmtPrice(price)}`;
     msg.className = 'modal-msg ok';
-    if (currentRoute === 'portfolio') loadPortfolio();
+    // Always reload portfolio so the new holding appears AND the backend's
+    // just-fired Kabu registration results in a live price on the next poll.
+    loadPortfolio().catch(() => {});
     if (currentRoute === 'transactions') loadTxns();
     setTimeout(() => document.querySelector('.modal-overlay')?.remove(), 1200);
   } catch(e) { msg.textContent = 'Failed'; msg.className='modal-msg err'; }
@@ -3372,7 +3374,7 @@ async function _impSubmitSet() {
     if (d.error) { msg.textContent = d.error; msg.className='modal-msg err'; return; }
     msg.textContent = shares === 0 ? `Removed ${symbol.replace('.T','')}` : `Set ${shares} × ${symbol.replace('.T','')} @ ${fmtPrice(price)}`;
     msg.className = 'modal-msg ok';
-    if (currentRoute === 'portfolio') loadPortfolio();
+    loadPortfolio().catch(() => {});
     setTimeout(() => document.querySelector('.modal-overlay')?.remove(), 1200);
   } catch(e) { msg.textContent = 'Failed'; msg.className='modal-msg err'; }
 }

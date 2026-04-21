@@ -2673,6 +2673,20 @@ def live_portfolio_prices():
     finally:
         conn.close()
 
+    # Ensure every JP holding is subscribed to Kabu PUSH. Cheap (Kabu de-dupes)
+    # but guarantees that positions imported BEFORE the per-endpoint auto-register
+    # existed still get live prices.
+    if HAS_KABU:
+        jp_holdings = [h['symbol'] for h in holdings if h['symbol'].endswith('.T')]
+        if jp_holdings:
+            try:
+                k = _get_kabu_client()
+                if k and k.is_connected():
+                    threading.Thread(target=lambda: k.register_symbols(jp_holdings[:50]),
+                                     daemon=True).start()
+            except Exception:
+                pass
+
     # Build Kabu symbol → live price map if connected
     kabu_prices = {}   # { app_symbol: {price, pnl, value} }
     kabu_connected = False
@@ -3061,6 +3075,8 @@ def trade():
     conn.close()
     # Rebuild snapshots so performance chart reflects the trade date accurately
     _backfill_snapshots_internal(uid, pid)
+    # Auto-register with Kabu PUSH so live prices flow for this new position
+    _register_kabu_symbol(symbol)
     resp = {'success': True, 'cash': round(cash_jpy, 2), 'cash_usd': round(cash_usd, 2), 'commission': commission}
     if kabu_oid:
         resp['kabu_order_id'] = kabu_oid
@@ -3121,6 +3137,10 @@ def set_holding():
                     (uid, symbol, name, shares, avg_cost, pid))
     conn.commit()
     conn.close()
+    # Auto-register with Kabu PUSH so live prices start flowing without
+    # the user having to click into the position first.
+    if shares > 0:
+        _register_kabu_symbol(symbol)
     return jsonify({'success': True, 'cash': round(cash, 2)})
 
 @app.route('/api/holdings/<path:symbol>', methods=['DELETE'])
@@ -3652,6 +3672,8 @@ def import_transaction():
     conn.close()
     # Rebuild snapshots so performance chart reflects the import
     _backfill_snapshots_internal(uid, pid)
+    # Auto-register with Kabu PUSH so live prices start flowing immediately
+    _register_kabu_symbol(symbol)
     return jsonify({'success': True, 'cash': round(cash, 2), 'commission': commission})
 
 
@@ -4256,6 +4278,21 @@ def kabu_status():
         'has_kabu': HAS_KABU,
         'last_error': last_error
     })
+
+
+def _register_kabu_symbol(symbol):
+    """Fire-and-forget Kabu PUSH registration for a single JP symbol.
+    Safe to call anywhere — no-ops if Kabu isn't available or the symbol
+    isn't JP. Kabu de-dupes so calling repeatedly is harmless."""
+    if not HAS_KABU or not symbol or not symbol.endswith('.T'):
+        return
+    try:
+        k = _get_kabu_client()
+        if k and k.is_connected():
+            threading.Thread(target=lambda: k.register_symbols([symbol]),
+                             daemon=True).start()
+    except Exception:
+        pass
 
 
 def _register_kabu_watchlist():
