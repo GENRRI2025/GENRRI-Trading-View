@@ -4271,6 +4271,17 @@ def kabu_status():
     # WS is only meaningful if REST token is actually working —
     # otherwise WS socket might be open but no data flows
     ws_connected = (kabu_ws.is_connected() if HAS_KABU else False) and connected
+    # Opportunistically re-register all watchlist + portfolio symbols on
+    # every status check. Cheap (Kabu de-dupes) but ensures PUSH stays
+    # subscribed across Kabu Station restarts, token refreshes, and user
+    # navigations. This is the most reliable way to keep EVERY watchlist
+    # + holding row getting live data — without it, only the active symbol
+    # (registered lazily by startKabuStream) gets PUSH.
+    if connected:
+        try:
+            threading.Thread(target=_register_kabu_watchlist, daemon=True).start()
+        except Exception:
+            pass
     return jsonify({
         'available': available,
         'connected': connected,

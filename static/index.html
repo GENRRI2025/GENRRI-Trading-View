@@ -734,6 +734,16 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .sidebar-recent-item .sr-chg { margin-left: auto; font-size: 10px; font-variant-numeric: tabular-nums; }
 .app-shell.sidebar-collapsed .sidebar-recent { display: none; }
 
+/* Holdings with no live price available — mark visually so the user
+   knows they're looking at entry cost, not market value. */
+.holding-row.no-live-price .holding-value,
+.holding-row.no-live-price .holding-pnl { opacity: 0.55; font-style: italic; }
+.holding-row.no-live-price::before {
+  content: '⚠'; position: absolute; left: 2px; top: 50%;
+  transform: translateY(-50%); color: var(--text2); font-size: 10px;
+}
+.holding-row { position: relative; }
+
 /* ═══════════════════ Chart loading overlay ═══════════════════ */
 .chart-loading {
   position: absolute; inset: 0; display: flex;
@@ -2210,24 +2220,37 @@ async function refreshPortfolioLivePrices() {
   try {
     const r = await apiFetch('/api/portfolio/live-prices?portfolio_id=' + encodeURIComponent(currentPortfolioId));
     const live = await r.json();
-    if (!live || !live.prices) return;
-    // Patch holdings with fresh prices — renderPortfolio() recomputes
-    // totals from patched holdings + existing cash. We DO NOT overwrite
-    // portfolio.total_value or portfolio.unrealized_pnl from the live
-    // endpoint — the /api/portfolio load is the source of truth for cash,
-    // and live-prices' total can be wrong when the sub_portfolios table's
-    // cash column is stale relative to fund_history.
+    if (!live || !live.prices) {
+      console.warn('[portfolio] live-prices empty response', live);
+      return;
+    }
+    // Diagnostic: record what each holding got and where it came from.
+    const diag = {};
     (portfolio.holdings || []).forEach(h => {
       const p = live.prices[h.symbol];
+      const sourceTag = (p && p.source) || 'no-data';
+      diag[h.symbol] = { price: p ? p.price : null, source: sourceTag };
       if (p && p.price > 0) {
         h.current_price = p.price;
         h.value = p.value;
         h.pnl = p.pnl;
+        h._source = sourceTag;
         stockPrices[h.symbol] = Object.assign({}, stockPrices[h.symbol] || {}, { price: p.price });
+      } else {
+        h._source = sourceTag;
       }
     });
+    // Log to console so the user can see exactly what's happening. Only
+    // log if ANY symbol lacks live data — avoids console spam when healthy.
+    const problemSyms = Object.entries(diag).filter(([_, d]) => !d.price || d.price === 0);
+    if (problemSyms.length) {
+      console.warn('[portfolio] symbols without live price:',
+        Object.fromEntries(problemSyms), 'kabu_connected:', live.kabu_connected);
+    }
     renderPortfolio();
-  } catch(e) {}
+  } catch(e) {
+    console.warn('[portfolio] live-prices fetch failed:', e);
+  }
 }
 function startPortfolioLivePoll() {
   if (_pfLivePollTimer) clearInterval(_pfLivePollTimer);
@@ -2328,6 +2351,12 @@ function renderPortfolio() {
         pnlEl.textContent = `${s}${fmtPrice(Math.abs(pnl))} (${s}${Math.abs(pnlPct).toFixed(1)}%)`;
       }
       if (allocEl) allocEl.textContent = alloc.toFixed(1) + '%';
+      // Diagnostic tooltip — hover the row to see data source per holding.
+      // If no live price has arrived yet, mark the row visually so the user
+      // knows it's showing entry cost, not market value.
+      if (h._source) row.title = `${h.symbol} · ${h._source}`;
+      const stale = !h.current_price || h.current_price === h.avg_cost;
+      row.classList.toggle('no-live-price', stale);
       _maybeFlashRow(row, price > 0 ? price : null);
     });
   } else {
