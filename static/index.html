@@ -5155,15 +5155,33 @@ async function renderDpTradeOverview(data) {
   let flow;
   try {
     const r = await apiFetch('/api/kabu/trade-flow/' + encodeURIComponent(sym));
+    if (r.status === 404) {
+      body.innerHTML = `<div class="dp-placeholder" style="padding:8px 0;font-size:10.5px;line-height:1.4;color:var(--down)">
+        Trade Flow endpoint not found (HTTP 404).<br>
+        <span style="color:var(--text2)">Restart Flask server to load the v144 backend.</span>
+      </div>`;
+      return;
+    }
+    if (!r.ok) {
+      body.innerHTML = `<div class="dp-placeholder">Trade flow error (${r.status})</div>`;
+      return;
+    }
     flow = await r.json();
   } catch(e) {
-    body.innerHTML = `<div class="dp-placeholder">Trade flow unavailable</div>`;
+    body.innerHTML = `<div class="dp-placeholder" style="padding:8px 0;font-size:10.5px;line-height:1.4;color:var(--down)">
+      Trade Flow fetch failed.<br>
+      <span style="color:var(--text2)">Likely Flask needs restart for the new endpoint.</span>
+    </div>`;
     return;
   }
-  if (!flow || flow.error || flow.total_buy + flow.total_sell === 0) {
+  if (!flow || flow.error) {
+    body.innerHTML = `<div class="dp-placeholder">${escHtml(flow?.error || 'No data')}</div>`;
+    return;
+  }
+  if (flow.total_buy + flow.total_sell === 0) {
     body.innerHTML = `<div class="dp-placeholder" style="padding:8px 0;font-size:10.5px;line-height:1.4">
       Trade flow aggregates since this session started.<br>
-      Waiting for trades to execute…
+      <span style="color:var(--text2)">Waiting for trades to execute…</span>
     </div>`;
     return;
   }
