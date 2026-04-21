@@ -2618,25 +2618,62 @@ async function selectStock(symbol) {
       document.getElementById('dp-prev').textContent = quote.prev_close != null ? fmtPrice(quote.prev_close) : '—';
     }
   } catch(e) {}
-  // Fetch stock info
+  // Fetch stock info (company name, sector, etc.) and fill the High/Low/Open/Vol
+  // stats. Priority chain for each stat:
+  //   1. /api/quote response (Kabu board / PUSH — most accurate, just fetched above)
+  //   2. /api/stock-info fields (yfinance .info — may be None after market close)
+  //   3. Today's chart data (/api/history?period=1d — compute from candles)
   try {
     const r = await apiFetch('/api/stock-info/' + encodeURIComponent(symbol));
     const info = await r.json();
     if (info && !info.error) {
       document.getElementById('dp-name').textContent = info.longName || info.name || clean;
+
+      // Collect candidates for each stat from the three sources
+      const q = quote || {};
+      const picks = {
+        high: q.day_high || info.dayHigh || info.regularMarketDayHigh || 0,
+        low:  q.day_low  || info.dayLow  || info.regularMarketDayLow  || 0,
+        open: q.day_open || info.regularMarketOpen || info.open || 0,
+        vol:  q.volume   || info.volume  || info.regularMarketVolume  || 0,
+        turnover: q.turnover || 0,
+      };
+
+      // If anything is still missing, compute from today's chart data
+      const missing = !picks.high || !picks.low || !picks.open || !picks.vol;
+      if (missing) {
+        try {
+          const hr = await apiFetch('/api/history/' + encodeURIComponent(symbol) + '?period=1d');
+          const hist = await hr.json();
+          if (Array.isArray(hist) && hist.length) {
+            // Filter to today only — backend returns UTC+JST_OFFSET timestamps
+            // for intraday, but we just use max/min of everything in the returned
+            // day-period since the API scopes it already.
+            if (!picks.high) picks.high = Math.max(...hist.map(b => b.high || 0));
+            if (!picks.low)  picks.low  = Math.min(...hist.filter(b => b.low).map(b => b.low));
+            if (!picks.open) picks.open = hist[0].open || hist[0].close || 0;
+            if (!picks.vol)  picks.vol  = hist.reduce((s, b) => s + (b.volume || 0), 0);
+          }
+        } catch(e) {}
+      }
+
+      // Compute turnover from price × volume if not provided by Kabu
+      if (!picks.turnover) {
+        const p = q.price || info.regularMarketPrice || 0;
+        if (p && picks.vol) picks.turnover = p * picks.vol;
+      }
+
       const setStat = (id, v, fn) => {
         const el = document.getElementById(id);
         if (!el) return;
         if (v == null || v === 0) { el.textContent = '—'; return; }
         el.textContent = fn ? fn(v) : fmtPrice(v);
       };
-      setStat('dp-high', info.dayHigh || info.regularMarketDayHigh);
-      setStat('dp-low', info.dayLow || info.regularMarketDayLow);
-      setStat('dp-open', info.regularMarketOpen || info.open);
-      setStat('dp-vol', info.volume || info.regularMarketVolume, fmtBig);
-      const price = quote?.price || info.regularMarketPrice || 0;
-      const vol = info.volume || info.regularMarketVolume || 0;
-      if (price && vol) setStat('dp-turnover', price * vol, fmtBig);
+      setStat('dp-high', picks.high);
+      setStat('dp-low',  picks.low);
+      setStat('dp-open', picks.open);
+      setStat('dp-vol',  picks.vol, fmtBig);
+      setStat('dp-turnover', picks.turnover, fmtBig);
     }
   } catch(e) {}
   // Timestamp

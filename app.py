@@ -803,13 +803,22 @@ def _fetch_single_quote(symbol, with_chart=False):
             code, _ = KabuClient.to_kabu_symbol(symbol)
             push = kabu_ws.get_push_data(code)
             if push and push.get('CurrentPrice'):
+                def _rp(x):
+                    return round(float(x), 2) if x else 0
+                def _ri(x):
+                    return int(x) if x else 0
                 result = {
                     'symbol': symbol,
-                    'price': round(float(push['CurrentPrice']), 2),
-                    'change': round(float(push.get('ChangePreviousClose') or 0), 2),
-                    'change_pct': round(float(push.get('ChangePreviousClosePer') or 0), 2),
-                    'prev_close': round(float(push.get('PreviousClose') or 0), 2),
-                    'volume': int(push.get('TradingVolume') or 0),
+                    'price':       _rp(push['CurrentPrice']),
+                    'change':      _rp(push.get('ChangePreviousClose') or 0),
+                    'change_pct':  _rp(push.get('ChangePreviousClosePer') or 0),
+                    'prev_close':  _rp(push.get('PreviousClose') or 0),
+                    'day_high':    _rp(push.get('HighPrice') or 0),
+                    'day_low':     _rp(push.get('LowPrice') or 0),
+                    'day_open':    _rp(push.get('OpeningPrice') or 0),
+                    'volume':      _ri(push.get('TradingVolume') or 0),
+                    'turnover':    _ri(push.get('TradingValue') or 0),
+                    'vwap':        _rp(push.get('VWAP') or 0),
                     'source': 'kabu_push',
                     'chart': []
                 }

@@ -244,16 +244,32 @@ class KabuClient:
         board = self.get_board(app_symbol)
         if 'error' in board:
             return board
-        price = board.get('CurrentPrice') or 0
+        price      = board.get('CurrentPrice') or 0
         prev_close = board.get('PreviousClose') or 0
-        change = board.get('ChangePreviousClose') or 0
+        change     = board.get('ChangePreviousClose') or 0
         change_pct = board.get('ChangePreviousClosePer') or 0
+        day_high   = board.get('HighPrice') or 0
+        day_low    = board.get('LowPrice') or 0
+        day_open   = board.get('OpeningPrice') or 0
+        volume     = board.get('TradingVolume') or 0
+        turnover   = board.get('TradingValue') or 0
+        vwap       = board.get('VWAP') or 0
+        def rp(x):  # round price or 0
+            return round(float(x), 2) if x else 0
+        def ri(x):
+            return int(x) if x else 0
         return {
             'symbol': app_symbol,
-            'price': round(float(price), 2) if price else 0,
-            'change': round(float(change), 2) if change else 0,
-            'change_pct': round(float(change_pct), 2) if change_pct else 0,
-            'prev_close': round(float(prev_close), 2) if prev_close else 0,
+            'price':       rp(price),
+            'change':      rp(change),
+            'change_pct':  rp(change_pct),
+            'prev_close':  rp(prev_close),
+            'day_high':    rp(day_high),
+            'day_low':     rp(day_low),
+            'day_open':    rp(day_open),
+            'volume':      ri(volume),
+            'turnover':    ri(turnover),
+            'vwap':        rp(vwap),
             'source': 'kabu_station',
             'chart': []
         }
