@@ -817,11 +817,10 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 /* Compact rows — 10 asks + spread + 10 bids must fit without scrolling
    the whole right panel off-screen. Explicit column widths prevent the
    qty number from wrapping to a second line on narrow panels. */
-.dp-ob-list { max-height: 280px; overflow-y: auto; }
 .dp-ob-row {
   position: relative; display: grid;
   grid-template-columns: 16px 1fr 62px; gap: 4px;
-  padding: 1px 6px; font-size: 10.5px; line-height: 1.5;
+  padding: 0 6px; font-size: 10.5px; line-height: 1.45;
   white-space: nowrap;
 }
 .dp-ob-bar { position: absolute; top: 0; bottom: 0; right: 0; border-radius: 3px; z-index: 0; }
@@ -833,7 +832,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .dp-ob-price.ask { color: var(--down); }
 .dp-ob-price.bid { color: var(--up); }
 .dp-ob-qty { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
-.dp-ob-spread { text-align: center; padding: 3px 0; margin: 2px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 10.5px; font-weight: 600; color: var(--text); }
+.dp-ob-spread { text-align: center; padding: 2px 0; margin: 1px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 10.5px; font-weight: 600; color: var(--text); }
 
 /* Trade overview donut */
 .to-wrap { display: flex; align-items: center; gap: 14px; }
@@ -4226,12 +4225,9 @@ function renderDpOrderBookFromData(data) {
   const bestBid = bids.length ? bids[0].price : null;
   const spread = (bestAsk && bestBid) ? (bestAsk - bestBid) : null;
   const spreadPct = spread && bestBid ? (spread / bestBid * 100).toFixed(3) : '—';
-  // Wrap in scrollable container — keeps whole right panel from stretching
-  body.innerHTML = `<div class="dp-ob-list">`
-    + rows(asks, 'ask')
+  body.innerHTML = rows(asks, 'ask')
     + `<div class="dp-ob-spread">${data.price ? fmtPrice(data.price) : '—'} · Spread: ${spread != null ? fmtPrice(spread) : '—'} (${spreadPct}%)</div>`
-    + rows(bids, 'bid')
-    + `</div>`;
+    + rows(bids, 'bid');
 }
 function renderDpTradeOverview(data) {
   const body = document.getElementById('dp-to-body');
