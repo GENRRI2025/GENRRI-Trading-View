@@ -2415,21 +2415,33 @@ def _kabu_ranking(ranking_type):
         app_sym = sym + '.T'  # our internal symbol format
         try:
             price = float(r.get('CurrentPrice') or 0)
-            prev = float(r.get('ChangePreviousClose') and (price - r.get('ChangePreviousClose')) or 0)
-            # Ranking payload uses `ChangeRatio` for gain/loss Types (1,2) — use it when present
-            chg_pct = r.get('ChangeRatio')
-            if chg_pct is None:
-                # Fall back to difference: ChangeRatio on volume/turnover rankings is not sent
-                chg_pct = (price - prev) / prev * 100 if prev else 0
+            # Kabu's ranking payload uses these fields:
+            #   ChangeRatio       = absolute yen delta from previous close (e.g. +423)
+            #   ChangePercentage  = percentage change from previous close (e.g. +30.76)
+            # Previously we confused the two and rendered "+423%" where +30.8% was
+            # intended. Prefer ChangePercentage; compute it ourselves only if missing.
+            yen_delta = r.get('ChangeRatio')
+            yen_delta = float(yen_delta) if yen_delta is not None else None
+            chg_pct = r.get('ChangePercentage')
+            if chg_pct is None and yen_delta is not None and price:
+                prev_for_calc = price - yen_delta
+                chg_pct = (yen_delta / prev_for_calc * 100) if prev_for_calc else 0
+            chg_pct = float(chg_pct or 0)
+            # prev_close: derive from price and the yen delta when we have it
+            prev = (price - yen_delta) if (yen_delta is not None and price) else 0.0
+            # Kabu ranking reports volume in 千株 (thousands of shares) and
+            # turnover in 百万円 (millions of yen), unlike the /board endpoint
+            # which uses raw shares and raw yen. Normalize to raw units so the
+            # frontend's fmtBig() renders millions/billions as expected.
             row = {
                 'symbol': app_sym,
                 'name': r.get('SymbolName') or '',
                 'price': round(price, 2),
                 'prev_close': round(prev, 2),
-                'change': round(price - prev, 2),
-                'change_pct': round(float(chg_pct), 2),
-                'volume': int(r.get('TradingVolume') or 0),
-                'turnover': int(r.get('Turnover') or 0),
+                'change': round(yen_delta or 0, 2),
+                'change_pct': round(chg_pct, 2),
+                'volume': int((r.get('TradingVolume') or 0) * 1000),
+                'turnover': int((r.get('Turnover') or 0) * 1_000_000),
             }
             rows.append(row)
         except Exception:
@@ -2476,45 +2488,54 @@ def market_movers():
 
 @app.route('/api/market/most-active')
 def market_most_active():
-    """Most active by volume.
-    Query: ?region=jp|us (default jp).
+    """Most active stocks. Rankings come from Kabu (real-time) for JP with
+    yfinance fallback; US falls back to yfinance only.
 
-    For JP: prefer Kabu ranking Type=3. Fall back to yfinance cache sorted by
-    volume when Kabu is disconnected.
-    For US: yfinance cache sorted by volume.
+    Query:
+      region=jp|us  (default jp)
+      by=volume     share-count ranking (Kabu Type=3)        [default]
+      by=turnover   yen-value ranking   (Kabu Type=4) -- favors blue chips
     """
     region = request.args.get('region', 'jp').lower()
     if region not in ('jp', 'us'):
         region = 'jp'
+    by = request.args.get('by', 'volume').lower()
+    if by not in ('volume', 'turnover'):
+        by = 'volume'
+    kabu_type = 4 if by == 'turnover' else 3
+    fallback_key = 'turnover' if by == 'turnover' else 'volume'
 
     if region == 'jp':
-        rows = _kabu_ranking(3)
+        rows = _kabu_ranking(kabu_type)
         if rows is not None:
             return jsonify({
                 'rows': rows[:10],
                 'ts': datetime.now().isoformat(),
                 'source': 'kabu_realtime',
                 'universe': 'TSE',
+                'by': by,
             })
-        # yfinance fallback: sort by volume field (if present)
+        # yfinance fallback: re-sort the cached movers by the requested key
         src = _MOVERS_CACHE.get('jp') or {}
         all_rows = (src.get('gainers') or []) + (src.get('losers') or [])
-        active = sorted(all_rows, key=lambda r: r.get('volume') or 0, reverse=True)[:10]
+        active = sorted(all_rows, key=lambda r: r.get(fallback_key) or 0, reverse=True)[:10]
         return jsonify({
             'rows': active,
             'ts': src.get('ts'),
             'source': 'yahoo_cached',
             'universe': 'Nikkei 225',
+            'by': by,
         })
 
     src = _MOVERS_CACHE.get('us') or {}
     all_rows = (src.get('gainers') or []) + (src.get('losers') or [])
-    active = sorted(all_rows, key=lambda r: r.get('volume') or 0, reverse=True)[:10]
+    active = sorted(all_rows, key=lambda r: r.get(fallback_key) or 0, reverse=True)[:10]
     return jsonify({
         'rows': active,
         'ts': src.get('ts'),
         'source': 'yahoo_cached',
         'universe': 'S&P 500',
+        'by': by,
     })
 
 
@@ -5350,4 +5371,7 @@ if __name__ == '__main__':
     threading.Thread(target=_snapshot_background, daemon=True).start()
     # Background market movers + heatmap refresh every 5 minutes
     threading.Thread(target=_movers_background, daemon=True).start()
-    app.run(debug=False, port=port, threaded=True)
+    # host='0.0.0.0' lets other devices on the same LAN (e.g. a MacBook on the
+    # same Wi-Fi) reach the dev server at http://<windows-lan-ip>:5001.
+    # Default (no host) binds to 127.0.0.1 and localhost-only.
+    app.run(host='0.0.0.0', debug=False, port=port, threaded=True)

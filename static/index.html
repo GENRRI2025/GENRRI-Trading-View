@@ -284,10 +284,26 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .idx-change { font-size: 8.25px; font-weight: 500; }
 
 /* ═══════════════════ CARDS / PANELS ═══════════════════ */
+/* Outlined panels: a thin soft border delineates sections, no background
+   fill. Filled cards (gold/surface tint) felt heavy; pure-flat lost hierarchy.
+   Outline-only splits the difference — structure without visual weight.
+   Semantic fills (heatmap tiles, change pills, source badges, active buttons)
+   still carry their colors since color conveys data there. */
 .panel {
-  background: var(--surface); border: 0.75px solid var(--border); border-radius: 9px;
-  overflow: hidden; margin-bottom: 10.5px;
+  background: transparent;
+  border: 0.75px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 7.5px;
+  overflow: hidden; margin-bottom: 13.5px;
 }
+/* Settings sections: outlined like the rest but with tight inner padding so
+   one-liner settings don't have huge empty space inside the border. */
+#page-settings .panel { padding: 9px 12px; margin-bottom: 9px; }
+#page-settings .panel .panel-title { margin-bottom: 3px !important; font-size: 10.5px; }
+#page-settings .panel > div[style*="font-size:8.25px"] { margin-bottom: 6px !important; }
+#page-settings .panel .btn { padding: 4.5px 9px; font-size: 9px; }
+#page-settings .panel .modal-field { margin-bottom: 4.5px !important; }
+#page-settings .panel .modal-field label { font-size: 8.25px; }
+#page-settings .panel .modal-field input { padding: 4.5px 7.5px; font-size: 9px; }
 .panel-header {
   padding: 7.5px 10.5px; border-bottom: 0.75px solid var(--border);
   display: flex; align-items: center; justify-content: space-between; gap: 7.5px;
@@ -320,19 +336,25 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .region-section { display: block; }
 .region-section.hidden { display: none; }
 
-.idx-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 7.5px; margin-bottom: 10.5px; }
+.idx-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10.5px; margin-bottom: 10.5px; }
 .idx-card {
-  background: var(--surface); border: 0.75px solid var(--border); border-radius: 7.5px;
-  padding: 9px 10.5px; cursor: pointer; transition: border-color 0.15s;
+  background: transparent;
+  border: 0.75px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 6px;
+  padding: 7.5px 10.5px; cursor: pointer; transition: border-color 0.15s;
 }
 .idx-card:hover { border-color: var(--accent); }
 .idx-card-name { font-size: 8.25px; color: var(--text2); font-weight: 500; letter-spacing: 0.225px; }
 .idx-card-price { font-size: 15px; font-weight: 600; margin-top: 3px; color: var(--text); }
 .idx-card-change { font-size: 9px; margin-top: 1.5px; font-weight: 500; }
 
-.markets-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10.5px; }
-@media (max-width: 1100px) { .markets-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 700px)  { .markets-grid { grid-template-columns: 1fr; } }
+.markets-grid { display: grid; grid-template-columns: 1fr; gap: 10.5px; }
+/* Row 1: Gainers | Losers | Most Active | Top Turnover  (4-col on desktop) */
+.markets-row1 {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10.5px;
+}
+@media (max-width: 1300px) { .markets-row1 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px)  { .markets-row1 { grid-template-columns: 1fr; } }
 
 /* Market status badge (JST-aware, lives in the header index strip, right-aligned) */
 .market-status-inline { display: flex; align-items: center; flex-shrink: 0; margin-left: auto; padding-left: 9px; }
@@ -371,9 +393,12 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .mover-sym { font-weight: 600; color: var(--text); }
 .mover-price { text-align: right; color: var(--text); }
 .mover-chg {
-  font-weight: 500; padding: 1.5px 6px; border-radius: 3px;
+  display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+  line-height: 1.1;
+  font-weight: 500; padding: 2.25px 6px; border-radius: 3px;
   min-width: 46.5px; text-align: right; font-size: 8.25px;
 }
+.mover-chg .mover-chg-yen { font-size: 6.75px; font-weight: 400; opacity: 0.75; margin-top: 0.75px; font-variant-numeric: tabular-nums; }
 .mover-chg.pos { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
 .mover-chg.neg { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
 
@@ -632,8 +657,8 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   .dp-tabs { overflow-x: auto; scrollbar-width: none; }
   .dp-tabs::-webkit-scrollbar { display: none; }
   .dp-tab { padding: 7.5px 6px; font-size: 8.625px; }
-  /* Settings panels tighter */
-  #page-settings .panel { padding: 10.5px !important; }
+  /* Settings sections: slightly tighter padding + gap on narrow screens */
+  #page-settings .panel { padding: 7.5px 9px !important; margin-bottom: 7.5px !important; }
 }
 @media (max-width: 640px) {
   .main-content { padding: 7.5px 9px 12px; }
@@ -687,7 +712,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 }
 /* Chart fills available vertical space — no dead zone below */
 /* Chart fits the viewport — no page scroll needed */
-#lw-chart { height: calc(100vh - 172.5px); min-height: 255px; max-height: 465px; border-radius: 0; overflow: hidden; }
+#lw-chart { height: calc(100vh - 172.5px); min-height: 255px; border-radius: 0; overflow: hidden; }
 #draw-canvas { position: absolute; top: 0; left: 0; right: 0; pointer-events: none; z-index: 5; }
 .ohlc-tooltip {
   position: absolute; top: 10.5px; left: 10.5px; z-index: 10;
@@ -906,13 +931,13 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .txn-row .action-pill.deposit { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .txn-row .action-pill.withdrawal { background: color-mix(in srgb, var(--text2) 20%, transparent); color: var(--text2); }
 .txn-row .action-pill.fx { background: color-mix(in srgb, var(--accent2) 18%, transparent); color: var(--accent2); }
-.txn-row .row-actions { display: flex; gap: 3px; justify-content: flex-end; }
-.txn-row .row-btn {
+.txn-row .row-actions, .alert-row .row-actions { display: flex; gap: 3px; justify-content: flex-end; }
+.txn-row .row-btn, .alert-row .row-btn {
   background: transparent; border: 0.75px solid var(--border); color: var(--text2);
   padding: 2.25px 5.25px; border-radius: 3px; font-size: 7.5px; cursor: pointer; transition: all 0.1s;
 }
-.txn-row .row-btn:hover { border-color: var(--accent); color: var(--accent); }
-.txn-row .row-btn.danger:hover { border-color: var(--down); color: var(--down); }
+.txn-row .row-btn:hover, .alert-row .row-btn:hover { border-color: var(--accent); color: var(--accent); }
+.txn-row .row-btn.danger:hover, .alert-row .row-btn.danger:hover { border-color: var(--down); color: var(--down); }
 .txn-pnl { text-align: right; font-size: 8.25px; padding: 1.5px 4.5px; border-radius: 3px; min-width: 45px; }
 .txn-pnl.pos { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
 .txn-pnl.neg { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
@@ -1186,32 +1211,43 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         <div class="region-section" id="region-jp">
           <div class="idx-cards" id="cards-jp"></div>
           <div class="markets-grid">
-            <div class="panel">
-              <div class="panel-header">
-                <div>
-                  <div class="panel-title"><span data-i18n="mk_top_gainers">Top Gainers</span><span class="src-badge" id="src-gainers-jp"></span></div>
-                  <div class="panel-meta"><span class="panel-subtitle" id="sub-gainers-jp">Nikkei 225</span><span class="panel-updated" id="ts-gainers-jp"></span></div>
+            <div class="markets-row1">
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title"><span data-i18n="mk_top_gainers">Top Gainers</span><span class="src-badge" id="src-gainers-jp"></span></div>
+                    <div class="panel-meta"><span class="panel-subtitle" id="sub-gainers-jp">Nikkei 225</span><span class="panel-updated" id="ts-gainers-jp"></span></div>
+                  </div>
                 </div>
+                <div class="panel-body" id="gainers-jp"></div>
               </div>
-              <div class="panel-body" id="gainers-jp"></div>
-            </div>
-            <div class="panel">
-              <div class="panel-header">
-                <div>
-                  <div class="panel-title"><span data-i18n="mk_top_losers">Top Losers</span><span class="src-badge" id="src-losers-jp"></span></div>
-                  <div class="panel-meta"><span class="panel-subtitle" id="sub-losers-jp">Nikkei 225</span><span class="panel-updated" id="ts-losers-jp"></span></div>
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title"><span data-i18n="mk_top_losers">Top Losers</span><span class="src-badge" id="src-losers-jp"></span></div>
+                    <div class="panel-meta"><span class="panel-subtitle" id="sub-losers-jp">Nikkei 225</span><span class="panel-updated" id="ts-losers-jp"></span></div>
+                  </div>
                 </div>
+                <div class="panel-body" id="losers-jp"></div>
               </div>
-              <div class="panel-body" id="losers-jp"></div>
-            </div>
-            <div class="panel">
-              <div class="panel-header">
-                <div>
-                  <div class="panel-title"><span data-i18n="mk_most_active">Most Active</span><span class="src-badge" id="src-active-jp"></span></div>
-                  <div class="panel-meta"><span class="panel-subtitle" id="sub-active-jp">Volume</span><span class="panel-updated" id="ts-active-jp"></span></div>
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title"><span data-i18n="mk_most_active">Most Active</span><span class="src-badge" id="src-active-jp"></span></div>
+                    <div class="panel-meta"><span class="panel-subtitle" id="sub-active-jp" data-i18n="mk_volume">Volume</span><span class="panel-updated" id="ts-active-jp"></span></div>
+                  </div>
                 </div>
+                <div class="panel-body" id="active-jp"></div>
               </div>
-              <div class="panel-body" id="active-jp"></div>
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title"><span data-i18n="mk_top_turnover">Top Turnover</span><span class="src-badge" id="src-turnover-jp"></span></div>
+                    <div class="panel-meta"><span class="panel-subtitle" id="sub-turnover-jp" data-i18n="mk_turnover">Turnover (¥)</span><span class="panel-updated" id="ts-turnover-jp"></span></div>
+                  </div>
+                </div>
+                <div class="panel-body" id="turnover-jp"></div>
+              </div>
             </div>
             <div class="markets-row2">
               <div class="panel">
@@ -1238,32 +1274,43 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         <div class="region-section hidden" id="region-us">
           <div class="idx-cards" id="cards-us"></div>
           <div class="markets-grid">
-            <div class="panel">
-              <div class="panel-header">
-                <div>
-                  <div class="panel-title"><span data-i18n="mk_top_gainers">Top Gainers</span><span class="src-badge" id="src-gainers-us"></span></div>
-                  <div class="panel-meta"><span class="panel-subtitle" id="sub-gainers-us">S&amp;P 500 top 100</span><span class="panel-updated" id="ts-gainers-us"></span></div>
+            <div class="markets-row1">
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title"><span data-i18n="mk_top_gainers">Top Gainers</span><span class="src-badge" id="src-gainers-us"></span></div>
+                    <div class="panel-meta"><span class="panel-subtitle" id="sub-gainers-us">S&amp;P 500 top 100</span><span class="panel-updated" id="ts-gainers-us"></span></div>
+                  </div>
                 </div>
+                <div class="panel-body" id="gainers-us"></div>
               </div>
-              <div class="panel-body" id="gainers-us"></div>
-            </div>
-            <div class="panel">
-              <div class="panel-header">
-                <div>
-                  <div class="panel-title"><span data-i18n="mk_top_losers">Top Losers</span><span class="src-badge" id="src-losers-us"></span></div>
-                  <div class="panel-meta"><span class="panel-subtitle" id="sub-losers-us">S&amp;P 500 top 100</span><span class="panel-updated" id="ts-losers-us"></span></div>
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title"><span data-i18n="mk_top_losers">Top Losers</span><span class="src-badge" id="src-losers-us"></span></div>
+                    <div class="panel-meta"><span class="panel-subtitle" id="sub-losers-us">S&amp;P 500 top 100</span><span class="panel-updated" id="ts-losers-us"></span></div>
+                  </div>
                 </div>
+                <div class="panel-body" id="losers-us"></div>
               </div>
-              <div class="panel-body" id="losers-us"></div>
-            </div>
-            <div class="panel">
-              <div class="panel-header">
-                <div>
-                  <div class="panel-title"><span data-i18n="mk_most_active">Most Active</span><span class="src-badge" id="src-active-us"></span></div>
-                  <div class="panel-meta"><span class="panel-subtitle" id="sub-active-us">Volume</span><span class="panel-updated" id="ts-active-us"></span></div>
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title"><span data-i18n="mk_most_active">Most Active</span><span class="src-badge" id="src-active-us"></span></div>
+                    <div class="panel-meta"><span class="panel-subtitle" id="sub-active-us" data-i18n="mk_volume">Volume</span><span class="panel-updated" id="ts-active-us"></span></div>
+                  </div>
                 </div>
+                <div class="panel-body" id="active-us"></div>
               </div>
-              <div class="panel-body" id="active-us"></div>
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title"><span data-i18n="mk_top_turnover">Top Turnover</span><span class="src-badge" id="src-turnover-us"></span></div>
+                    <div class="panel-meta"><span class="panel-subtitle" id="sub-turnover-us" data-i18n="mk_turnover_us">Turnover ($)</span><span class="panel-updated" id="ts-turnover-us"></span></div>
+                  </div>
+                </div>
+                <div class="panel-body" id="turnover-us"></div>
+              </div>
             </div>
             <div class="panel" style="grid-column:1/-1">
               <div class="panel-header">
@@ -1401,14 +1448,14 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 
       <!-- ═══ SETTINGS PAGE (Session 3, full) ═══ -->
       <div class="page" id="page-settings">
-        <div class="panel" style="padding: 15px">
+        <div class="panel">
           <div class="panel-title" style="margin-bottom:10.5px" data-i18n="s_account">Account</div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:6px">
             <div><div style="font-size:9.75px;font-weight:500" id="settings-username">—</div><div style="font-size:8.25px;color:var(--text2)" data-i18n="s_signed_in">Signed in</div></div>
             <button class="btn danger" onclick="doLogout()" data-i18n="s_sign_out">Sign Out</button>
           </div>
         </div>
-        <div class="panel" style="padding: 15px">
+        <div class="panel">
           <div class="panel-title" style="margin-bottom:6px" data-i18n="s_language">Language</div>
           <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_language_desc">Choose the display language for the app.</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -1417,7 +1464,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
             <button class="btn" data-lang="zh" onclick="setLang('zh')">中 — 中文</button>
           </div>
         </div>
-        <div class="panel" style="padding: 15px">
+        <div class="panel">
           <div class="panel-title" style="margin-bottom:6px" data-i18n="s_appearance">Appearance</div>
           <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_appearance_desc">Choose a theme for the app.</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:7.5px">
@@ -1429,72 +1476,72 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         </div>
 
         <!-- Color Mode (US: green up / CN/JP: red up) -->
-        <div class="panel" style="padding: 15px">
+        <div class="panel">
           <div class="panel-title" style="margin-bottom:6px" data-i18n="s_colormode">Color Convention</div>
           <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_colormode_desc">Choose which color represents price gains.</div>
           <div style="display:flex;gap:6px;align-items:center">
             <select id="settings-colormode" onchange="saveColorMode()" style="background:var(--surface);border:0.75px solid var(--border);border-radius:4.5px;padding:5.25px 7.5px;color:var(--text)">
-              <option value="us">US — Green = Up, Red = Down</option>
-              <option value="cn">JP / CN — Red = Up, Green = Down</option>
+              <option value="us" data-i18n="s_colormode_us">US — Green = Up, Red = Down</option>
+              <option value="cn" data-i18n="s_colormode_jp">JP / CN — Red = Up, Green = Down</option>
             </select>
             <span id="settings-colormode-saved" style="font-size:8.25px;color:var(--up);opacity:0;transition:opacity 0.3s"></span>
           </div>
         </div>
 
         <!-- Commission % -->
-        <div class="panel" style="padding: 15px">
+        <div class="panel">
           <div class="panel-title" style="margin-bottom:6px" data-i18n="s_commission">Default Commission</div>
           <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_commission_desc">Default commission rate applied to buy/sell trades (percent).</div>
           <div style="display:flex;gap:6px;align-items:center">
             <input type="number" id="settings-commission" step="0.01" min="0" max="10" style="background:var(--surface);border:0.75px solid var(--border);border-radius:4.5px;padding:5.25px 7.5px;color:var(--text);width:75px"/>
             <span style="color:var(--text2);font-size:9px">%</span>
-            <button class="btn primary" onclick="saveCommissionPct()">Save</button>
+            <button class="btn primary" onclick="saveCommissionPct()" data-i18n="s_save">Save</button>
             <span id="settings-commission-saved" style="font-size:8.25px;color:var(--up);opacity:0;transition:opacity 0.3s"></span>
           </div>
         </div>
 
         <!-- Kabu Station connection -->
-        <div class="panel" style="padding: 15px">
-          <div class="panel-title" style="margin-bottom:4.5px">Kabu Station API</div>
-          <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px">Connect to Kabu Station for real-time JP stock data and live trading.</div>
+        <div class="panel">
+          <div class="panel-title" style="margin-bottom:4.5px" data-i18n="s_kabu_title">Kabu Station API</div>
+          <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_kabu_desc">Connect to Kabu Station for real-time JP stock data and live trading.</div>
           <div class="kabu-status-row" id="kabu-status-row">
             <span class="dot"></span>
             <span id="kabu-status-text" data-i18n="kabu_not_connected">Not connected</span>
           </div>
           <div class="modal-field" style="margin-bottom:6px">
-            <label>API Password</label>
+            <label data-i18n="s_api_password">API Password</label>
             <input type="password" id="kabu-api-pw" autocomplete="current-password"/>
           </div>
           <div class="modal-field" style="margin-bottom:7.5px">
-            <label>Order Password (optional — for live trading)</label>
+            <label data-i18n="s_order_password">Order Password (optional — for live trading)</label>
             <input type="password" id="kabu-order-pw" autocomplete="current-password"/>
           </div>
-          <button class="btn primary" onclick="connectKabu()" id="kabu-connect-btn">Connect</button>
+          <button class="btn primary" onclick="connectKabu()" id="kabu-connect-btn" data-i18n="s_connect">Connect</button>
           <div class="kabu-err" id="kabu-err" style="display:none"></div>
         </div>
 
         <!-- AI Analyst (Anthropic) -->
-        <div class="panel" style="padding: 15px">
+        <div class="panel">
           <div class="panel-title" style="margin-bottom:4.5px" data-i18n="s_ai_analyst">AI Analyst (Anthropic)</div>
           <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_ai_analyst_desc">
             Paste your Anthropic API key to enable AI-powered stock analysis in the right panel. Key is stored locally in your browser (never sent to our server).
           </div>
           <div class="modal-field" style="margin-bottom:7.5px">
-            <label>Anthropic API Key</label>
+            <label data-i18n="s_ai_key_label">Anthropic API Key</label>
             <input type="password" id="settings-ai-key" placeholder="sk-ant-..." autocomplete="off"/>
           </div>
           <div style="display:flex;gap:6px;align-items:center">
-            <button class="btn primary" onclick="saveAIKey()">Save Key</button>
-            <button class="btn" onclick="clearAIKey()">Remove Key</button>
+            <button class="btn primary" onclick="saveAIKey()" data-i18n="s_save_key">Save Key</button>
+            <button class="btn" onclick="clearAIKey()" data-i18n="s_remove_key">Remove Key</button>
             <span id="settings-ai-key-saved" style="font-size:8.25px;color:var(--up);opacity:0;transition:opacity 0.3s"></span>
           </div>
           <div style="font-size:7.5px;color:var(--text2);margin-top:7.5px">
-            Get a key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a>. Estimated cost: ~$0.02 per stock analysis.
+            <span data-i18n="s_ai_key_help_1">Get a key from</span> <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a><span data-i18n="s_ai_key_help_2">. Estimated cost: ~$0.02 per stock analysis.</span>
           </div>
         </div>
 
         <!-- Danger zone -->
-        <div class="panel" style="padding: 15px">
+        <div class="panel">
           <div class="panel-title" style="margin-bottom:6px;color:var(--down)" data-i18n="s_danger">Danger Zone</div>
           <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_danger_desc">Resets current portfolio: all holdings, cash, and transactions will be cleared.</div>
           <button class="btn danger" onclick="resetPortfolioConfirm()" data-i18n="s_reset_portfolio">Reset Current Portfolio</button>
@@ -1599,12 +1646,12 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         <div class="dp-stat"><span class="dp-stat-label" data-i18n="info_open">Open</span><span class="dp-stat-val" id="dp-open">—</span></div>
         <div class="dp-stat"><span class="dp-stat-label" data-i18n="info_prev_close">Prev Close</span><span class="dp-stat-val" id="dp-prev">—</span></div>
         <div class="dp-stat"><span class="dp-stat-label" data-i18n="info_volume">Volume</span><span class="dp-stat-val" id="dp-vol">—</span></div>
-        <div class="dp-stat"><span class="dp-stat-label">Turnover</span><span class="dp-stat-val" id="dp-turnover">—</span></div>
+        <div class="dp-stat"><span class="dp-stat-label" data-i18n="info_turnover">Turnover</span><span class="dp-stat-val" id="dp-turnover">—</span></div>
       </div>
     </div>
     <div class="dp-body">
       <div class="dp-tabs">
-        <button class="dp-tab active" data-tab="quote" onclick="setDpTab('quote')">Quote</button>
+        <button class="dp-tab active" data-tab="quote" onclick="setDpTab('quote')" data-i18n="info_overview">Quote</button>
         <button class="dp-tab" data-tab="news" onclick="setDpTab('news')" data-i18n="info_news">News</button>
         <button class="dp-tab" data-tab="financials" onclick="setDpTab('financials')" data-i18n="info_financials">Financials</button>
         <button class="dp-tab" data-tab="analyst" onclick="setDpTab('analyst')" data-i18n="info_analyst">Analyst</button>
@@ -1689,9 +1736,16 @@ const LANG_DATA = {
     edit_txn:'Edit Transaction', confirm_delete_txn:'Delete this transaction? Holdings will be recalculated.',
     confirm_delete_alert:'Delete this alert?', confirm_reset_pf:'Reset the current portfolio? All holdings, cash, and transactions will be cleared. This cannot be undone.',
     s_colormode:'Color Convention', s_colormode_desc:'Choose which color represents price gains.',
+    s_colormode_us:'US — Green = Up, Red = Down', s_colormode_jp:'JP / CN — Red = Up, Green = Down',
     s_commission:'Default Commission', s_commission_desc:'Default commission rate applied to buy/sell trades (percent).',
+    s_save:'Save',
+    s_kabu_title:'Kabu Station API', s_kabu_desc:'Connect to Kabu Station for real-time JP stock data and live trading.',
+    s_api_password:'API Password', s_order_password:'Order Password (optional — for live trading)',
+    s_connect:'Connect',
     s_ai_analyst:'AI Analyst (Anthropic)',
     s_ai_analyst_desc:'Paste your Anthropic API key to enable AI-powered stock analysis in the right panel. Key is stored locally in your browser (never sent to our server).',
+    s_ai_key_label:'Anthropic API Key', s_save_key:'Save Key', s_remove_key:'Remove Key',
+    s_ai_key_help_1:'Get a key from', s_ai_key_help_2:'. Estimated cost: ~$0.02 per stock analysis.',
     s_danger:'Danger Zone', s_danger_desc:'Resets current portfolio: all holdings, cash, and transactions will be cleared.',
     s_reset_portfolio:'Reset Current Portfolio',
     csv_help:'Expected columns: <code>symbol,action,shares,price,commission,timestamp</code>. Action = buy/sell. Timestamp in YYYY-MM-DD or ISO format.',
@@ -1724,7 +1778,7 @@ const LANG_DATA = {
     info_market_cap:'Market Cap', info_pe:'P/E', info_div_yield:'Div Yield',
     info_52w_high:'52W High', info_52w_low:'52W Low', info_beta:'Beta', info_avg_vol:'Avg Volume',
     info_sector:'Sector', info_industry:'Industry',
-    info_prev_close:'Prev Close', info_open:'Open', info_high:'High', info_low:'Low', info_volume:'Volume',
+    info_prev_close:'Prev Close', info_open:'Open', info_high:'High', info_low:'Low', info_volume:'Volume', info_turnover:'Turnover',
     info_loading:'Loading...', info_country:'Japan',
     // Expanded Quote tab fields (v149+)
     info_float_mkt_cap:'Float Mkt Cap', info_total_shares:'Total Shares', info_free_float:'Free Float',
@@ -1766,7 +1820,8 @@ const LANG_DATA = {
     amount_jpy_ph:'Amount (¥)', note_optional_ph:'Note (optional)',
     // Markets page
     mk_top_gainers:'Top Gainers', mk_top_losers:'Top Losers', mk_most_active:'Most Active',
-    mk_volume:'Volume',
+    mk_top_turnover:'Top Turnover',
+    mk_volume:'Volume', mk_turnover:'Turnover (¥)', mk_turnover_us:'Turnover ($)',
     mk_earnings_cal:'Earnings This Week', mk_earnings_desc:'Nikkei 225 + your holdings & watchlist · next 7 days',
     mk_no_earnings:'No upcoming earnings in the next 7 days',
     mk_sector_heatmap:'Sector Heat Map', mk_sector_subtitle:'Avg change by sector',
@@ -1805,6 +1860,12 @@ const LANG_DATA = {
     txn_no_txns:'No transactions',
     // Alerts
     alert_create:'Create', alert_cancel:'Cancel',
+    alert_mode_price:'Absolute price', alert_mode_pct:'% change',
+    alert_percent:'Percentage', alert_current_price:'Current price', alert_trigger_price:'Trigger price',
+    cond_pct_up:'Rises by', cond_pct_down:'Falls by',
+    alert_required_msg:'Symbol and value required', alert_save_failed:'Save failed',
+    alert_note_placeholder:'e.g. Take profit target',
+    alert_price_unavailable:'Current price unavailable',
     // Common
     common_saved:'\u2713 Saved', common_failed:'Failed',
     // Financials tab
@@ -1833,6 +1894,19 @@ const LANG_DATA = {
     s_appearance:'外観', s_appearance_desc:'アプリのテーマを選択してください。',
     s_language:'言語', s_language_desc:'アプリの表示言語を選択してください。',
     s_account:'アカウント', s_signed_in:'ログイン中', s_sign_out:'サインアウト',
+    s_colormode:'カラー表示', s_colormode_desc:'値上がりを示す色を選択してください。',
+    s_colormode_us:'米国式 — 緑=上昇、赤=下落', s_colormode_jp:'日本/中国式 — 赤=上昇、緑=下落',
+    s_commission:'デフォルト手数料', s_commission_desc:'売買取引に適用されるデフォルトの手数料率（％）。',
+    s_save:'保存',
+    s_kabu_title:'Kabu Station API', s_kabu_desc:'Kabu Stationに接続して、日本株のリアルタイムデータとライブ取引を有効にします。',
+    s_api_password:'APIパスワード', s_order_password:'注文パスワード（任意 — ライブ取引用）',
+    s_connect:'接続',
+    s_ai_analyst:'AIアナリスト（Anthropic）',
+    s_ai_analyst_desc:'Anthropic APIキーを入力すると、右パネルでAIによる銘柄分析が利用できます。キーはブラウザにローカル保存され、当社のサーバーには送信されません。',
+    s_ai_key_label:'Anthropic APIキー', s_save_key:'キーを保存', s_remove_key:'キーを削除',
+    s_ai_key_help_1:'キーの取得先：', s_ai_key_help_2:'。1銘柄あたり約$0.02の費用が発生します。',
+    s_danger:'危険ゾーン', s_danger_desc:'現在のポートフォリオをリセット：すべての保有銘柄、現金、取引履歴が削除されます。',
+    s_reset_portfolio:'現在のポートフォリオをリセット',
     my_portfolio:'マイポートフォリオ', add_portfolio:'ポートフォリオ追加', real_account:'実口座',
     rename_portfolio:'名前変更', delete_portfolio:'削除',
     portfolio_name_prompt:'ポートフォリオ名:',
@@ -1858,7 +1932,7 @@ const LANG_DATA = {
     to_legend_xl:'XL 機関投資家 (≥¥1億)', to_legend_l:'L 大口 (≥¥1000万)',
     to_legend_m:'M 一般 (≥¥100万)', to_legend_s:'S 個人 (<¥100万)',
     to_caveat:'現在の指値注文板に基づく(約定履歴ではありません)',
-    info_prev_close:'前日終値', info_open:'始値', info_high:'高値', info_low:'安値', info_volume:'出来高',
+    info_prev_close:'前日終値', info_open:'始値', info_high:'高値', info_low:'安値', info_volume:'出来高', info_turnover:'売買代金',
     info_loading:'読み込み中...', info_country:'日本',
     btn_cancel:'キャンセル', btn_save:'保存', btn_deposit:'+ 入金', btn_withdraw:'− 出金', btn_submit:'送信',
     port_performance:'ポートフォリオ実績',
@@ -1883,7 +1957,8 @@ const LANG_DATA = {
     amount_jpy_ph:'金額 (¥)', note_optional_ph:'メモ（任意）',
     // Markets page
     mk_top_gainers:'値上がり率', mk_top_losers:'値下がり率', mk_most_active:'売買高',
-    mk_volume:'出来高',
+    mk_top_turnover:'売買代金',
+    mk_volume:'出来高', mk_turnover:'売買代金(¥)', mk_turnover_us:'売買代金($)',
     mk_earnings_cal:'今週の決算', mk_earnings_desc:'日経225 + 保有・ウォッチリスト · 今後7日間',
     mk_no_earnings:'今後7日間に予定された決算はありません',
     mk_sector_heatmap:'セクター別ヒートマップ', mk_sector_subtitle:'セクター別平均変動率',
@@ -1922,6 +1997,36 @@ const LANG_DATA = {
     txn_no_txns:'取引履歴なし',
     // Alerts
     alert_create:'作成', alert_cancel:'キャンセル',
+    btn_new_alert:'+ 新規アラート',
+    new_alert:'新規価格アラート', no_alerts:'アラートなし。上の「+ 新規アラート」から作成してください。',
+    alerts_desc:'ポートフォリオ更新時に、最新の価格と照らし合わせてアラートを確認します。',
+    confirm_delete_alert:'このアラートを削除しますか？',
+    col_condition:'条件', col_threshold:'閾値', col_note:'メモ',
+    cond_above:'価格が上抜け', cond_below:'価格が下抜け', optional:'任意',
+    alert_mode_price:'価格指定', alert_mode_pct:'％変動',
+    alert_percent:'変動率', alert_current_price:'現在価格', alert_trigger_price:'発動価格',
+    cond_pct_up:'上昇', cond_pct_down:'下落',
+    alert_required_msg:'銘柄と値を入力してください', alert_save_failed:'保存に失敗しました',
+    alert_note_placeholder:'例: 利確目標',
+    alert_price_unavailable:'現在価格を取得できません',
+    // Transactions / Imports / AI / Common
+    btn_delete:'削除', btn_import:'インポート / 記録', btn_import_csv:'CSVインポート',
+    col_date:'日付', col_portfolio:'ポートフォリオ', col_action:'アクション',
+    col_shares:'株数', col_total:'合計', col_pnl:'損益', col_created:'作成日',
+    confirm_delete_txn:'この取引を削除しますか？保有銘柄は再計算されます。',
+    confirm_reset_pf:'現在のポートフォリオをリセットしますか？すべての保有銘柄・現金・取引が消去され、元に戻せません。',
+    err_select_stock:'銘柄を選択してください', err_delete_failed:'削除に失敗しました',
+    not_tradeable:'指数と為替ペアは取引できません。',
+    ai_loading:'分析中… 初回は約10秒かかります。',
+    ai_no_key:'設定 → AIアナリストでAnthropic APIキーを追加すると利用できます。',
+    ai_failed:'AI分析に失敗しました',
+    import_title:'インポート / 記録',
+    imp_record_txn:'取引を記録', imp_set_pos:'ポジションを設定', imp_csv:'CSV一括',
+    imp_stock_label:'銘柄 (コードまたは名称)', imp_date:'日付 (任意 — 未指定なら現在時刻)',
+    imp_submit_txn:'取引を記録', imp_submit_set:'ポジションを設定', imp_submit_csv:'一括インポート',
+    imp_avg_cost:'平均取得単価',
+    imp_set_desc:'取引履歴を作成せず、現在の保有を上書きします。現金残高は変更されません。株数を0にするとポジションが削除されます。',
+    imp_csv_help:'CSVを貼り付けてください。列:',
     // Common
     common_saved:'\u2713 保存しました', common_failed:'失敗',
     // Financials tab
@@ -1950,6 +2055,19 @@ const LANG_DATA = {
     s_appearance:'外观', s_appearance_desc:'选择应用主题。',
     s_language:'语言', s_language_desc:'选择应用的显示语言。',
     s_account:'账户', s_signed_in:'已登录', s_sign_out:'退出登录',
+    s_colormode:'涨跌颜色', s_colormode_desc:'选择代表上涨的颜色。',
+    s_colormode_us:'美股 — 绿涨红跌', s_colormode_jp:'日股/A股 — 红涨绿跌',
+    s_commission:'默认佣金', s_commission_desc:'买卖交易适用的默认佣金率（百分比）。',
+    s_save:'保存',
+    s_kabu_title:'Kabu Station API', s_kabu_desc:'连接 Kabu Station 以获取日本股票实时行情与实盘交易。',
+    s_api_password:'API 密码', s_order_password:'下单密码（可选 — 用于实盘交易）',
+    s_connect:'连接',
+    s_ai_analyst:'AI 分析师（Anthropic）',
+    s_ai_analyst_desc:'输入您的 Anthropic API 密钥以在右侧面板启用 AI 股票分析。密钥仅保存在您的浏览器本地，不会发送到我们的服务器。',
+    s_ai_key_label:'Anthropic API 密钥', s_save_key:'保存密钥', s_remove_key:'删除密钥',
+    s_ai_key_help_1:'获取密钥：', s_ai_key_help_2:'。每次股票分析约需 $0.02。',
+    s_danger:'危险操作', s_danger_desc:'重置当前投资组合：所有持仓、现金和交易记录都将被清除。',
+    s_reset_portfolio:'重置当前投资组合',
     my_portfolio:'我的组合', add_portfolio:'添加组合', real_account:'实盘账户',
     rename_portfolio:'重命名', delete_portfolio:'删除',
     portfolio_name_prompt:'组合名称:',
@@ -1975,7 +2093,7 @@ const LANG_DATA = {
     to_legend_xl:'XL 机构 (≥¥1亿)', to_legend_l:'L 大户 (≥¥1000万)',
     to_legend_m:'M 中户 (≥¥100万)', to_legend_s:'S 散户 (<¥100万)',
     to_caveat:'当前挂单簿快照，非累计成交',
-    info_prev_close:'昨收', info_open:'开盘', info_high:'最高', info_low:'最低', info_volume:'成交量',
+    info_prev_close:'昨收', info_open:'开盘', info_high:'最高', info_low:'最低', info_volume:'成交量', info_turnover:'成交额',
     info_loading:'加载中...', info_country:'日本',
     btn_cancel:'取消', btn_save:'保存', btn_deposit:'+ 存入', btn_withdraw:'− 取出', btn_submit:'提交',
     port_performance:'投资组合表现',
@@ -2000,7 +2118,8 @@ const LANG_DATA = {
     amount_jpy_ph:'金额 (¥)', note_optional_ph:'备注（可选）',
     // Markets page
     mk_top_gainers:'涨幅榜', mk_top_losers:'跌幅榜', mk_most_active:'成交活跃',
-    mk_volume:'成交量',
+    mk_top_turnover:'成交额榜',
+    mk_volume:'成交量', mk_turnover:'成交额(¥)', mk_turnover_us:'成交额($)',
     mk_earnings_cal:'本周财报', mk_earnings_desc:'日经225 + 您的持仓和自选 · 未来7天',
     mk_no_earnings:'未来7天没有即将到来的财报',
     mk_sector_heatmap:'板块热力图', mk_sector_subtitle:'板块平均涨跌幅',
@@ -2039,6 +2158,36 @@ const LANG_DATA = {
     txn_no_txns:'暂无交易',
     // Alerts
     alert_create:'创建', alert_cancel:'取消',
+    btn_new_alert:'+ 新建提醒',
+    new_alert:'新建价格提醒', no_alerts:'暂无提醒。点击上方「+ 新建提醒」创建一个。',
+    alerts_desc:'刷新持仓时，将使用最新报价检查价格提醒。',
+    confirm_delete_alert:'删除此提醒？',
+    col_condition:'条件', col_threshold:'阈值', col_note:'备注',
+    cond_above:'价格突破上方', cond_below:'价格跌破下方', optional:'可选',
+    alert_mode_price:'固定价格', alert_mode_pct:'百分比变动',
+    alert_percent:'百分比', alert_current_price:'当前价格', alert_trigger_price:'触发价格',
+    cond_pct_up:'上涨', cond_pct_down:'下跌',
+    alert_required_msg:'请输入代码和数值', alert_save_failed:'保存失败',
+    alert_note_placeholder:'例如：止盈目标',
+    alert_price_unavailable:'无法获取当前价格',
+    // Transactions / Imports / AI / Common
+    btn_delete:'删除', btn_import:'导入 / 记录', btn_import_csv:'导入 CSV',
+    col_date:'日期', col_portfolio:'投资组合', col_action:'类型',
+    col_shares:'股数', col_total:'合计', col_pnl:'盈亏', col_created:'创建时间',
+    confirm_delete_txn:'删除此交易？持仓将被重新计算。',
+    confirm_reset_pf:'重置当前投资组合？所有持仓、现金和交易记录将被清除，且无法撤销。',
+    err_select_stock:'请选择股票', err_delete_failed:'删除失败',
+    not_tradeable:'指数和外汇无法交易。',
+    ai_loading:'分析中… 首次加载约需 10 秒。',
+    ai_no_key:'在「设置 → AI 分析师」中添加 Anthropic API 密钥以启用此功能。',
+    ai_failed:'AI 分析失败',
+    import_title:'导入 / 记录交易',
+    imp_record_txn:'记录交易', imp_set_pos:'设定持仓', imp_csv:'CSV 批量',
+    imp_stock_label:'股票 (代码或名称)', imp_date:'日期 (可选 — 默认为当前时间)',
+    imp_submit_txn:'记录交易', imp_submit_set:'设定持仓', imp_submit_csv:'全部导入',
+    imp_avg_cost:'平均成本',
+    imp_set_desc:'不创建交易记录直接覆盖当前持仓。现金余额不变。将股数设为 0 以删除该持仓。',
+    imp_csv_help:'粘贴 CSV。列：',
     // Common
     common_saved:'\u2713 已保存', common_failed:'失败',
     // Financials tab
@@ -2243,6 +2392,11 @@ function setTheme(theme) {
   document.querySelectorAll('[data-theme-btn]').forEach(b => {
     b.classList.toggle('primary', b.dataset.themeBtn === theme);
   });
+  // Chart libraries read CSS variables only at init time, so re-apply colors
+  // to any already-rendered chart. Without this, the grid/border lines would
+  // stay rendered in the previous theme's colors until the next full redraw
+  // (page refresh or symbol change).
+  try { if (typeof applyChartTheme === 'function') applyChartTheme(); } catch(e) {}
   // Persist to backend
   apiFetch('/api/settings', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2257,6 +2411,18 @@ function setLang(lang) {
   document.querySelectorAll('[data-lang]').forEach(b => {
     b.classList.toggle('primary', b.dataset.lang === lang);
   });
+  // Some panels build their HTML with t() at render time (dynamic stats,
+  // earnings rows, heatmap tiles, movers, etc.). applyTranslations() only
+  // updates elements marked with data-i18n; anything baked via t() during
+  // a previous render stays in the previous language. Re-render those here.
+  try {
+    if (typeof currentDpTab !== 'undefined' && currentDpTab && typeof setDpTab === 'function' && typeof currentSymbol !== 'undefined' && currentSymbol) {
+      setDpTab(currentDpTab);
+    }
+    if (typeof currentRoute !== 'undefined' && currentRoute === 'markets' && typeof loadMarkets === 'function') {
+      loadMarkets();
+    }
+  } catch(e) {}
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -2531,16 +2697,24 @@ async function loadMovers(region) {
 }
 
 async function loadMostActive(region) {
-  const container = document.getElementById('active-' + region);
+  // Top Active by share count (default)
+  await _loadActivePanel(region, 'volume', 'active-' + region, 'src-active-' + region, 'ts-active-' + region, 'sub-active-' + region, 'mk_volume');
+  // Top Turnover (yen value)
+  await _loadActivePanel(region, 'turnover', 'turnover-' + region, 'src-turnover-' + region, 'ts-turnover-' + region, 'sub-turnover-' + region, region === 'us' ? 'mk_turnover_us' : 'mk_turnover');
+}
+
+async function _loadActivePanel(region, by, bodyId, srcId, tsId, subId, labelKey) {
+  const container = document.getElementById(bodyId);
   if (!container) return;
   try {
-    const r = await apiFetch('/api/market/most-active?region=' + region);
+    const r = await apiFetch(`/api/market/most-active?region=${region}&by=${by}`);
     const data = await r.json();
-    renderMostActive(data.rows, container);
-    _setSourceBadge('src-active-' + region, data.source);
-    _setUpdatedStamp('ts-active-' + region, data.ts);
-    const uni = data.universe ? `${t('mk_volume') || 'Volume'} · ${data.universe}` : (t('mk_volume') || 'Volume');
-    _setUniverseSubtitle('sub-active-' + region, uni);
+    renderMostActive(data.rows, container, by);
+    _setSourceBadge(srcId, data.source);
+    _setUpdatedStamp(tsId, data.ts);
+    const label = t(labelKey) || (by === 'turnover' ? 'Turnover (¥)' : 'Volume');
+    const sub = data.universe ? `${label} · ${data.universe}` : label;
+    _setUniverseSubtitle(subId, sub);
   } catch (e) {}
 }
 
@@ -2568,30 +2742,37 @@ function renderMovers(items, container) {
   container.innerHTML = items.map(it => {
     const cls = it.change_pct >= 0 ? 'pos' : 'neg';
     const s = it.change_pct >= 0 ? '+' : '';
+    const yen = (it.change != null && it.change !== 0) ? `<span class="mover-chg-yen">${s}${fmtPrice(it.change)}</span>` : '';
     return `<div class="mover-row" onclick="selectStock('${it.symbol}')">
       <span class="mover-sym">${it.symbol}</span>
       <span></span>
       <span class="mover-price">${fmtPrice(it.price)}</span>
-      <span class="mover-chg ${cls}">${s}${it.change_pct.toFixed(2)}%</span>
+      <span class="mover-chg ${cls}"><span>${s}${it.change_pct.toFixed(2)}%</span>${yen}</span>
     </div>`;
   }).join('');
 }
 
-function renderMostActive(items, container) {
+function renderMostActive(items, container, by) {
   if (!container) return;
   if (!items || !items.length) {
     container.innerHTML = `<div style="padding:22.5px 10.5px;color:var(--text2);font-size:9px;text-align:center">—</div>`;
     return;
   }
+  // Default panel shows share count; turnover panel shows yen value instead.
+  const secondaryIsTurnover = by === 'turnover';
   container.innerHTML = items.map(it => {
-    const cls = (it.change_pct || 0) >= 0 ? 'pos' : 'neg';
-    const s = (it.change_pct || 0) >= 0 ? '+' : '';
-    const vol = it.volume ? fmtBig(it.volume) : '—';
-    return `<div class="mover-row" onclick="selectStock('${it.symbol}')" title="Vol ${vol}">
+    const pct = it.change_pct || 0;
+    const cls = pct >= 0 ? 'pos' : 'neg';
+    const s = pct >= 0 ? '+' : '';
+    const secondaryRaw = secondaryIsTurnover ? it.turnover : it.volume;
+    const secondary = secondaryRaw ? fmtBig(secondaryRaw) : '—';
+    const yen = (it.change != null && it.change !== 0) ? `<span class="mover-chg-yen">${s}${fmtPrice(it.change)}</span>` : '';
+    const title = secondaryIsTurnover ? `Turnover ¥${secondary}` : `Vol ${secondary}`;
+    return `<div class="mover-row" onclick="selectStock('${it.symbol}')" title="${title}">
       <span class="mover-sym">${it.symbol}</span>
-      <span style="color:var(--text2);font-size:8.25px;text-align:left">${vol}</span>
+      <span style="color:var(--text2);font-size:8.25px;text-align:left">${secondary}</span>
       <span class="mover-price">${fmtPrice(it.price)}</span>
-      <span class="mover-chg ${cls}">${s}${(it.change_pct || 0).toFixed(2)}%</span>
+      <span class="mover-chg ${cls}"><span>${s}${pct.toFixed(2)}%</span>${yen}</span>
     </div>`;
   }).join('');
 }
@@ -3007,6 +3188,10 @@ function setPerfRange(range) {
   renderPerfChart(filtered);
 }
 function renderPerfChart(data) {
+  // Remember the last rendered series so applyChartTheme() can re-render
+  // with current CSS variables after a theme swap.
+  if (data !== undefined) window._perfChartLastData = data;
+  else data = window._perfChartLastData;
   if (perfChart) { perfChart.destroy(); perfChart = null; }
   if (!data || data.length < 2) return;
   const canvas = document.getElementById('perf-chart');
@@ -4185,23 +4370,38 @@ async function loadAlerts() {
       body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">${t('no_alerts') || 'No alerts. Click + New Alert above to create one.'}</div></div>`;
       return;
     }
-    body.innerHTML = list.map(a => `<div class="alert-row">
+    const aboveLabel = t('cond_above') || 'Price crosses above';
+    const belowLabel = t('cond_below') || 'Price drops below';
+    body.innerHTML = list.map(a => {
+      const ref = Number(a.reference_price) || 0;
+      const up = a.up_pct != null ? Number(a.up_pct) : null;
+      const down = a.down_pct != null ? Number(a.down_pct) : null;
+      const parts = [];
+      if (up != null) parts.push({ dir: 'above', arrow: '▲', label: aboveLabel, pct: up, price: ref * (1 + up / 100) });
+      if (down != null) parts.push({ dir: 'below', arrow: '▼', label: belowLabel, pct: down, price: ref * (1 - down / 100) });
+      const condCell = parts.map(p => `${p.arrow} ${escHtml(p.label)} (${p.pct.toFixed(2)}%)`).join('<br>');
+      const priceCell = parts.map(p => fmtPrice(p.price)).join('<br>');
+      return `<div class="alert-row">
       <span style="font-weight:500">${escHtml(a.symbol)}</span>
-      <span>${a.condition === 'above' ? '▲ ' : '▼ '}${escHtml(a.condition)}</span>
-      <span class="num">${fmtPrice(a.threshold)}</span>
-      <span style="color:var(--text2);font-size:8.25px">${escHtml(a.note || '—')}</span>
+      <span>${condCell || '—'}</span>
+      <span class="num">${priceCell || '—'}</span>
+      <span style="color:var(--text2);font-size:8.25px">${escHtml(a.name || '—')}</span>
       <span style="color:var(--text2);font-size:8.25px">${escHtml((a.created_at || '').slice(0, 10))}</span>
       <span class="row-actions">
         <button class="row-btn danger" onclick="deleteAlert(${a.id})">${t('btn_delete') || 'Delete'}</button>
       </span>
-    </div>`).join('');
+    </div>`;
+    }).join('');
   } catch(e) {
     body.innerHTML = `<div class="empty-state"><div class="empty-state-sub">Failed to load alerts</div></div>`;
   }
 }
 
+let _alertCurrentPrice = null;
+
 function openAlertModal(prefillSymbol) {
   const sym = prefillSymbol || currentSymbol || '';
+  _alertCurrentPrice = null;
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `<div class="modal">
@@ -4213,44 +4413,152 @@ function openAlertModal(prefillSymbol) {
       <div class="modal-field"><label>${t('col_symbol') || 'Symbol'}</label>
         <input type="text" id="al-sym" value="${escHtml(sym)}" placeholder="7203 / AAPL"/>
       </div>
+      <div class="modal-field">
+        <div style="display:flex;gap:4.5px;margin-bottom:4.5px">
+          <button type="button" class="btn ct-btn active" id="al-mode-price" onclick="setAlertMode('price')">${t('alert_mode_price') || 'Absolute price'}</button>
+          <button type="button" class="btn ct-btn" id="al-mode-pct" onclick="setAlertMode('pct')">${t('alert_mode_pct') || '% change'}</button>
+        </div>
+      </div>
       <div class="modal-field"><label>${t('col_condition') || 'Condition'}</label>
-        <select id="al-cond">
-          <option value="above">${t('cond_above') || 'Price crosses above'}</option>
-          <option value="below">${t('cond_below') || 'Price drops below'}</option>
+        <select id="al-cond" onchange="updateAlertPreview()">
+          <option value="above" data-price="${escHtml(t('cond_above') || 'Price crosses above')}" data-pct="${escHtml(t('cond_pct_up') || 'Rises by')}">${t('cond_above') || 'Price crosses above'}</option>
+          <option value="below" data-price="${escHtml(t('cond_below') || 'Price drops below')}" data-pct="${escHtml(t('cond_pct_down') || 'Falls by')}">${t('cond_below') || 'Price drops below'}</option>
         </select>
       </div>
-      <div class="modal-field"><label>${t('col_threshold') || 'Threshold'}</label>
-        <input type="number" id="al-th" step="any" placeholder="2500"/>
+      <div class="modal-field" id="al-field-price"><label>${t('col_threshold') || 'Threshold'}</label>
+        <input type="number" id="al-th" step="any" placeholder="2500" oninput="updateAlertPreview()"/>
       </div>
+      <div class="modal-field" id="al-field-pct" style="display:none"><label>${t('alert_percent') || 'Percentage'} (%)</label>
+        <input type="number" id="al-pct" step="any" min="0" placeholder="20" oninput="updateAlertPreview()"/>
+      </div>
+      <div id="al-preview" style="display:none;font-size:9px;color:var(--text2);background:var(--surface2);padding:6px 9px;border-radius:4.5px;margin-bottom:6px"></div>
       <div class="modal-field"><label>${t('col_note') || 'Note'} (${t('optional') || 'optional'})</label>
-        <input type="text" id="al-note" placeholder="e.g. Take profit target"/>
+        <input type="text" id="al-note" placeholder="${escHtml(t('alert_note_placeholder') || 'e.g. Take profit target')}"/>
       </div>
       <div class="modal-msg" id="al-msg"></div>
       <div class="modal-actions">
-        <button class="btn" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-        <button class="btn primary" onclick="saveAlert()">Create</button>
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">${t('alert_cancel') || 'Cancel'}</button>
+        <button class="btn primary" onclick="saveAlert()">${t('alert_create') || 'Create'}</button>
       </div>
     </div>
   </div>`;
   document.body.appendChild(overlay);
+  const symInput = document.getElementById('al-sym');
+  symInput.addEventListener('change', fetchAlertCurrentPrice);
+  symInput.addEventListener('blur', fetchAlertCurrentPrice);
+  fetchAlertCurrentPrice();
+}
+
+async function fetchAlertCurrentPrice() {
+  const symEl = document.getElementById('al-sym');
+  if (!symEl) return;
+  const symbol = symEl.value.trim();
+  if (!symbol) { _alertCurrentPrice = null; updateAlertPreview(); return; }
+  try {
+    const r = await apiFetch('/api/quote/' + encodeURIComponent(symbol));
+    const d = await r.json();
+    _alertCurrentPrice = (d && d.price != null && !isNaN(d.price)) ? Number(d.price) : null;
+  } catch(e) {
+    _alertCurrentPrice = null;
+  }
+  updateAlertPreview();
+}
+
+function setAlertMode(mode) {
+  const priceBtn = document.getElementById('al-mode-price');
+  const pctBtn = document.getElementById('al-mode-pct');
+  const priceField = document.getElementById('al-field-price');
+  const pctField = document.getElementById('al-field-pct');
+  if (!priceBtn || !pctBtn) return;
+  const isPct = mode === 'pct';
+  priceBtn.classList.toggle('active', !isPct);
+  pctBtn.classList.toggle('active', isPct);
+  priceField.style.display = isPct ? 'none' : '';
+  pctField.style.display = isPct ? '' : 'none';
+  const condSel = document.getElementById('al-cond');
+  if (condSel) {
+    Array.from(condSel.options).forEach(opt => {
+      opt.textContent = isPct ? opt.dataset.pct : opt.dataset.price;
+    });
+  }
+  updateAlertPreview();
+}
+
+function getAlertMode() {
+  const pctBtn = document.getElementById('al-mode-pct');
+  return pctBtn && pctBtn.classList.contains('active') ? 'pct' : 'price';
+}
+
+function updateAlertPreview() {
+  const preview = document.getElementById('al-preview');
+  if (!preview) return;
+  const mode = getAlertMode();
+  const cur = _alertCurrentPrice;
+  const curLabel = t('alert_current_price') || 'Current price';
+  const trigLabel = t('alert_trigger_price') || 'Trigger price';
+  if (mode === 'price') {
+    if (cur != null) {
+      preview.style.display = '';
+      preview.textContent = `${curLabel}: ${fmtPrice(cur)}`;
+    } else {
+      preview.style.display = 'none';
+    }
+    return;
+  }
+  preview.style.display = '';
+  if (cur == null) {
+    preview.textContent = t('alert_price_unavailable') || 'Current price unavailable';
+    return;
+  }
+  const pctInput = document.getElementById('al-pct');
+  const cond = document.getElementById('al-cond').value;
+  const pct = parseFloat(pctInput && pctInput.value);
+  if (!pct || isNaN(pct) || pct <= 0) {
+    preview.textContent = `${curLabel}: ${fmtPrice(cur)}`;
+    return;
+  }
+  const trig = cond === 'above' ? cur * (1 + pct / 100) : cur * (1 - pct / 100);
+  preview.textContent = `${curLabel}: ${fmtPrice(cur)}  ·  ${trigLabel}: ${fmtPrice(trig)}`;
 }
 
 async function saveAlert() {
   const symbol = document.getElementById('al-sym').value.trim();
-  const condition = document.getElementById('al-cond').value;
-  const threshold = parseFloat(document.getElementById('al-th').value);
+  const condition = document.getElementById('al-cond').value; // 'above' | 'below'
   const note = document.getElementById('al-note').value.trim();
   const msg = document.getElementById('al-msg');
-  if (!symbol || !threshold) { msg.textContent = 'Symbol and threshold required'; msg.className = 'modal-msg err'; return; }
+  const mode = getAlertMode();
+  if (!symbol) {
+    msg.textContent = t('alert_required_msg') || 'Symbol and value required'; msg.className = 'modal-msg err'; return;
+  }
+  if (_alertCurrentPrice == null || _alertCurrentPrice <= 0) {
+    msg.textContent = t('alert_price_unavailable') || 'Current price unavailable'; msg.className = 'modal-msg err'; return;
+  }
+  const ref = _alertCurrentPrice;
+  let up_pct = null, down_pct = null;
+  if (mode === 'pct') {
+    const pct = parseFloat(document.getElementById('al-pct').value);
+    if (!pct || isNaN(pct) || pct <= 0) {
+      msg.textContent = t('alert_required_msg') || 'Symbol and value required'; msg.className = 'modal-msg err'; return;
+    }
+    if (condition === 'above') up_pct = pct; else down_pct = pct;
+  } else {
+    const threshold = parseFloat(document.getElementById('al-th').value);
+    if (!threshold || isNaN(threshold) || threshold <= 0) {
+      msg.textContent = t('alert_required_msg') || 'Symbol and value required'; msg.className = 'modal-msg err'; return;
+    }
+    const diff = (threshold / ref - 1) * 100;
+    if (diff >= 0) up_pct = diff; else down_pct = -diff;
+  }
   try {
     const r = await apiFetch('/api/alerts', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ symbol, condition, threshold, note })
+      body: JSON.stringify({ symbol, name: note, reference_price: ref, up_pct, down_pct })
     });
-    if (!r.ok) { const e = await r.json().catch(() => ({})); msg.textContent = e.error || 'Save failed'; msg.className = 'modal-msg err'; return; }
+    if (!r.ok) { const e = await r.json().catch(() => ({})); msg.textContent = e.error || (t('alert_save_failed') || 'Save failed'); msg.className = 'modal-msg err'; return; }
     document.querySelector('.modal-overlay')?.remove();
     if (currentRoute === 'alerts') loadAlerts();
-  } catch(e) { msg.textContent = 'Save failed'; msg.className = 'modal-msg err'; }
+    if (typeof applyAlertLines === 'function') applyAlertLines();
+  } catch(e) { msg.textContent = t('alert_save_failed') || 'Save failed'; msg.className = 'modal-msg err'; }
 }
 
 async function deleteAlert(id) {
@@ -4258,6 +4566,7 @@ async function deleteAlert(id) {
   try {
     await apiFetch('/api/alerts/' + id, { method: 'DELETE' });
     loadAlerts();
+    if (typeof applyAlertLines === 'function') applyAlertLines();
   } catch(e) {}
 }
 
@@ -4600,6 +4909,30 @@ function chartColors() {
            accent: _css('--accent'), green: _css('--up'), red: _css('--down'), text: _css('--text') };
 }
 
+// Re-apply theme colors to every already-rendered chart. lightweight-charts
+// and Chart.js both read CSS variables only at init time, so a theme swap
+// leaves the previous theme's grid/text colors baked in until the next data
+// refresh. Called from setTheme().
+function applyChartTheme() {
+  const c = chartColors();
+  // lightweight-charts: framework-level options (grid, borders, axis text)
+  if (typeof lwChart !== 'undefined' && lwChart) {
+    try {
+      lwChart.applyOptions({
+        layout: { textColor: c.text2 },
+        grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+        rightPriceScale: { borderColor: c.border },
+        timeScale: { borderColor: c.border },
+      });
+    } catch(e) {}
+    // Series colors (candle up/down, area line color) are baked into each
+    // series at creation time. Rebuild them by re-running renderLWChart().
+    try { if (typeof renderLWChart === 'function') renderLWChart(); } catch(e) {}
+  }
+  // Chart.js perfChart (portfolio performance): easiest way is to re-render.
+  try { if (typeof renderPerfChart === 'function' && typeof perfChart !== 'undefined' && perfChart) renderPerfChart(); } catch(e) {}
+}
+
 function initLWChart() {
   const container = document.getElementById('lw-chart');
   if (!container) return;
@@ -4709,6 +5042,8 @@ function renderLWChart() {
       mainSeries.createPriceLine({ price: holding.avg_cost, color: '#3b82f6', lineWidth: 0.75, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'Avg Cost ' + fmtPrice(holding.avg_cost) });
     } catch(e) {}
   }
+  // Price-alert lines for current symbol
+  applyAlertLines();
   // Volume
   if (activeIndicators.has('vol')) {
     volSeries = lwChart.addHistogramSeries({ color: c.accent+'60', priceFormat: { type: 'volume' }, priceScaleId: 'vol' });
@@ -4773,6 +5108,47 @@ async function setTxnMarkers(symbol) {
       .sort((a, b) => (a.time > b.time ? 1 : a.time < b.time ? -1 : 0));
     try { mainSeries.setMarkers(markers); } catch(e) {}
   } catch (e) { /* ignore */ }
+}
+
+// Horizontal dashed lines on the chart for each active price alert on the current symbol.
+let _alertLines = [];
+let _alertLinesSym = null;
+async function applyAlertLines() {
+  if (!mainSeries) return;
+  // Remove any existing alert lines
+  _alertLines.forEach(l => { try { mainSeries.removePriceLine(l); } catch(e) {} });
+  _alertLines = [];
+  const symbol = currentSymbol;
+  _alertLinesSym = symbol;
+  if (!symbol) return;
+  try {
+    const r = await apiFetch('/api/alerts');
+    const list = await r.json();
+    if (!Array.isArray(list) || !mainSeries || _alertLinesSym !== symbol) return;
+    const target = symbol.toUpperCase().trim();
+    const matching = list.filter(a => (a.symbol || '').toUpperCase().trim() === target);
+    const drawLine = (price, isAbove, note) => {
+      if (!isFinite(price) || price <= 0) return;
+      const color = isAbove ? '#00d4aa' : '#ff4d6a';
+      const arrow = isAbove ? '▲' : '▼';
+      const base = `${arrow} ${fmtPrice(price)}`;
+      const title = note ? `${base} — ${note}` : base;
+      try {
+        const line = mainSeries.createPriceLine({
+          price, color, lineWidth: 0.75,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true, title,
+        });
+        _alertLines.push(line);
+      } catch(e) {}
+    };
+    for (const a of matching) {
+      const ref = Number(a.reference_price);
+      if (!isFinite(ref) || ref <= 0) continue;
+      if (a.up_pct != null)   drawLine(ref * (1 + Number(a.up_pct)   / 100), true,  a.name);
+      if (a.down_pct != null) drawLine(ref * (1 - Number(a.down_pct) / 100), false, a.name);
+    }
+  } catch(e) { /* ignore */ }
 }
 
 function setChartType(type) {
