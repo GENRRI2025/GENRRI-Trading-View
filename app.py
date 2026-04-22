@@ -2121,6 +2121,118 @@ STATIC_SECTOR_MAP = {
     'AMT':'Real Estate','EQIX':'Real Estate',
 }
 
+# JP sector map — uses TSE 33-sector classification (東証33業種), the same
+# taxonomy Moomoo and JPX use. Covers Nikkei 225 constituents.
+# Used for .T tickers — takes precedence over yfinance's Western "sector" field
+# so the heatmap has more granular, JP-appropriate categories.
+NIKKEI_225_SECTORS = {
+    # Transportation Equipment (輸送用機器)
+    '7203.T':'Transportation Equipment','7267.T':'Transportation Equipment','7269.T':'Transportation Equipment',
+    '7270.T':'Transportation Equipment','7202.T':'Transportation Equipment','7261.T':'Transportation Equipment',
+    '7276.T':'Transportation Equipment','7012.T':'Transportation Equipment','7309.T':'Transportation Equipment',
+    # Electric Appliances (電気機器)
+    '6758.T':'Electric Appliances','6861.T':'Electric Appliances','8035.T':'Electric Appliances',
+    '6501.T':'Electric Appliances','6702.T':'Electric Appliances','6594.T':'Electric Appliances',
+    '7751.T':'Electric Appliances','6752.T':'Electric Appliances','6971.T':'Electric Appliances',
+    '6954.T':'Electric Appliances','6981.T':'Electric Appliances','6723.T':'Electric Appliances',
+    '6503.T':'Electric Appliances','6674.T':'Electric Appliances','6770.T':'Electric Appliances',
+    '6506.T':'Electric Appliances','3436.T':'Electric Appliances','6479.T':'Electric Appliances',
+    '6504.T':'Electric Appliances','6645.T':'Electric Appliances',
+    # Information & Communication (情報・通信業)
+    '9984.T':'Information & Communication','9432.T':'Information & Communication','9433.T':'Information & Communication',
+    '9434.T':'Information & Communication','9613.T':'Information & Communication','4689.T':'Information & Communication',
+    '4704.T':'Information & Communication','3659.T':'Information & Communication','4676.T':'Information & Communication',
+    '4443.T':'Information & Communication','2371.T':'Information & Communication','9766.T':'Information & Communication',
+    # Services (サービス業)
+    '6098.T':'Services','6178.T':'Services','2413.T':'Services','2432.T':'Services',
+    '4324.T':'Services','4661.T':'Services','4751.T':'Services','4755.T':'Services',
+    '9735.T':'Services','9602.T':'Services',
+    # Banks (銀行業)
+    '8306.T':'Banks','8316.T':'Banks','8411.T':'Banks','8308.T':'Banks',
+    '7182.T':'Banks','8331.T':'Banks',
+    # Insurance (保険業)
+    '8766.T':'Insurance','8725.T':'Insurance','8750.T':'Insurance',
+    # Securities & Commodity Futures (証券、商品先物取引業)
+    '8601.T':'Securities & Commodity Futures',
+    # Other Financing Business (その他金融業)
+    '8591.T':'Other Financing Business',
+    # Pharmaceutical (医薬品)
+    '4519.T':'Pharmaceutical','4502.T':'Pharmaceutical','4568.T':'Pharmaceutical','4503.T':'Pharmaceutical',
+    '4507.T':'Pharmaceutical','4523.T':'Pharmaceutical','4506.T':'Pharmaceutical','4578.T':'Pharmaceutical',
+    '4528.T':'Pharmaceutical',
+    # Chemicals (化学)
+    '4063.T':'Chemicals','4452.T':'Chemicals','4901.T':'Chemicals','4911.T':'Chemicals',
+    '4005.T':'Chemicals','6988.T':'Chemicals','4042.T':'Chemicals','4004.T':'Chemicals',
+    '4021.T':'Chemicals','4061.T':'Chemicals','4183.T':'Chemicals','4188.T':'Chemicals',
+    '4208.T':'Chemicals','4272.T':'Chemicals','3401.T':'Chemicals','3402.T':'Chemicals',
+    '3405.T':'Chemicals','3407.T':'Chemicals','4631.T':'Chemicals',
+    # Machinery (機械)
+    '6367.T':'Machinery','6273.T':'Machinery','6301.T':'Machinery','7011.T':'Machinery',
+    '7013.T':'Machinery','6146.T':'Machinery','6326.T':'Machinery','7004.T':'Machinery',
+    '6103.T':'Machinery','6113.T':'Machinery','6302.T':'Machinery','6305.T':'Machinery',
+    '6361.T':'Machinery','6471.T':'Machinery','6472.T':'Machinery','6473.T':'Machinery',
+    '5631.T':'Machinery',
+    # Precision Instruments (精密機器)
+    '7741.T':'Precision Instruments','4543.T':'Precision Instruments','7733.T':'Precision Instruments',
+    '7731.T':'Precision Instruments','7762.T':'Precision Instruments',
+    # Wholesale Trade (卸売業)
+    '8058.T':'Wholesale Trade','8031.T':'Wholesale Trade','8001.T':'Wholesale Trade',
+    '8053.T':'Wholesale Trade','2768.T':'Wholesale Trade','8002.T':'Wholesale Trade','8015.T':'Wholesale Trade',
+    # Retail Trade (小売業)
+    '9983.T':'Retail Trade','8267.T':'Retail Trade','3382.T':'Retail Trade',
+    '3086.T':'Retail Trade','3099.T':'Retail Trade','9843.T':'Retail Trade','9989.T':'Retail Trade',
+    # Foods (食料品)
+    '2914.T':'Foods','2002.T':'Foods','2269.T':'Foods','2282.T':'Foods',
+    '2501.T':'Foods','2502.T':'Foods','2503.T':'Foods','2531.T':'Foods',
+    '2801.T':'Foods','2802.T':'Foods','2871.T':'Foods',
+    # Land Transportation (陸運業)
+    '9022.T':'Land Transportation','9020.T':'Land Transportation','9021.T':'Land Transportation',
+    '9007.T':'Land Transportation','9008.T':'Land Transportation','9009.T':'Land Transportation',
+    '9062.T':'Land Transportation','9064.T':'Land Transportation','9147.T':'Land Transportation',
+    # Marine Transportation (海運業)
+    '9101.T':'Marine Transportation','9104.T':'Marine Transportation','9107.T':'Marine Transportation',
+    # Air Transportation (空運業)
+    '9202.T':'Air Transportation',
+    # Warehousing & Harbor Transportation (倉庫・運輸関連業)
+    '9301.T':'Warehousing',
+    # Construction (建設業)
+    '1925.T':'Construction','1721.T':'Construction','1801.T':'Construction','1802.T':'Construction',
+    '1803.T':'Construction','1808.T':'Construction','1812.T':'Construction','1928.T':'Construction',
+    '1963.T':'Construction',
+    # Iron & Steel (鉄鋼)
+    '5401.T':'Iron & Steel','5411.T':'Iron & Steel',
+    # Nonferrous Metals (非鉄金属)
+    '5802.T':'Nonferrous Metals','5541.T':'Nonferrous Metals','5703.T':'Nonferrous Metals',
+    '5706.T':'Nonferrous Metals','5707.T':'Nonferrous Metals','5711.T':'Nonferrous Metals',
+    '5713.T':'Nonferrous Metals','5714.T':'Nonferrous Metals','5801.T':'Nonferrous Metals',
+    '5803.T':'Nonferrous Metals',
+    # Metal Products (金属製品)
+    '5901.T':'Metal Products',
+    # Real Estate (不動産業)
+    '8802.T':'Real Estate','8801.T':'Real Estate','3289.T':'Real Estate','8804.T':'Real Estate','8830.T':'Real Estate',
+    # Electric Power & Gas (電気・ガス業)
+    '9501.T':'Electric Power & Gas','9502.T':'Electric Power & Gas','9531.T':'Electric Power & Gas',
+    '9532.T':'Electric Power & Gas',
+    # Oil & Coal Products (石油・石炭製品)
+    '5020.T':'Oil & Coal Products','5019.T':'Oil & Coal Products',
+    # Rubber Products (ゴム製品)
+    '5108.T':'Rubber Products','5101.T':'Rubber Products',
+    # Glass & Ceramics Products (ガラス・土石製品)
+    '5201.T':'Glass & Ceramics','5202.T':'Glass & Ceramics','5214.T':'Glass & Ceramics',
+    '5232.T':'Glass & Ceramics','5233.T':'Glass & Ceramics','5301.T':'Glass & Ceramics',
+    '5332.T':'Glass & Ceramics','5333.T':'Glass & Ceramics',
+    # Pulp & Paper (パルプ・紙)
+    '3861.T':'Pulp & Paper','3863.T':'Pulp & Paper','3864.T':'Pulp & Paper',
+    # Textiles & Apparel (繊維製品)
+    '3101.T':'Textiles & Apparel','3103.T':'Textiles & Apparel','3105.T':'Textiles & Apparel',
+    # Other Products (その他製品)
+    '7974.T':'Other Products','7832.T':'Other Products','7912.T':'Other Products',
+    # Fishery, Agriculture & Forestry (水産・農林業)
+    '1332.T':'Fishery & Agriculture',
+    # Mining (鉱業)
+    '1605.T':'Mining',
+}
+
 
 def _movers_refresh():
     """Batch-fetch the curated universe via yf.download, compute top gainers/losers
@@ -2150,12 +2262,19 @@ def _movers_refresh():
                         prev = float(closes.iloc[-2])
                         change = price - prev
                         change_pct = (change / prev * 100) if prev else 0
+                        # Capture volume + turnover for the Most Active fallback.
+                        try:
+                            vol = int(float(sym_df['Volume'].dropna().iloc[-1]))
+                        except Exception:
+                            vol = 0
                         results.append({
                             'symbol': sym,
                             'price': round(price, 2),
                             'change': round(change, 2),
                             'change_pct': round(change_pct, 2),
                             'prev_close': round(prev, 2),
+                            'volume': vol,
+                            'turnover': int(price * vol),
                         })
                     except Exception:
                         pass
@@ -2165,9 +2284,18 @@ def _movers_refresh():
 
     now = _dt.now()
 
+    def _looks_stale(results):
+        # yfinance sometimes burps and returns today.Close == yesterday.Close
+        # for the whole universe (e.g. right at market open before first tick,
+        # or transient API glitches). Reject if >70% come back at exactly 0%.
+        if not results:
+            return True
+        zero_count = sum(1 for r in results if r.get('change_pct') == 0)
+        return zero_count / len(results) > 0.7
+
     # JP universe
     jp_results = _fetch_universe(NIKKEI_225_TICKERS, 'jp')
-    if jp_results:
+    if jp_results and not _looks_stale(jp_results):
         sorted_by_pct = sorted(jp_results, key=lambda r: r['change_pct'], reverse=True)
         _MOVERS_CACHE['jp'] = {
             'gainers': sorted_by_pct[:10],
@@ -2177,10 +2305,12 @@ def _movers_refresh():
         }
         # Heat map: aggregate by sector using STOCK_INFO_CACHE
         _HEATMAP_CACHE['jp'] = _compute_heatmap(jp_results)
+    elif jp_results:
+        print('[movers] JP refresh rejected (stale: >70% at 0%). Keeping previous cache.', flush=True)
 
     # US universe
     us_results = _fetch_universe(SP500_TOP_TICKERS, 'us')
-    if us_results:
+    if us_results and not _looks_stale(us_results):
         sorted_by_pct = sorted(us_results, key=lambda r: r['change_pct'], reverse=True)
         _MOVERS_CACHE['us'] = {
             'gainers': sorted_by_pct[:10],
@@ -2189,18 +2319,30 @@ def _movers_refresh():
             'universe_size': len(us_results),
         }
         _HEATMAP_CACHE['us'] = _compute_heatmap(us_results)
+    elif us_results:
+        print('[movers] US refresh rejected (stale: >70% at 0%). Keeping previous cache.', flush=True)
 
     print(f'[movers] Refreshed: JP={len(jp_results)} US={len(us_results)}', flush=True)
 
 
 def _compute_heatmap(results):
-    """Group results by sector (from STOCK_INFO_CACHE, with static fallback)."""
+    """Group results by sector.
+    - For .T tickers: prefer NIKKEI_225_SECTORS (TSE 33-sector taxonomy).
+    - For US tickers: fall through to yfinance sector then STATIC_SECTOR_MAP.
+    Mixing the two taxonomies in a single heatmap is avoided because
+    _compute_heatmap is always called per-region.
+    """
     sectors = {}
     for r in results:
         sym = r['symbol']
-        # Look up sector from cached stock info (populated lazily elsewhere)
-        cached_info = STOCK_INFO_CACHE.get(sym, {}).get('data') if STOCK_INFO_CACHE.get(sym) else None
-        sector = (cached_info or {}).get('sector') or STATIC_SECTOR_MAP.get(sym) or 'Unknown'
+        sector = None
+        # TSE 33-sector classification wins for JP tickers (overrides yfinance's
+        # Western grouping of Toyota/Sony/etc. into Consumer Cyclical/Technology).
+        if sym.endswith('.T'):
+            sector = NIKKEI_225_SECTORS.get(sym)
+        if not sector:
+            cached_info = STOCK_INFO_CACHE.get(sym, {}).get('data') if STOCK_INFO_CACHE.get(sym) else None
+            sector = (cached_info or {}).get('sector') or STATIC_SECTOR_MAP.get(sym) or 'Other'
         if sector not in sectors:
             sectors[sector] = {'sector': sector, 'stocks': [], 'change_sum': 0.0, 'count': 0}
         sectors[sector]['stocks'].append(r)
@@ -2241,14 +2383,139 @@ def _movers_background():
         _time.sleep(_MOVERS_INTERVAL)
 
 
+# ── Kabu real-time rankings (JP only) ─────────────────────────────
+# Response cache — short TTL since Kabu returns real-time data.
+_KABU_RANKING_CACHE = {}   # { type: { 'rows': [...], 'ts': datetime } }
+_KABU_RANKING_TTL = 45     # seconds
+
+def _kabu_ranking(ranking_type):
+    """Return a list of rows in our app's mover-row shape, or None if Kabu
+    unavailable / call failed. Cached 45s per type."""
+    if not HAS_KABU:
+        return None
+    kabu = _get_kabu_client()
+    if not kabu or not kabu.is_connected():
+        return None
+    now = datetime.now()
+    cached = _KABU_RANKING_CACHE.get(ranking_type)
+    if cached and (now - cached['ts']).total_seconds() < _KABU_RANKING_TTL:
+        return cached['rows']
+    try:
+        resp = kabu.get_ranking(ranking_type=ranking_type, exchange='T')
+    except Exception as e:
+        print(f'[kabu-ranking] type={ranking_type} failed: {e}', flush=True)
+        return None
+    if not resp or 'Ranking' not in resp:
+        return None
+    rows = []
+    for r in resp.get('Ranking') or []:
+        sym = (r.get('Symbol') or '').strip()
+        if not sym:
+            continue
+        app_sym = sym + '.T'  # our internal symbol format
+        try:
+            price = float(r.get('CurrentPrice') or 0)
+            prev = float(r.get('ChangePreviousClose') and (price - r.get('ChangePreviousClose')) or 0)
+            # Ranking payload uses `ChangeRatio` for gain/loss Types (1,2) — use it when present
+            chg_pct = r.get('ChangeRatio')
+            if chg_pct is None:
+                # Fall back to difference: ChangeRatio on volume/turnover rankings is not sent
+                chg_pct = (price - prev) / prev * 100 if prev else 0
+            row = {
+                'symbol': app_sym,
+                'name': r.get('SymbolName') or '',
+                'price': round(price, 2),
+                'prev_close': round(prev, 2),
+                'change': round(price - prev, 2),
+                'change_pct': round(float(chg_pct), 2),
+                'volume': int(r.get('TradingVolume') or 0),
+                'turnover': int(r.get('Turnover') or 0),
+            }
+            rows.append(row)
+        except Exception:
+            continue
+    _KABU_RANKING_CACHE[ranking_type] = {'rows': rows, 'ts': now}
+    return rows
+
+
 @app.route('/api/market/movers')
 def market_movers():
-    """Top gainers and losers from curated universe.
-    Query: ?region=jp|us (default jp)."""
+    """Top gainers and losers.
+    Query: ?region=jp|us (default jp).
+
+    For JP: prefer real-time Kabu ranking (Types 1/2). Fall back to the
+    yfinance-backed _MOVERS_CACHE when Kabu is disconnected or errors.
+    For US: yfinance only.
+    """
     region = request.args.get('region', 'jp').lower()
     if region not in ('jp', 'us'):
         region = 'jp'
-    return jsonify(_MOVERS_CACHE.get(region, {'gainers': [], 'losers': [], 'ts': None}))
+
+    if region == 'jp':
+        g = _kabu_ranking(1)
+        l = _kabu_ranking(2)
+        if g is not None and l is not None:
+            return jsonify({
+                'gainers': g[:10],
+                'losers':  l[:10],
+                'ts': datetime.now().isoformat(),
+                'source': 'kabu_realtime',
+                'universe': 'TSE',
+            })
+        # Fall through to yfinance cache
+        fallback = dict(_MOVERS_CACHE.get('jp') or {'gainers': [], 'losers': [], 'ts': None})
+        fallback['source'] = 'yahoo_cached'
+        fallback['universe'] = 'Nikkei 225'
+        return jsonify(fallback)
+
+    fallback = dict(_MOVERS_CACHE.get('us') or {'gainers': [], 'losers': [], 'ts': None})
+    fallback['source'] = 'yahoo_cached'
+    fallback['universe'] = 'S&P 500'
+    return jsonify(fallback)
+
+
+@app.route('/api/market/most-active')
+def market_most_active():
+    """Most active by volume.
+    Query: ?region=jp|us (default jp).
+
+    For JP: prefer Kabu ranking Type=3. Fall back to yfinance cache sorted by
+    volume when Kabu is disconnected.
+    For US: yfinance cache sorted by volume.
+    """
+    region = request.args.get('region', 'jp').lower()
+    if region not in ('jp', 'us'):
+        region = 'jp'
+
+    if region == 'jp':
+        rows = _kabu_ranking(3)
+        if rows is not None:
+            return jsonify({
+                'rows': rows[:10],
+                'ts': datetime.now().isoformat(),
+                'source': 'kabu_realtime',
+                'universe': 'TSE',
+            })
+        # yfinance fallback: sort by volume field (if present)
+        src = _MOVERS_CACHE.get('jp') or {}
+        all_rows = (src.get('gainers') or []) + (src.get('losers') or [])
+        active = sorted(all_rows, key=lambda r: r.get('volume') or 0, reverse=True)[:10]
+        return jsonify({
+            'rows': active,
+            'ts': src.get('ts'),
+            'source': 'yahoo_cached',
+            'universe': 'Nikkei 225',
+        })
+
+    src = _MOVERS_CACHE.get('us') or {}
+    all_rows = (src.get('gainers') or []) + (src.get('losers') or [])
+    active = sorted(all_rows, key=lambda r: r.get('volume') or 0, reverse=True)[:10]
+    return jsonify({
+        'rows': active,
+        'ts': src.get('ts'),
+        'source': 'yahoo_cached',
+        'universe': 'S&P 500',
+    })
 
 
 @app.route('/api/market/heatmap')
@@ -2259,6 +2526,92 @@ def market_heatmap():
     if region not in ('jp', 'us'):
         region = 'jp'
     return jsonify(_HEATMAP_CACHE.get(region, {'sectors': [], 'ts': None}))
+
+
+# ── Earnings Calendar (yfinance, per-ticker with 6-hour cache) ────
+_EARNINGS_CACHE = {}          # { symbol: { 'earnings_date': 'YYYY-MM-DD'|None, 'name': str, 'ts': datetime } }
+_EARNINGS_CACHE_TTL = 6 * 3600  # 6 hours
+
+def _earnings_for(sym):
+    """Return {'earnings_date': 'YYYY-MM-DD'|None, 'name': str} for one symbol,
+    cached 6 hours. A miss / fetch error caches None so we don't retry in a loop."""
+    now = datetime.now()
+    cached = _EARNINGS_CACHE.get(sym)
+    if cached and (now - cached['ts']).total_seconds() < _EARNINGS_CACHE_TTL:
+        return cached
+    try:
+        ticker = yf.Ticker(sym)
+        cal = ticker.calendar or {}
+        earnings = cal.get('Earnings Date') if isinstance(cal, dict) else None
+        dt = earnings[0] if isinstance(earnings, list) and earnings else earnings
+        date_str = None
+        if dt:
+            # dt can be datetime.date or datetime.datetime
+            date_str = dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
+            if len(date_str) >= 10:
+                date_str = date_str[:10]
+        name = ''
+        try:
+            name = (ticker.info or {}).get('shortName') or ''
+        except Exception:
+            name = ''
+        entry = {'earnings_date': date_str, 'name': name, 'ts': now}
+        _EARNINGS_CACHE[sym] = entry
+        return entry
+    except Exception:
+        entry = {'earnings_date': None, 'name': '', 'ts': now}
+        _EARNINGS_CACHE[sym] = entry
+        return entry
+
+
+@app.route('/api/market/earnings-calendar')
+def market_earnings_calendar():
+    """Upcoming earnings across Nikkei 225 + authenticated user's holdings & watchlist.
+    Query: ?days=N (default 7). Sorted by date ASC, deduped by symbol.
+
+    Warmup cost: first call after restart fetches per-ticker calendars
+    (~225 + user stocks). Subsequent calls hit the 6-hour cache.
+    """
+    try:
+        days = int(request.args.get('days', 7))
+    except Exception:
+        days = 7
+    days = max(1, min(days, 60))
+
+    uid, err = get_auth_user()
+    user_syms = set()
+    if not err and uid:
+        try:
+            conn = get_db()
+            user_syms |= {r[0] for r in conn.execute('SELECT DISTINCT symbol FROM holdings WHERE user_id = ?', (uid,)).fetchall()}
+            user_syms |= {r[0] for r in conn.execute('SELECT DISTINCT symbol FROM watchlist WHERE user_id = ?', (uid,)).fetchall()}
+            conn.close()
+        except Exception:
+            pass
+
+    universe = set(NIKKEI_225_TICKERS) | user_syms
+    # Drop index/fx symbols that don't have earnings
+    universe = {s for s in universe if s and not s.startswith('^') and 'USDJPY' not in s}
+
+    today = datetime.now().date()
+    cutoff = today + timedelta(days=days)
+
+    out = []
+    for sym in universe:
+        entry = _earnings_for(sym)
+        d = entry.get('earnings_date')
+        if not d:
+            continue
+        try:
+            parsed = datetime.strptime(d, '%Y-%m-%d').date()
+        except Exception:
+            continue
+        if parsed < today or parsed > cutoff:
+            continue
+        out.append({'symbol': sym, 'name': entry.get('name') or '', 'earnings_date': d})
+
+    out.sort(key=lambda x: (x['earnings_date'], x['symbol']))
+    return jsonify({'rows': out, 'ts': datetime.now().isoformat(), 'days': days, 'source': 'yahoo_cached'})
 
 
 # ── Stock News ────────────────────────────────────────────────────

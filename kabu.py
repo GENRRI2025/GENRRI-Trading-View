@@ -421,6 +421,33 @@ class KabuClient:
         code, exchange = self.to_kabu_symbol(app_symbol)
         return self._request('GET', f'/symbol/{code}@{exchange}')
 
+    # ── Rankings ──────────────────────────────────────────────────
+
+    # Kabu ranking types (see Kabu Station API docs /ranking):
+    #   1 = 値上り率 (top gainers %)
+    #   2 = 値下り率 (top losers %)
+    #   3 = 売買高 (most active by volume)
+    #   4 = 売買代金 (most active by turnover / JPY)
+    #   5 = TICK回数 (most tick-traded)
+    #   6 = 売買高急増 (volume surge)
+    #   7 = 売買代金急増 (turnover surge)
+    # ExchangeDivision values:
+    #   'ALL' = all listings (equities)
+    #   'T'   = 東証全体 (all TSE: Prime + Standard + Growth)
+    #   'TP'  = 東証プライム (Prime only)
+    #   'TM'  = 東証スタンダード / グロース (Standard/Growth)
+    #   'TM1' = 東証グロース
+    def get_ranking(self, ranking_type=1, exchange='T'):
+        """GET /ranking — real-time market-wide ranking. Returns top 30 rows.
+        On success, response has key 'Ranking' (list of dicts)."""
+        try:
+            t = int(ranking_type)
+        except Exception:
+            t = 1
+        if t < 1 or t > 7:
+            t = 1
+        return self._request('GET', f'/ranking?Type={t}&ExchangeDivision={exchange}')
+
     # ── Availability Check ────────────────────────────────────────
 
     @staticmethod
