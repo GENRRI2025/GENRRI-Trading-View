@@ -6,5 +6,6 @@ __pycache__/
 .env
 venv/
 stock_info_cache.json
+all_time_cache.json
 .claude/
 genrri.db

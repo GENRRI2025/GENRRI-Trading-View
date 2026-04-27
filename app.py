@@ -401,7 +401,13 @@ def get_auth_user():
 
 
 def ensure_user_portfolio(conn, user_id):
-    """Create portfolio + default settings for a new user if not yet present."""
+    """Create portfolio + default settings for a new user if not yet present.
+
+    We auto-create the main sub_portfolio only when the user has ZERO
+    portfolios at all. Previously we recreated it whenever id=main_{uid} was
+    missing, which meant deleting "My Portfolio" always resurrected it even
+    if the user had other portfolios. That broke the intended delete flow.
+    """
     row = conn.execute('SELECT id FROM portfolio WHERE user_id = ?', (user_id,)).fetchone()
     if not row:
         fund_row = conn.execute("SELECT value FROM settings WHERE user_id = 'default' AND key = 'fund_amount'").fetchone()
@@ -410,10 +416,12 @@ def ensure_user_portfolio(conn, user_id):
         for key, val in [('fund_amount', str(int(fund))), ('theme', 'dark')]:
             conn.execute('INSERT OR IGNORE INTO settings (user_id, key, value) VALUES (?, ?, ?)', (user_id, key, val))
         conn.commit()
-    # Ensure a 'main' sub_portfolio exists
+    # Only bootstrap a main sub_portfolio when the user has NONE. If they
+    # have any other sub_portfolio, we respect their choice — including the
+    # choice to delete the one formerly known as "main".
     main_id = f'main_{user_id}'
-    sp = conn.execute('SELECT id FROM sub_portfolios WHERE id = ?', (main_id,)).fetchone()
-    if not sp:
+    any_sp = conn.execute('SELECT 1 FROM sub_portfolios WHERE user_id = ? LIMIT 1', (user_id,)).fetchone()
+    if not any_sp:
         fund_row = conn.execute("SELECT value FROM settings WHERE user_id = ? AND key = 'fund_amount'", (user_id,)).fetchone()
         if not fund_row:
             fund_row = conn.execute("SELECT value FROM settings WHERE user_id = 'default' AND key = 'fund_amount'").fetchone()
@@ -756,15 +764,21 @@ def _load_stock_info_cache():
     except Exception as e:
         print(f'[stock-info] Failed to load disk cache: {e}', flush=True)
 
+_STOCK_INFO_DISK_LOCK = threading.Lock()
+
 def _save_stock_info_cache():
-    """Persist stock info cache to disk."""
+    """Persist stock info cache to disk atomically."""
     try:
         import json
-        out = {sym: {'data': e['data'], 'ts': e['ts'].isoformat()} for sym, e in STOCK_INFO_CACHE.items()}
-        with open(STOCK_INFO_DISK_CACHE, 'w') as f:
-            json.dump(out, f)
-    except Exception:
-        pass
+        snapshot = list(STOCK_INFO_CACHE.items())
+        out = {sym: {'data': e['data'], 'ts': e['ts'].isoformat()} for sym, e in snapshot}
+        with _STOCK_INFO_DISK_LOCK:
+            tmp = STOCK_INFO_DISK_CACHE + '.tmp'
+            with open(tmp, 'w') as f:
+                json.dump(out, f)
+            os.replace(tmp, STOCK_INFO_DISK_CACHE)
+    except Exception as e:
+        print(f'[stock-info] Failed to save disk cache: {e}', flush=True)
 
 def _fetch_finnhub_quote(symbol):
     """Fetch a real-time quote from Finnhub for a US stock."""
@@ -1143,6 +1157,7 @@ def _fetch_chart_data(symbol, yf_period, yf_interval, is_intraday):
     hist = ticker.history(period=yf_period, interval=yf_interval)
     chart_data = []
     seen_times = set()
+    import math as _math
     for ts, row in hist.iterrows():
         if is_intraday:
             t = int(ts.timestamp()) + JST_OFFSET
@@ -1150,14 +1165,24 @@ def _fetch_chart_data(symbol, yf_period, yf_interval, is_intraday):
             t = ts.strftime('%Y-%m-%d')
         if t in seen_times:
             continue
+        try:
+            o, h, l, c = float(row['Open']), float(row['High']), float(row['Low']), float(row['Close'])
+        except (TypeError, ValueError):
+            continue
+        if not all(_math.isfinite(v) for v in (o, h, l, c)):
+            continue
+        try:
+            v = int(row['Volume']) if _math.isfinite(float(row['Volume'])) else 0
+        except (TypeError, ValueError):
+            v = 0
         seen_times.add(t)
         chart_data.append({
             'time': t,
-            'open':   round(float(row['Open']),  2),
-            'high':   round(float(row['High']),  2),
-            'low':    round(float(row['Low']),   2),
-            'close':  round(float(row['Close']), 2),
-            'volume': int(row['Volume'])
+            'open':   round(o, 2),
+            'high':   round(h, 2),
+            'low':    round(l, 2),
+            'close':  round(c, 2),
+            'volume': v
         })
     return chart_data
 
@@ -1350,16 +1375,20 @@ def _load_ath_cache():
     except Exception:
         pass
 
+_ATH_DISK_LOCK = threading.Lock()
+
 def _save_ath_cache():
     try:
         import json as _json
-        out = {}
-        for sym, v in _ATH_CACHE.items():
-            out[sym] = {**v, 'ts': v['ts'].isoformat()}
-        with open(_ATH_DISK, 'w') as f:
-            _json.dump(out, f)
-    except Exception:
-        pass
+        snapshot = list(_ATH_CACHE.items())
+        out = {sym: {**v, 'ts': v['ts'].isoformat()} for sym, v in snapshot}
+        with _ATH_DISK_LOCK:
+            tmp = _ATH_DISK + '.tmp'
+            with open(tmp, 'w') as f:
+                _json.dump(out, f)
+            os.replace(tmp, _ATH_DISK)
+    except Exception as e:
+        print(f'[ath] Failed to save disk cache: {e}', flush=True)
 
 _load_ath_cache()
 
@@ -2984,6 +3013,243 @@ Keep the response under 600 words. Be specific with numbers."""
         return jsonify({'error': 'ANALYSIS_FAILED', 'message': str(e)}), 500
 
 
+# ═══════════════════ FISCAL YEAR P&L HELPERS ═══════════════════
+
+def get_fy_config(conn, user_id):
+    """Read (fy_start_month, fy_start_day) for a user, defaults July 1."""
+    rows = conn.execute(
+        "SELECT key, value FROM settings WHERE user_id = ? AND key IN ('fy_start_month', 'fy_start_day')",
+        (user_id,)
+    ).fetchall()
+    s = {r['key']: r['value'] for r in rows}
+    try:
+        month = int(s.get('fy_start_month', 7))
+        day = int(s.get('fy_start_day', 1))
+    except (ValueError, TypeError):
+        month, day = 7, 1
+    if not (1 <= month <= 12):
+        month = 7
+    if not (1 <= day <= 31):
+        day = 1
+    return month, day
+
+
+def get_fiscal_year_bounds(fy_start_month, fy_start_day, year=None):
+    """Return (start_date, end_date) for the FY labeled by `year` (start year).
+    If year is None, returns the CURRENT fiscal year based on today in server local time.
+    FY2025 with Jul 1 start = 2025-07-01 through 2026-06-30.
+    """
+    from datetime import date, timedelta
+    today = date.today()
+    # Clamp day to valid range for the given month to avoid Feb 30 etc.
+    def _safe_date(y, m, d):
+        try:
+            return date(y, m, d)
+        except ValueError:
+            # Fallback: last valid day of the month
+            import calendar
+            last_day = calendar.monthrange(y, m)[1]
+            return date(y, m, min(d, last_day))
+    if year is None:
+        current_start = _safe_date(today.year, fy_start_month, fy_start_day)
+        if today < current_start:
+            year = today.year - 1
+        else:
+            year = today.year
+    start_date = _safe_date(year, fy_start_month, fy_start_day)
+    next_start = _safe_date(year + 1, fy_start_month, fy_start_day)
+    end_date = next_start - timedelta(days=1)
+    return start_date, end_date
+
+
+def calc_fy_pnl(conn, uid, pid, fy_year,
+                current_total_value=None, current_net_deposits=None):
+    """Compute simple-FY-return P&L for a fiscal year.
+
+    Returns a dict describing the period, or None when the portfolio has
+    insufficient snapshot data to compute a meaningful baseline.
+
+    Formula:
+      fy_pnl = end_value − start_value − (end_net_deposits − start_net_deposits)
+    This correctly excludes externally-added cash from the P&L calculation.
+
+    For the CURRENT FY (today <= fy_end), end_value/end_net_deposits come
+    from the live portfolio state passed in by the caller, not from a
+    snapshot (snapshots are end-of-day and can be stale mid-day).
+    """
+    from datetime import date, timedelta
+    month, day = get_fy_config(conn, uid)
+    fy_start, fy_end = get_fiscal_year_bounds(month, day, fy_year)
+    today = date.today()
+
+    # Baseline: the snapshot on-or-before the day BEFORE fy_start.
+    # E.g. FY2025 starts 2025-07-01, so we want the snapshot <= 2025-06-30.
+    baseline_cutoff = (fy_start - timedelta(days=1)).isoformat()
+    baseline_row = conn.execute(
+        "SELECT total_value, COALESCE(net_deposits, 0) AS net_deposits FROM portfolio_snapshots "
+        "WHERE user_id = ? AND portfolio_id = ? AND date <= ? "
+        "ORDER BY date DESC LIMIT 1",
+        (uid, pid, baseline_cutoff)
+    ).fetchone()
+
+    if today <= fy_end and current_total_value is not None:
+        # In-progress FY — use live values
+        end_value = float(current_total_value)
+        end_net_deposits = float(current_net_deposits or 0)
+        in_progress = True
+    else:
+        end_row = conn.execute(
+            "SELECT total_value, COALESCE(net_deposits, 0) AS net_deposits FROM portfolio_snapshots "
+            "WHERE user_id = ? AND portfolio_id = ? AND date <= ? "
+            "ORDER BY date DESC LIMIT 1",
+            (uid, pid, fy_end.isoformat())
+        ).fetchone()
+        if not end_row:
+            return None
+        end_value = float(end_row['total_value'])
+        end_net_deposits = float(end_row['net_deposits'])
+        in_progress = False
+
+    if baseline_row is None:
+        # User had no snapshot before the FY started (joined mid-FY or earlier
+        # data pruned). Treat the earliest in-FY snapshot as the baseline so we
+        # at least show directional change since activity began.
+        first_in_fy = conn.execute(
+            "SELECT total_value, COALESCE(net_deposits, 0) AS net_deposits FROM portfolio_snapshots "
+            "WHERE user_id = ? AND portfolio_id = ? AND date >= ? AND date <= ? "
+            "ORDER BY date ASC LIMIT 1",
+            (uid, pid, fy_start.isoformat(), fy_end.isoformat())
+        ).fetchone()
+        if not first_in_fy:
+            return None
+        start_value = float(first_in_fy['total_value'])
+        start_net_deposits = float(first_in_fy['net_deposits'])
+        incomplete = True
+    else:
+        start_value = float(baseline_row['total_value'])
+        start_net_deposits = float(baseline_row['net_deposits'])
+        incomplete = False
+
+    net_deposits_in_fy = end_net_deposits - start_net_deposits
+    fy_pnl = end_value - start_value - net_deposits_in_fy
+    base_for_pct = start_value + net_deposits_in_fy
+    fy_pnl_pct = (fy_pnl / base_for_pct * 100.0) if base_for_pct else 0.0
+
+    return {
+        'fy_year': fy_year,
+        'fy_label': f'FY{fy_year}',
+        'fy_start_date': fy_start.isoformat(),
+        'fy_end_date': fy_end.isoformat(),
+        'fy_pnl': round(fy_pnl, 2),
+        'fy_pnl_pct': round(fy_pnl_pct, 2),
+        'fy_start_value': round(start_value, 2),
+        'fy_end_value': round(end_value, 2),
+        'net_deposits_in_fy': round(net_deposits_in_fy, 2),
+        'in_progress': in_progress,
+        'incomplete_baseline': incomplete,
+    }
+
+
+def _compute_fy_response(conn, uid, pid, current_total_value, current_net_deposits):
+    """Compute the FY response block for /api/portfolio.
+
+    Returns a dict with:
+      - requested_year: the fy_year that was asked for (or current if None)
+      - current: dict describing the current FY (always computed if data exists)
+      - requested: dict for the requested FY (same as current when no param)
+      - config: {fy_start_month, fy_start_day}
+    """
+    # This helper is only called from inside request handlers, so request
+    # context is always active here.
+    requested_year = request.args.get('fy_year')
+    month, day = get_fy_config(conn, uid)
+    # Resolve current FY year
+    cur_start, _ = get_fiscal_year_bounds(month, day, None)
+    current_year = cur_start.year
+
+    if requested_year == 'all_time' or requested_year == '':
+        req = None
+        req_year = None
+    else:
+        try:
+            req_year = int(requested_year) if requested_year else current_year
+        except (TypeError, ValueError):
+            req_year = current_year
+        req = calc_fy_pnl(conn, uid, pid, req_year,
+                          current_total_value if req_year == current_year else None,
+                          current_net_deposits if req_year == current_year else None)
+
+    current = calc_fy_pnl(conn, uid, pid, current_year,
+                          current_total_value, current_net_deposits)
+
+    return {
+        'config': {'fy_start_month': month, 'fy_start_day': day},
+        'current_year': current_year,
+        'requested_year': req_year,
+        'current': current,
+        'requested': req,
+    }
+
+
+@app.route('/api/portfolios/<pid>/fiscal-years', methods=['GET'])
+def portfolio_fiscal_years(pid):
+    """List fiscal years for which we have meaningful data.
+
+    Combines the earliest activity across transactions, fund movements,
+    snapshots, and sub_portfolio creation date so a year with transactions
+    but no snapshots still shows up in the dropdown.
+    """
+    from datetime import date
+    uid, err = get_auth_user()
+    if err: return err
+    conn = get_db()
+    try:
+        ensure_user_portfolio(conn, uid)
+        month, day = get_fy_config(conn, uid)
+        # Earliest activity timestamp — any of: transactions, fund_transactions,
+        # snapshots, or portfolio creation. Any NULL is ignored by MIN.
+        row = conn.execute("""
+            SELECT MIN(d) AS min_d FROM (
+                SELECT MIN(timestamp) AS d FROM transactions WHERE user_id = ? AND portfolio_id = ?
+                UNION ALL
+                SELECT MIN(timestamp) AS d FROM fund_transactions WHERE user_id = ? AND portfolio_id = ?
+                UNION ALL
+                SELECT MIN(date) AS d FROM portfolio_snapshots WHERE user_id = ? AND portfolio_id = ?
+                UNION ALL
+                SELECT created_at AS d FROM sub_portfolios WHERE id = ? AND user_id = ?
+            )
+        """, (uid, pid, uid, pid, uid, pid, pid, uid)).fetchone()
+        earliest_ts = row['min_d'] if row else None
+        today = date.today()
+        current_fy_start, _ = get_fiscal_year_bounds(month, day, None)
+        current_fy_year = current_fy_start.year
+        if earliest_ts:
+            try:
+                earliest = date.fromisoformat(earliest_ts[:10])
+            except Exception:
+                earliest = today
+            # Reuse the safe-date logic in get_fiscal_year_bounds instead of
+            # constructing date() directly — handles Feb 29 and month-end
+            # overflow without throwing.
+            candidate_start, _ = get_fiscal_year_bounds(month, day, earliest.year)
+            earliest_fy_year = earliest.year - 1 if earliest < candidate_start else earliest.year
+        else:
+            earliest_fy_year = current_fy_year
+        years = list(range(earliest_fy_year, current_fy_year + 1))
+        years.reverse()  # newest first
+        return jsonify({
+            'years': years,
+            'current_year': current_fy_year,
+            'fy_start_month': month,
+            'fy_start_day': day,
+        })
+    finally:
+        conn.close()
+
+
+# ═══════════════════════════════════════════════════════════════
+
+
 @app.route('/api/portfolio')
 def get_portfolio():
     uid, err = get_auth_user()
@@ -3085,6 +3351,7 @@ def get_portfolio():
                         conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ? AND user_id = ?', (live_cash, pid, uid))
                         conn.commit()
 
+                        fy_data = _compute_fy_response(conn, uid, pid, total_value, baseline)
                         return jsonify({
                             'cash': round(live_cash, 2), 'cash_usd': 0, 'realized_pnl': round(realized_pnl, 2),
                             'fund_amount': baseline, 'net_deposits': baseline,
@@ -3097,7 +3364,8 @@ def get_portfolio():
                             'total_valuation': round(total_valuation, 2),
                             'total_pnl': round(total_pnl, 2),
                             'all_time_pnl': round(all_time_pnl, 2),
-                            'all_time_pct': round(all_time_pct, 2)
+                            'all_time_pct': round(all_time_pct, 2),
+                            'fy': fy_data,
                         })
                 except Exception:
                     pass  # Fall through to DB-based path
@@ -3116,9 +3384,27 @@ def get_portfolio():
                     h['pnl'] = round((quote.get('price', 0) - h['avg_cost']) * h['shares'], 2)
                     h['value'] = round(quote.get('price', 0) * h['shares'], 2)
 
+        # Compute total portfolio value (matches the frontend formula) for the
+        # FY P&L calculation, since the server-computed "all time" math here
+        # is otherwise left to the client. Cash is JPY, cash_usd is USD — we
+        # roll up into JPY at the current FX rate.
+        holdings_value_jpy = 0.0
+        for h in holdings:
+            sym = h.get('symbol')
+            price = h.get('current_price') or 0
+            if not price:
+                cached = PRICE_CACHE.get(sym)
+                if cached and cached.get('data', {}).get('price'):
+                    price = cached['data']['price']
+            if not price:
+                price = h.get('avg_cost') or 0
+            holdings_value_jpy += float(price) * float(h.get('shares') or 0)
+        total_value_jpy = round(cash + cash_usd * usdjpy_rate + holdings_value_jpy, 2)
+        fy_data = _compute_fy_response(conn, uid, pid, total_value_jpy, net_deposits)
         return jsonify({'cash': round(cash, 2), 'cash_usd': round(cash_usd, 2), 'realized_pnl': round(realized_pnl, 2), 'fund_amount': fund_amount,
                         'total_deposits': total_deposits, 'total_withdrawals': total_withdrawals, 'net_deposits': net_deposits,
-                        'usdjpy_rate': round(usdjpy_rate, 2), 'holdings': holdings, 'source': source})
+                        'usdjpy_rate': round(usdjpy_rate, 2), 'holdings': holdings, 'source': source,
+                        'fy': fy_data})
     finally:
         conn.close()
 
@@ -3340,13 +3626,14 @@ def _recalculate_portfolio(conn, uid, pid):
 
         if action == 'buy':
             cash -= total + commission
+            # Cost basis (取得価額) includes commissions paid on purchase.
             h = holdings.get(sym)
             if h:
                 new_shares = h['shares'] + shares
-                h['avg_cost'] = (h['avg_cost'] * h['shares'] + total) / new_shares
+                h['avg_cost'] = (h['avg_cost'] * h['shares'] + total + commission) / new_shares
                 h['shares'] = new_shares
             else:
-                holdings[sym] = {'shares': shares, 'avg_cost': price, 'name': name}
+                holdings[sym] = {'shares': shares, 'avg_cost': (total + commission) / shares, 'name': name}
         elif action == 'sell':
             h = holdings.get(sym)
             if h and h['shares'] >= shares:
@@ -3506,74 +3793,77 @@ def trade():
     is_us = _is_us_symbol(symbol)
 
     conn = get_db()
-    ensure_user_portfolio(conn, uid)
-    sp = conn.execute('SELECT cash, cash_usd FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
-    if not sp:
-        conn.close()
-        return jsonify({'error': 'Portfolio not found'}), 404
+    try:
+        ensure_user_portfolio(conn, uid)
+        sp = conn.execute('SELECT cash, cash_usd FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
+        if not sp:
+            return jsonify({'error': 'Portfolio not found'}), 404
 
-    # SBI-style: US stocks use USD cash, JP stocks use JPY cash
-    cash_jpy = sp['cash'] or 0
-    cash_usd = sp['cash_usd'] or 0
+        # SBI-style: US stocks use USD cash, JP stocks use JPY cash
+        cash_jpy = sp['cash'] or 0
+        cash_usd = sp['cash_usd'] or 0
 
-    # Check if this is a live trade (already executed on Kabu Station)
-    is_live_trade = bool(data.get('_kabu_order_id'))
+        # Check if this is a live trade (already executed on Kabu Station)
+        is_live_trade = bool(data.get('_kabu_order_id'))
 
-    txn_pnl = 0.0
-    if action == 'buy':
-        if not is_live_trade:
-            # Simulation: check cash and update local balance
-            if is_us:
-                if cash_usd < total + commission:
-                    conn.close()
-                    return jsonify({'error': f'Insufficient USD. Available: ${cash_usd:,.2f}. Convert JPY→USD first.'}), 400
-                cash_usd -= total + commission
-                conn.execute('UPDATE sub_portfolios SET cash_usd = ? WHERE id = ?', (cash_usd, pid))
-            else:
-                if cash_jpy < total + commission:
-                    conn.close()
-                    return jsonify({'error': 'Insufficient funds'}), 400
-                cash_jpy -= total + commission
-                conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ?', (cash_jpy, pid))
-            # Update local holdings for simulation
+        txn_pnl = 0.0
+        if action == 'buy':
+            if not is_live_trade:
+                # Simulation: check cash and update local balance
+                if is_us:
+                    if cash_usd < total + commission:
+                        return jsonify({'error': f'Insufficient USD. Available: ${cash_usd:,.2f}. Convert JPY→USD first.'}), 400
+                    cash_usd -= total + commission
+                    conn.execute('UPDATE sub_portfolios SET cash_usd = ? WHERE id = ?', (cash_usd, pid))
+                else:
+                    if cash_jpy < total + commission:
+                        return jsonify({'error': 'Insufficient funds'}), 400
+                    cash_jpy -= total + commission
+                    conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ?', (cash_jpy, pid))
+                # Update local holdings for simulation. Cost basis includes buy commission.
+                existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
+                if existing:
+                    new_shares = existing['shares'] + shares
+                    new_avg = (existing['avg_cost'] * existing['shares'] + total + commission) / new_shares
+                    conn.execute('UPDATE holdings SET shares = ?, avg_cost = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?',
+                                (new_shares, new_avg, uid, symbol, pid))
+                else:
+                    new_avg = (total + commission) / shares
+                    conn.execute('INSERT INTO holdings (user_id, symbol, name, shares, avg_cost, portfolio_id) VALUES (?, ?, ?, ?, ?, ?)',
+                                (uid, symbol, name, shares, new_avg, pid))
+            # Live trades: skip cash/holdings update — Kabu Station manages the real state.
+            # Holdings will sync from Kabu on next portfolio sync.
+        elif action == 'sell':
             existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
             if existing:
-                new_shares = existing['shares'] + shares
-                new_avg = (existing['avg_cost'] * existing['shares'] + total) / new_shares
-                conn.execute('UPDATE holdings SET shares = ?, avg_cost = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?',
-                            (new_shares, new_avg, uid, symbol, pid))
-            else:
-                conn.execute('INSERT INTO holdings (user_id, symbol, name, shares, avg_cost, portfolio_id) VALUES (?, ?, ?, ?, ?, ?)',
-                            (uid, symbol, name, shares, price, pid))
-        # Live trades: skip cash/holdings update — Kabu Station manages the real state.
-        # Holdings will sync from Kabu on next portfolio sync.
-    elif action == 'sell':
-        existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
-        if existing:
-            txn_pnl = round((price - existing['avg_cost']) * shares - commission, 2)
-        if not is_live_trade:
-            # Simulation: check shares and update local balance
-            if not existing or existing['shares'] < shares:
-                conn.close()
-                return jsonify({'error': 'Insufficient shares'}), 400
-            if is_us:
-                cash_usd += total - commission
-                conn.execute('UPDATE sub_portfolios SET cash_usd = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_usd, txn_pnl, pid))
-            else:
-                cash_jpy += total - commission
-                conn.execute('UPDATE sub_portfolios SET cash = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_jpy, txn_pnl, pid))
-            new_shares = existing['shares'] - shares
-            if new_shares < 0.001:
-                conn.execute('DELETE FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid))
-            else:
-                conn.execute('UPDATE holdings SET shares = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (new_shares, uid, symbol, pid))
+                txn_pnl = round((price - existing['avg_cost']) * shares - commission, 2)
+            if not is_live_trade:
+                # Simulation: check shares and update local balance
+                if not existing or existing['shares'] < shares:
+                    return jsonify({'error': 'Insufficient shares'}), 400
+                if is_us:
+                    cash_usd += total - commission
+                    conn.execute('UPDATE sub_portfolios SET cash_usd = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_usd, txn_pnl, pid))
+                else:
+                    cash_jpy += total - commission
+                    conn.execute('UPDATE sub_portfolios SET cash = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_jpy, txn_pnl, pid))
+                new_shares = existing['shares'] - shares
+                if new_shares < 0.001:
+                    conn.execute('DELETE FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid))
+                else:
+                    conn.execute('UPDATE holdings SET shares = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (new_shares, uid, symbol, pid))
+            elif existing:
+                # Live sell: cash + holdings sync from Kabu, but realized_pnl is portfolio-local
+                # so update it here to keep it consistent with the simulation path.
+                conn.execute('UPDATE sub_portfolios SET realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (txn_pnl, pid))
 
-    trade_date = data.get('date', '').strip() or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    kabu_oid = data.get('_kabu_order_id', '')
-    conn.execute('INSERT INTO transactions (user_id, symbol, name, action, shares, price, total, pnl, commission, timestamp, portfolio_id, kabu_order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                (uid, symbol, name, action, shares, price, total, txn_pnl, commission, trade_date, pid, kabu_oid or None))
-    conn.commit()
-    conn.close()
+        trade_date = data.get('date', '').strip() or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        kabu_oid = data.get('_kabu_order_id', '')
+        conn.execute('INSERT INTO transactions (user_id, symbol, name, action, shares, price, total, pnl, commission, timestamp, portfolio_id, kabu_order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    (uid, symbol, name, action, shares, price, total, txn_pnl, commission, trade_date, pid, kabu_oid or None))
+        conn.commit()
+    finally:
+        conn.close()
     # Rebuild snapshots so performance chart reflects the trade date accurately
     _backfill_snapshots_internal(uid, pid)
     # Auto-register with Kabu PUSH so live prices flow for this new position
@@ -4098,14 +4388,27 @@ def set_portfolio_fund(pid):
 def delete_portfolio(pid):
     uid, err = get_auth_user()
     if err: return err
-    main_id = f'main_{uid}'
-    if pid == main_id:
-        return jsonify({'error': "Can't delete the main portfolio"}), 400
     conn = get_db()
+    # Guard: refuse to delete the user's last remaining portfolio, whatever its
+    # id. Keeping at least one portfolio preserves the invariant other code
+    # relies on (a freshly-logged-in user always has somewhere to show).
+    row = conn.execute(
+        'SELECT COUNT(*) AS c FROM sub_portfolios WHERE user_id = ?', (uid,)
+    ).fetchone()
+    count = row['c'] if row else 0
+    if count <= 1:
+        conn.close()
+        return jsonify({'error': "Can't delete your last portfolio"}), 400
     conn.execute('DELETE FROM holdings WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
     conn.execute('DELETE FROM transactions WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
     conn.execute('DELETE FROM fund_transactions WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
     conn.execute('DELETE FROM portfolio_snapshots WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
+    conn.execute('DELETE FROM portfolio_snapshots_intraday WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
+    # Best-effort: fx_transactions may or may not exist depending on schema version
+    try:
+        conn.execute('DELETE FROM fx_transactions WHERE user_id = ? AND portfolio_id = ?', (uid, pid))
+    except Exception:
+        pass
     conn.execute('DELETE FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid))
     conn.commit()
     conn.close()
@@ -4131,51 +4434,59 @@ def import_transaction():
     total = round(shares * price, 2)
     commission_pct = float(data.get('commission_pct', 0))
     commission = round(total * commission_pct / 100, 2) if commission_pct > 0 else 0.0
+    is_us = _is_us_symbol(symbol)
     conn = get_db()
-    ensure_user_portfolio(conn, uid)
-    sp = conn.execute('SELECT cash FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
-    if not sp:
+    try:
+        ensure_user_portfolio(conn, uid)
+        sp = conn.execute('SELECT cash, cash_usd FROM sub_portfolios WHERE id = ? AND user_id = ?', (pid, uid)).fetchone()
+        if not sp:
+            return jsonify({'error': 'Portfolio not found'}), 404
+        cash_jpy = sp['cash'] or 0
+        cash_usd = sp['cash_usd'] or 0
+
+        txn_pnl = 0.0
+        if action == 'buy':
+            if is_us:
+                cash_usd -= total + commission
+                conn.execute('UPDATE sub_portfolios SET cash_usd = ? WHERE id = ?', (cash_usd, pid))
+            else:
+                cash_jpy -= total + commission
+                conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ?', (cash_jpy, pid))
+            existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
+            if existing:
+                new_shares = existing['shares'] + shares
+                new_avg = (existing['avg_cost'] * existing['shares'] + total + commission) / new_shares
+                conn.execute('UPDATE holdings SET shares = ?, avg_cost = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?',
+                            (new_shares, new_avg, uid, symbol, pid))
+            else:
+                new_avg = (total + commission) / shares
+                conn.execute('INSERT INTO holdings (user_id, symbol, name, shares, avg_cost, portfolio_id) VALUES (?, ?, ?, ?, ?, ?)',
+                            (uid, symbol, name, shares, new_avg, pid))
+        elif action == 'sell':
+            existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
+            if not existing or existing['shares'] < shares:
+                return jsonify({'error': 'Insufficient shares'}), 400
+            txn_pnl = round((price - existing['avg_cost']) * shares - commission, 2)
+            if is_us:
+                cash_usd += total - commission
+                conn.execute('UPDATE sub_portfolios SET cash_usd = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_usd, txn_pnl, pid))
+            else:
+                cash_jpy += total - commission
+                conn.execute('UPDATE sub_portfolios SET cash = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash_jpy, txn_pnl, pid))
+            new_shares = existing['shares'] - shares
+            if new_shares < 0.001:
+                conn.execute('DELETE FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid))
+            else:
+                conn.execute('UPDATE holdings SET shares = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (new_shares, uid, symbol, pid))
+
+        conn.execute('INSERT INTO transactions (user_id, symbol, name, action, shares, price, total, pnl, commission, timestamp, portfolio_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    (uid, symbol, name, action, shares, price, total, txn_pnl, commission, date, pid))
+        conn.commit()
+    finally:
         conn.close()
-        return jsonify({'error': 'Portfolio not found'}), 404
-    cash = sp['cash']
-
-    txn_pnl = 0.0
-    if action == 'buy':
-        cash -= total + commission
-        conn.execute('UPDATE sub_portfolios SET cash = ? WHERE id = ?', (cash, pid))
-        existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
-        if existing:
-            new_shares = existing['shares'] + shares
-            new_avg = (existing['avg_cost'] * existing['shares'] + total) / new_shares
-            conn.execute('UPDATE holdings SET shares = ?, avg_cost = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?',
-                        (new_shares, new_avg, uid, symbol, pid))
-        else:
-            conn.execute('INSERT INTO holdings (user_id, symbol, name, shares, avg_cost, portfolio_id) VALUES (?, ?, ?, ?, ?, ?)',
-                        (uid, symbol, name, shares, price, pid))
-    elif action == 'sell':
-        existing = conn.execute('SELECT * FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid)).fetchone()
-        if not existing or existing['shares'] < shares:
-            conn.close()
-            return jsonify({'error': 'Insufficient shares'}), 400
-        cash += total - commission
-        # Realized P&L = (sell_price - avg_cost) * shares_sold - commission
-        txn_pnl = round((price - existing['avg_cost']) * shares - commission, 2)
-        conn.execute('UPDATE sub_portfolios SET cash = ?, realized_pnl = COALESCE(realized_pnl, 0) + ? WHERE id = ?', (cash, txn_pnl, pid))
-        new_shares = existing['shares'] - shares
-        if new_shares < 0.001:
-            conn.execute('DELETE FROM holdings WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (uid, symbol, pid))
-        else:
-            conn.execute('UPDATE holdings SET shares = ? WHERE user_id = ? AND symbol = ? AND portfolio_id = ?', (new_shares, uid, symbol, pid))
-
-    conn.execute('INSERT INTO transactions (user_id, symbol, name, action, shares, price, total, pnl, commission, timestamp, portfolio_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                (uid, symbol, name, action, shares, price, total, txn_pnl, commission, date, pid))
-    conn.commit()
-    conn.close()
-    # Rebuild snapshots so performance chart reflects the import
     _backfill_snapshots_internal(uid, pid)
-    # Auto-register with Kabu PUSH so live prices start flowing immediately
     _register_kabu_symbol(symbol)
-    return jsonify({'success': True, 'cash': round(cash, 2), 'commission': commission})
+    return jsonify({'success': True, 'cash': round(cash_jpy, 2), 'cash_usd': round(cash_usd, 2), 'commission': commission})
 
 
 # ── Price Alerts ──────────────────────────────────────────────────
@@ -4199,7 +4510,9 @@ def create_alert():
     uid, err = get_auth_user()
     if err: return err
     data = request.json or {}
-    symbol = data.get('symbol', '').strip()
+    # Normalize symbol to uppercase so "7203.t" and "7203.T" don't create
+    # duplicate alerts and chart-line matching stays consistent.
+    symbol = data.get('symbol', '').strip().upper()
     name = data.get('name', '').strip()
     try:
         ref_price = float(data['reference_price'])
