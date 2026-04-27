@@ -12,11 +12,9 @@
 <link rel="apple-touch-icon" href="/static/icon-192.png">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#00d4aa">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<link href="/static/vendor/fonts/fonts.css" rel="stylesheet">
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
 <style>
 /* ═══════════════════ THEMES ═══════════════════ */
 [data-theme="dark"] {
@@ -89,28 +87,28 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   display: flex; align-items: center; justify-content: center;
 }
 .login-card {
-  background: var(--surface); border: 0.75px solid var(--border); border-radius: 12px;
-  padding: 24px; width: 100%; max-width: 285px;
+  background: var(--surface); border: 0.75px solid var(--border); border-radius: 14px;
+  padding: 22.5px 22.5px; width: 100%; max-width: 360px;
 }
-.login-logo { text-align: center; margin-bottom: 13.5px; }
-.login-logo img { height: 24px; }
-.login-tabs { display: flex; gap: 3px; margin-bottom: 15px; background: var(--surface2); padding: 2.25px; border-radius: 6px; }
-.login-tab { flex: 1; padding: 6px; border: none; background: transparent; color: var(--text2); border-radius: 4.5px; cursor: pointer; font-size: 9px; font-weight: 500; transition: all 0.15s; }
+.login-logo { text-align: center; margin-bottom: 18px; }
+.login-logo img { width: 80%; max-width: 260px; height: auto; display: block; margin: 0 auto; }
+.login-tabs { display: flex; gap: 3px; margin-bottom: 18px; background: var(--surface2); padding: 3px; border-radius: 7.5px; }
+.login-tab { flex: 1; padding: 8.25px; border: none; background: transparent; color: var(--text2); border-radius: 5.25px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.15s; }
 .login-tab.active { background: var(--surface); color: var(--text); }
-.login-field { margin-bottom: 9px; }
-.login-field label { display: block; font-size: 7.5px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.375px; margin-bottom: 3px; }
+.login-field { margin-bottom: 12px; }
+.login-field label { display: block; font-size: 9px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.45px; margin-bottom: 4.5px; }
 .login-field input {
-  width: 100%; padding: 7.5px 9px; background: var(--surface2);
-  border: 0.75px solid var(--border); border-radius: 6px; color: var(--text); font-size: 9.75px;
+  width: 100%; padding: 10.5px 12px; background: var(--surface2);
+  border: 0.75px solid var(--border); border-radius: 7.5px; color: var(--text); font-size: 12px;
 }
 .login-field input:focus { outline: none; border-color: var(--accent); }
 .login-btn {
-  width: 100%; padding: 8.25px; background: var(--accent); color: #000;
-  border: none; border-radius: 6px; font-size: 9.75px; font-weight: 600;
-  cursor: pointer; transition: filter 0.15s; margin-top: 4.5px;
+  width: 100%; padding: 11.25px; background: var(--accent); color: #000;
+  border: none; border-radius: 7.5px; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: filter 0.15s; margin-top: 6px;
 }
 .login-btn:hover { filter: brightness(1.1); }
-.login-err { color: var(--red); font-size: 8.25px; margin-top: 6px; text-align: center; display: none; }
+.login-err { color: var(--red); font-size: 10.5px; margin-top: 7.5px; text-align: center; display: none; }
 
 /* ═══════════════════ APP SHELL ═══════════════════ */
 .app-shell {
@@ -136,10 +134,18 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   gap: 4.5px; min-height: 37.5px; overflow: hidden;
 }
 .sidebar-logo {
-  display: flex; align-items: center; min-width: 0; flex: 1;
+  display: flex; align-items: center; justify-content: center; min-width: 0; flex: 1;
 }
-.sidebar-logo-text { height: 16.5px; object-fit: contain; display: block; max-width: 100%; }
-.sidebar-logo-icon { display: none; width: 21px; height: 21px; flex-shrink: 0; }
+.sidebar-logo-text { height: 14px; object-fit: contain; display: block; max-width: 100%; }
+.sidebar-logo-icon {
+  display: none; width: 28px; height: 28px; flex-shrink: 0; object-fit: contain;
+  margin: 0 auto;
+  /* icon-192.png is a yellow circle on a solid white background. The
+     SVG filter #kill-white converts white pixels to transparent at render
+     time via a color matrix, leaving the yellow icon visible on the
+     sidebar's dark background. No image processing, no cropping. */
+  filter: url(#kill-white);
+}
 .app-shell.sidebar-collapsed .sidebar-header { flex-direction: column; padding: 7.5px 3px; gap: 6px; }
 .app-shell.sidebar-collapsed .sidebar-logo-text { display: none; }
 .app-shell.sidebar-collapsed .sidebar-logo-icon { display: inline-block; }
@@ -189,11 +195,12 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 
 .user-pill {
   display: flex; align-items: center; gap: 4.5px;
-  padding: 4.5px 7.5px; font-size: 8.25px; color: var(--text2);
+  padding: 5.25px 7.5px; font-size: 10.5px; font-weight: 600; color: var(--accent);
   border-radius: 4.5px; cursor: pointer;
   background: transparent; border: none;
+  letter-spacing: 0.45px;
 }
-.user-pill:hover { background: var(--surface2); color: var(--text); }
+.user-pill:hover { background: var(--surface2); color: var(--accent); }
 .app-shell.sidebar-collapsed .user-pill span { display: none; }
 
 /* ═══════════════════ MAIN AREA ═══════════════════ */
@@ -295,15 +302,37 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
   border-radius: 7.5px;
   overflow: hidden; margin-bottom: 13.5px;
 }
-/* Settings sections: outlined like the rest but with tight inner padding so
-   one-liner settings don't have huge empty space inside the border. */
-#page-settings .panel { padding: 9px 12px; margin-bottom: 9px; }
+/* Settings page: 2-column grid on desktop, 1-column on narrow screens. Panels
+   with class `settings-wide` span both columns — use this for forms with
+   many inputs (Kabu, AI key, Account). Scoped to .active so it doesn't
+   override .page { display: none } on inactive pages. */
+#page-settings.active { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; align-content: start; }
+#page-settings .panel { padding: 9px 12px; margin-bottom: 0; }
+#page-settings .settings-wide { grid-column: 1 / -1; }
+/* Account panel: user-facing identity, give it slightly more presence than
+   other settings (bigger title, larger username). */
+#page-settings .settings-account { padding: 13.5px 15px; }
+#page-settings .settings-account .panel-title { font-size: 13.5px !important; margin-bottom: 6px !important; }
+#page-settings .settings-account .s-username { font-size: 12.75px; font-weight: 600; }
+#page-settings .settings-account .s-signed-in { font-size: 9.75px; color: var(--text2); margin-top: 1.5px; }
+@media (max-width: 900px) {
+  #page-settings { grid-template-columns: 1fr; }
+}
 #page-settings .panel .panel-title { margin-bottom: 3px !important; font-size: 10.5px; }
 #page-settings .panel > div[style*="font-size:8.25px"] { margin-bottom: 6px !important; }
 #page-settings .panel .btn { padding: 4.5px 9px; font-size: 9px; }
 #page-settings .panel .modal-field { margin-bottom: 4.5px !important; }
 #page-settings .panel .modal-field label { font-size: 8.25px; }
 #page-settings .panel .modal-field input { padding: 4.5px 7.5px; font-size: 9px; }
+/* Two-column grid for paired form fields inside a single settings panel
+   (e.g. API password + Order password). Collapses to single column on
+   narrow viewports so nothing gets squeezed. */
+#page-settings .settings-field-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 7.5px;
+}
+@media (max-width: 600px) {
+  #page-settings .settings-field-grid { grid-template-columns: 1fr; }
+}
 .panel-header {
   padding: 7.5px 10.5px; border-bottom: 0.75px solid var(--border);
   display: flex; align-items: center; justify-content: space-between; gap: 7.5px;
@@ -442,7 +471,21 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 }
 .pf-header-label { font-size: 8.25px; color: var(--text2); margin-bottom: 4.5px; text-transform: uppercase; letter-spacing: 0.375px; }
 .pf-header-value { font-size: 22.5px; font-weight: 600; color: var(--text); }
-.pf-header-change { font-size: 9.75px; font-weight: 500; margin-top: 3px; }
+.pf-header-change { font-size: 9.75px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.pf-header-change-row {
+  display: inline-flex; align-items: center; gap: 7.5px; margin-top: 3px;
+}
+.pf-fy-select {
+  background: var(--surface2); border: 0.75px solid var(--border); border-radius: 4.5px;
+  color: var(--text2); font-size: 8.25px; padding: 2.25px 18px 2.25px 6px; cursor: pointer;
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 24 24' fill='none' stroke='%23999999' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat; background-position: right 5px center;
+  font-family: inherit; transition: border-color 0.15s, color 0.15s;
+}
+.pf-fy-select:hover { border-color: var(--accent); color: var(--text); }
+.pf-fy-select:focus { outline: none; border-color: var(--accent); color: var(--text); }
+.pf-fy-select option { background: var(--surface); color: var(--text); }
 
 .pf-stats { display: flex; flex-wrap: wrap; gap: 21px 30px; margin-bottom: 16.5px; padding: 10.5px 3px; background: transparent; border: none; }
 .pf-stat { background: transparent; border: none; padding: 0; flex: 0 0 auto; }
@@ -454,6 +497,25 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .pf-stat-sub { font-size: 8.25px; color: var(--text2); margin-top: 1.5px; }
 
 .perf-chart-wrap { background: transparent; border: none; padding: 6px 0; margin-bottom: 13.5px; }
+/* Portfolio allocation doughnut chart + legend. Hidden by default; shown by
+   renderAllocChart when the portfolio has at least one holding. */
+.alloc-wrap { background: transparent; border: none; padding: 6px 0; margin-bottom: 13.5px; }
+.alloc-inner { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.alloc-canvas-wrap { width: 100px; height: 100px; flex-shrink: 0; position: relative; }
+/* Total-value label floating in the center of the doughnut. pointer-events:none
+   so hover/tooltip on the chart still works through the text. */
+.alloc-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; pointer-events: none;
+  text-align: center;
+}
+.alloc-center .alloc-center-val { font-size: 9.75px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.alloc-center .alloc-center-sub { font-size: 6.75px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.375px; margin-top: 1.5px; }
+.alloc-legend { flex: 1; display: flex; flex-direction: column; gap: 5.25px; min-width: 120px; }
+.alloc-row { display: flex; align-items: center; gap: 6px; font-size: 9px; }
+.alloc-dot { width: 7.5px; height: 7.5px; border-radius: 50%; flex-shrink: 0; }
+.alloc-lbl { flex: 1; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alloc-pct { font-weight: 500; color: var(--text); min-width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
 .perf-chart-header { display: flex; align-items: center; gap: 6px; margin-bottom: 7.5px; flex-wrap: wrap; }
 .perf-chart-periods { display: flex; gap: 3px; margin-left: auto; }
 .perf-chart-canvas { position: relative; height: 150px; }
@@ -1040,9 +1102,9 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 .dp-fav-wrap { position: relative; margin-left: auto; }
 
 /* ═══════════════════ SESSION 2: KABU CONNECT FORM ═══════════════════ */
-.kabu-status-row { display: flex; align-items: center; gap: 6px; margin-bottom: 9px; padding: 6px 9px; background: var(--surface2); border-radius: 4.5px; font-size: 9px; }
+.kabu-status-row { display: flex; align-items: center; gap: 6px; margin-bottom: 9px; padding: 3px 0; background: transparent; font-size: 9px; color: var(--text2); }
 .kabu-status-row .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text2); }
-.kabu-status-row.connected { background: color-mix(in srgb, var(--up) 15%, transparent); color: var(--up); }
+.kabu-status-row.connected { color: var(--up); }
 .kabu-status-row.connected .dot { background: var(--up); animation: pulse 2s infinite; }
 .kabu-err { color: var(--red); font-size: 8.25px; margin-top: 6px; padding: 4.5px 7.5px; background: color-mix(in srgb, var(--down) 10%, transparent); border-radius: 3px; }
 
@@ -1062,49 +1124,57 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 </style>
 </head>
 <body>
+<!-- SVG color-matrix filter: turns white pixels transparent while preserving yellow.
+     new_alpha = 3*original_alpha − R − G − B
+     White (1,1,1,1) → alpha = 0 (transparent). Yellow (1, 0.8, 0.25, 1) → alpha ≈ 0.95 (visible). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="kill-white">
+    <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  -1 -1 -1 3 0"/>
+  </filter>
+</svg>
 
 <!-- ═══════════════════ LOGIN SCREEN ═══════════════════ -->
 <div class="login-screen" id="login-screen" style="display:none">
   <div class="login-card">
-    <div class="login-logo"><img src="/static/logo-text.png" alt="GENRRI"/></div>
+    <div class="login-logo"><img src="/static/logo-full.png" alt="GENRRI"/></div>
     <div class="login-tabs">
       <button class="login-tab active" id="tab-signin" onclick="showLoginTab('signin')" data-i18n="login_sign_in">Sign In</button>
       <button class="login-tab" id="tab-register" onclick="showLoginTab('register')" data-i18n="login_create_account">Create Account</button>
     </div>
     <!-- Sign In -->
-    <div id="signin-form">
+    <form id="signin-form" onsubmit="event.preventDefault();doLogin()" autocomplete="on">
       <div class="login-field">
         <label data-i18n="login_username">Username</label>
-        <input type="text" id="si-username" data-i18n-ph="login_username_ph" placeholder="Enter your username"/>
+        <input type="text" id="si-username" name="username" autocomplete="username" data-i18n-ph="login_username_ph" placeholder="Enter your username"/>
       </div>
       <div class="login-field">
         <label data-i18n="login_password">Password</label>
-        <input type="password" id="si-password" data-i18n-ph="login_password_ph" placeholder="Enter your password"/>
+        <input type="password" id="si-password" name="password" autocomplete="current-password" data-i18n-ph="login_password_ph" placeholder="Enter your password"/>
       </div>
-      <button class="login-btn" onclick="doLogin()" data-i18n="login_sign_in">Sign In</button>
+      <button type="submit" class="login-btn" data-i18n="login_sign_in">Sign In</button>
       <div class="login-err" id="si-err"></div>
-    </div>
+    </form>
     <!-- Register -->
-    <div id="register-form" style="display:none">
+    <form id="register-form" style="display:none" onsubmit="event.preventDefault();doRegister()" autocomplete="on">
       <div class="login-field">
         <label data-i18n="login_username">Username</label>
-        <input type="text" id="rg-username" data-i18n-ph="reg_username_ph" placeholder="Choose a username"/>
+        <input type="text" id="rg-username" name="username" autocomplete="username" data-i18n-ph="reg_username_ph" placeholder="Choose a username"/>
       </div>
       <div class="login-field">
         <label data-i18n="login_password">Password</label>
-        <input type="password" id="rg-password" data-i18n-ph="reg_password_ph" placeholder="Min 6 characters"/>
+        <input type="password" id="rg-password" name="new-password" autocomplete="new-password" data-i18n-ph="reg_password_ph" placeholder="Min 6 characters"/>
       </div>
       <div class="login-field">
         <label data-i18n="reg_confirm_label">Confirm Password</label>
-        <input type="password" id="rg-confirm" data-i18n-ph="reg_confirm_ph" placeholder="Re-enter password"/>
+        <input type="password" id="rg-confirm" name="new-password" autocomplete="new-password" data-i18n-ph="reg_confirm_ph" placeholder="Re-enter password"/>
       </div>
       <div class="login-field">
         <label data-i18n="reg_invite_label">Invite Code</label>
-        <input type="text" id="rg-invite" data-i18n-ph="reg_invite_ph" placeholder="Enter invite code"/>
+        <input type="text" id="rg-invite" autocomplete="off" data-i18n-ph="reg_invite_ph" placeholder="Enter invite code"/>
       </div>
-      <button class="login-btn" onclick="doRegister()" data-i18n="login_create_account">Create Account</button>
+      <button type="submit" class="login-btn" data-i18n="login_create_account">Create Account</button>
       <div class="login-err" id="rg-err"></div>
-    </div>
+    </form>
   </div>
 </div>
 
@@ -1116,18 +1186,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
     <div class="sidebar-header">
       <div class="sidebar-logo">
         <img class="sidebar-logo-text" src="/static/logo-text.png" alt="GENRRI"/>
-        <svg class="sidebar-logo-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="24" cy="24" r="22" fill="#f0c869"/>
-          <g fill="#ffffff" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round">
-            <line x1="14" y1="34" x2="20" y2="25"/>
-            <line x1="20" y1="25" x2="28" y2="30"/>
-            <line x1="28" y1="30" x2="34" y2="14"/>
-            <circle cx="14" cy="34" r="3"/>
-            <circle cx="20" cy="25" r="3"/>
-            <circle cx="28" cy="30" r="3"/>
-            <circle cx="34" cy="14" r="3"/>
-          </g>
-        </svg>
+        <img class="sidebar-logo-icon" src="/static/icon-192.png" alt="GENRRI"/>
       </div>
       <button class="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -1170,7 +1229,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         <span data-i18n="badge_delayed">DELAYED</span>
       </button>
       <button class="user-pill" id="user-pill" onclick="doLogout()" title="Sign out">
-        <svg width="9.75" height="9.75" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         <span id="user-name">—</span>
       </button>
     </div>
@@ -1329,13 +1388,26 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         <div class="pf-header">
           <div class="pf-header-label" data-i18n="total_portfolio">Total Portfolio Value</div>
           <div class="pf-header-value" id="pf-total">¥0</div>
-          <div class="pf-header-change" id="pf-change">—</div>
+          <div class="pf-header-change-row">
+            <span id="pf-change" class="pf-header-change">—</span>
+            <select id="pf-fy-select" class="pf-fy-select" onchange="setPfFyView(this.value)"></select>
+          </div>
         </div>
         <div class="pf-stats">
           <div class="pf-stat"><div class="pf-stat-label" data-i18n="avail_cash">Available Cash</div><div class="pf-stat-value" id="pf-cash">¥0</div><div class="pf-stat-sub" id="pf-cash-sub"></div></div>
           <div class="pf-stat"><div class="pf-stat-label" data-i18n="invested">Invested</div><div class="pf-stat-value" id="pf-invested">¥0</div></div>
           <div class="pf-stat"><div class="pf-stat-label" data-i18n="unrealized_pnl">Unrealized P&amp;L</div><div class="pf-stat-value" id="pf-unrealized">¥0</div></div>
           <div class="pf-stat"><div class="pf-stat-label" data-i18n="realized_pnl">Realized P&amp;L</div><div class="pf-stat-value" id="pf-realized">¥0</div></div>
+        </div>
+        <div class="alloc-wrap" id="alloc-wrap" style="display:none">
+          <div class="holdings-title" data-i18n="port_alloc" style="margin-bottom:9px">Portfolio Allocation</div>
+          <div class="alloc-inner">
+            <div class="alloc-canvas-wrap">
+              <canvas id="alloc-chart"></canvas>
+              <div class="alloc-center" id="alloc-center"></div>
+            </div>
+            <div class="alloc-legend" id="alloc-legend"></div>
+          </div>
         </div>
         <div class="perf-chart-wrap" id="perf-chart-wrap" style="display:none">
           <div class="perf-chart-header">
@@ -1448,14 +1520,17 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 
       <!-- ═══ SETTINGS PAGE (Session 3, full) ═══ -->
       <div class="page" id="page-settings">
-        <div class="panel">
-          <div class="panel-title" style="margin-bottom:10.5px" data-i18n="s_account">Account</div>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:6px">
-            <div><div style="font-size:9.75px;font-weight:500" id="settings-username">—</div><div style="font-size:8.25px;color:var(--text2)" data-i18n="s_signed_in">Signed in</div></div>
+        <div class="panel settings-wide settings-account">
+          <div class="panel-title" data-i18n="s_account">Account</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:9px">
+            <div>
+              <div class="s-username" id="settings-username">—</div>
+              <div class="s-signed-in" data-i18n="s_signed_in">Signed in</div>
+            </div>
             <button class="btn danger" onclick="doLogout()" data-i18n="s_sign_out">Sign Out</button>
           </div>
         </div>
-        <div class="panel">
+        <div class="panel settings-wide">
           <div class="panel-title" style="margin-bottom:6px" data-i18n="s_language">Language</div>
           <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_language_desc">Choose the display language for the app.</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -1464,7 +1539,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
             <button class="btn" data-lang="zh" onclick="setLang('zh')">中 — 中文</button>
           </div>
         </div>
-        <div class="panel">
+        <div class="panel settings-wide">
           <div class="panel-title" style="margin-bottom:6px" data-i18n="s_appearance">Appearance</div>
           <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_appearance_desc">Choose a theme for the app.</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:7.5px">
@@ -1500,28 +1575,44 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
           </div>
         </div>
 
-        <!-- Kabu Station connection -->
+        <!-- Fiscal Year Start -->
         <div class="panel">
+          <div class="panel-title" style="margin-bottom:6px" data-i18n="s_fy_start">Fiscal Year Start</div>
+          <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_fy_start_desc">Month and day the fiscal year begins (default: July 1). Used by the Portfolio page P&amp;L dropdown.</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="color:var(--text2);font-size:9px" data-i18n="s_fy_month">Month</span>
+            <input type="number" id="settings-fy-month" min="1" max="12" step="1" style="background:var(--surface);border:0.75px solid var(--border);border-radius:4.5px;padding:5.25px 7.5px;color:var(--text);width:52.5px"/>
+            <span style="color:var(--text2);font-size:9px;margin-left:6px" data-i18n="s_fy_day">Day</span>
+            <input type="number" id="settings-fy-day" min="1" max="31" step="1" style="background:var(--surface);border:0.75px solid var(--border);border-radius:4.5px;padding:5.25px 7.5px;color:var(--text);width:52.5px"/>
+            <button class="btn primary" onclick="saveFyStart()" data-i18n="s_save">Save</button>
+            <span id="settings-fy-saved" style="font-size:8.25px;color:var(--up);opacity:0;transition:opacity 0.3s"></span>
+          </div>
+        </div>
+
+        <!-- Kabu Station connection -->
+        <div class="panel settings-wide">
           <div class="panel-title" style="margin-bottom:4.5px" data-i18n="s_kabu_title">Kabu Station API</div>
           <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_kabu_desc">Connect to Kabu Station for real-time JP stock data and live trading.</div>
           <div class="kabu-status-row" id="kabu-status-row">
             <span class="dot"></span>
             <span id="kabu-status-text" data-i18n="kabu_not_connected">Not connected</span>
           </div>
-          <div class="modal-field" style="margin-bottom:6px">
-            <label data-i18n="s_api_password">API Password</label>
-            <input type="password" id="kabu-api-pw" autocomplete="current-password"/>
-          </div>
-          <div class="modal-field" style="margin-bottom:7.5px">
-            <label data-i18n="s_order_password">Order Password (optional — for live trading)</label>
-            <input type="password" id="kabu-order-pw" autocomplete="current-password"/>
+          <div class="settings-field-grid">
+            <div class="modal-field">
+              <label data-i18n="s_api_password">API Password</label>
+              <input type="password" id="kabu-api-pw" autocomplete="current-password"/>
+            </div>
+            <div class="modal-field">
+              <label data-i18n="s_order_password">Order Password (optional — for live trading)</label>
+              <input type="password" id="kabu-order-pw" autocomplete="current-password"/>
+            </div>
           </div>
           <button class="btn primary" onclick="connectKabu()" id="kabu-connect-btn" data-i18n="s_connect">Connect</button>
           <div class="kabu-err" id="kabu-err" style="display:none"></div>
         </div>
 
         <!-- AI Analyst (Anthropic) -->
-        <div class="panel">
+        <div class="panel settings-wide">
           <div class="panel-title" style="margin-bottom:4.5px" data-i18n="s_ai_analyst">AI Analyst (Anthropic)</div>
           <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_ai_analyst_desc">
             Paste your Anthropic API key to enable AI-powered stock analysis in the right panel. Key is stored locally in your browser (never sent to our server).
@@ -1541,7 +1632,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         </div>
 
         <!-- Danger zone -->
-        <div class="panel">
+        <div class="panel settings-wide">
           <div class="panel-title" style="margin-bottom:6px;color:var(--down)" data-i18n="s_danger">Danger Zone</div>
           <div style="font-size:8.25px;color:var(--text2);margin-bottom:9px" data-i18n="s_danger_desc">Resets current portfolio: all holdings, cash, and transactions will be cleared.</div>
           <button class="btn danger" onclick="resetPortfolioConfirm()" data-i18n="s_reset_portfolio">Reset Current Portfolio</button>
@@ -1866,6 +1957,18 @@ const LANG_DATA = {
     alert_required_msg:'Symbol and value required', alert_save_failed:'Save failed',
     alert_note_placeholder:'e.g. Take profit target',
     alert_price_unavailable:'Current price unavailable',
+    alert_reference:'Reference', alert_ref_current:'Current price', alert_ref_cost:'Avg cost',
+    alert_avg_cost:'Avg cost', alert_no_holding:"You don't own this stock \u2014 add a transaction first.",
+    pf_rename_title:'Rename Portfolio', pf_delete_title:'Delete Portfolio',
+    pf_rename_label:'Portfolio name',
+    pf_delete_confirm:'Delete this portfolio? All its holdings, transactions, and cash balance will be permanently removed.',
+    pf_last_guard:"Can't delete your last portfolio", pf_deleted:'Portfolio deleted',
+    pf_renamed:'Portfolio renamed', pf_delete_btn:'Delete', pf_save_btn:'Save',
+    s_fy_start:'Fiscal Year Start',
+    s_fy_start_desc:'Month and day the fiscal year begins (default: July 1). Used by the Portfolio page P&L dropdown.',
+    s_fy_month:'Month', s_fy_day:'Day',
+    fy_this_year:'This FY', fy_all_time:'All Time', fy_incomplete:'incomplete',
+    port_alloc:'Portfolio Allocation', alloc_cash:'Cash',
     // Common
     common_saved:'\u2713 Saved', common_failed:'Failed',
     // Financials tab
@@ -2009,6 +2112,18 @@ const LANG_DATA = {
     alert_required_msg:'銘柄と値を入力してください', alert_save_failed:'保存に失敗しました',
     alert_note_placeholder:'例: 利確目標',
     alert_price_unavailable:'現在価格を取得できません',
+    alert_reference:'基準', alert_ref_current:'現在価格', alert_ref_cost:'平均取得単価',
+    alert_avg_cost:'平均取得単価', alert_no_holding:'この銘柄は保有していません — 先に取引を記録してください。',
+    pf_rename_title:'ポートフォリオ名を変更', pf_delete_title:'ポートフォリオを削除',
+    pf_rename_label:'ポートフォリオ名',
+    pf_delete_confirm:'このポートフォリオを削除しますか？保有銘柄・取引履歴・残高はすべて削除され、元に戻せません。',
+    pf_last_guard:'最後のポートフォリオは削除できません', pf_deleted:'ポートフォリオを削除しました',
+    pf_renamed:'名前を変更しました', pf_delete_btn:'削除', pf_save_btn:'保存',
+    s_fy_start:'会計年度の開始日',
+    s_fy_start_desc:'会計年度が始まる月日（初期値: 7月1日）。ポートフォリオの損益ドロップダウンで使用されます。',
+    s_fy_month:'月', s_fy_day:'日',
+    fy_this_year:'今年度', fy_all_time:'累計', fy_incomplete:'データ不足',
+    port_alloc:'ポートフォリオ配分', alloc_cash:'現金',
     // Transactions / Imports / AI / Common
     btn_delete:'削除', btn_import:'インポート / 記録', btn_import_csv:'CSVインポート',
     col_date:'日付', col_portfolio:'ポートフォリオ', col_action:'アクション',
@@ -2170,6 +2285,18 @@ const LANG_DATA = {
     alert_required_msg:'请输入代码和数值', alert_save_failed:'保存失败',
     alert_note_placeholder:'例如：止盈目标',
     alert_price_unavailable:'无法获取当前价格',
+    alert_reference:'基准', alert_ref_current:'当前价格', alert_ref_cost:'平均成本',
+    alert_avg_cost:'平均成本', alert_no_holding:'您未持有此股票 — 请先添加交易记录。',
+    pf_rename_title:'重命名投资组合', pf_delete_title:'删除投资组合',
+    pf_rename_label:'投资组合名称',
+    pf_delete_confirm:'删除此投资组合？所有持仓、交易记录和现金余额将被永久删除。',
+    pf_last_guard:'不能删除最后一个投资组合', pf_deleted:'投资组合已删除',
+    pf_renamed:'已重命名', pf_delete_btn:'删除', pf_save_btn:'保存',
+    s_fy_start:'财年开始',
+    s_fy_start_desc:'财年开始的月份和日期（默认：7月1日）。投资组合页面的盈亏下拉菜单使用。',
+    s_fy_month:'月', s_fy_day:'日',
+    fy_this_year:'本财年', fy_all_time:'累计', fy_incomplete:'数据不完整',
+    port_alloc:'投资组合分布', alloc_cash:'现金',
     // Transactions / Imports / AI / Common
     btn_delete:'删除', btn_import:'导入 / 记录', btn_import_csv:'导入 CSV',
     col_date:'日期', col_portfolio:'投资组合', col_action:'类型',
@@ -2872,56 +2999,297 @@ async function loadPortfolios() {
     renderPortfolioSwitcher();
   } catch (e) {}
 }
+
+// ─── Fiscal Year P&L selector ─────────────────────────────────
+// One element (#pf-change) displays the currently-selected view. The
+// dropdown (#pf-fy-select) drives which view shows. No hide/show of
+// parallel DOM paths — just one line of text whose content changes.
+//
+// _pfFyView: 'current' (default — current FY), a 4-digit year string,
+// or 'all_time'.
+let _pfFyView = 'current';
+let _pfFyYearsLoaded = false;
+let _pfPnlNumbers = null;  // {allTimePnl, allTimePct, fmt} stashed at render time
+
+function _initFyDropdown(fyBlock) {
+  const sel = document.getElementById('pf-fy-select');
+  if (!sel) return;
+  // If the backend didn't send an fy block (old version or error payload),
+  // hide the dropdown and fall back to the All Time view.
+  if (!fyBlock || fyBlock.current_year == null) {
+    sel.style.display = 'none';
+    _pfFyView = 'all_time';
+    return;
+  }
+  sel.style.display = '';
+
+  // Seed the dropdown with two options immediately so the user can interact
+  // even before the fiscal-years endpoint returns. The full list is loaded
+  // lazily and replaces these options.
+  if (!_pfFyYearsLoaded) {
+    sel.innerHTML = `<option value="current">${escHtml(t('fy_this_year') || 'This FY')} (${fyBlock.current_year})</option>`
+                  + `<option value="all_time">${escHtml(t('fy_all_time') || 'All Time')}</option>`;
+    sel.value = _pfFyView;
+    _loadFiscalYearsDropdown(fyBlock.current_year, currentPortfolioId);
+  } else {
+    sel.value = _pfFyView;
+  }
+}
+
+async function _loadFiscalYearsDropdown(currentYear, pidAtFetchTime) {
+  try {
+    const r = await apiFetch('/api/portfolios/' + encodeURIComponent(pidAtFetchTime) + '/fiscal-years');
+    const data = await r.json();
+    // If user switched portfolios mid-fetch, bail — another load is underway.
+    if (pidAtFetchTime !== currentPortfolioId) return;
+    const sel = document.getElementById('pf-fy-select');
+    if (!sel) return;
+    const years = Array.isArray(data.years) ? data.years : [currentYear];
+    const opts = [`<option value="current">${escHtml(t('fy_this_year') || 'This FY')} (${currentYear})</option>`];
+    years.filter(y => y !== currentYear).forEach(y => {
+      opts.push(`<option value="${y}">FY${y}</option>`);
+    });
+    opts.push(`<option value="all_time">${escHtml(t('fy_all_time') || 'All Time')}</option>`);
+    sel.innerHTML = opts.join('');
+    sel.value = _pfFyView;
+    _pfFyYearsLoaded = true;
+  } catch (e) { /* leave default options */ }
+}
+
+// Render the single #pf-change line based on _pfFyView + current portfolio data.
+function renderPfChangeLine() {
+  const el = document.getElementById('pf-change');
+  if (!el || !_pfPnlNumbers) return;
+  const { allTimePnl, allTimePct, fmt } = _pfPnlNumbers;
+  const fyBlock = (portfolio && portfolio.fy) || null;
+
+  let pnl, pct, label, extra = '';
+  if (_pfFyView === 'all_time' || !fyBlock) {
+    pnl = allTimePnl; pct = allTimePct;
+    label = t('all_time') || 'All Time';
+  } else if (_pfFyView === 'current') {
+    const d = fyBlock.current;
+    if (!d) { el.textContent = '—'; el.className = 'pf-header-change'; return; }
+    pnl = d.fy_pnl; pct = d.fy_pnl_pct; label = d.fy_label;
+    if (d.incomplete_baseline) extra = ' · ' + (t('fy_incomplete') || 'incomplete');
+  } else {
+    // Specific past year: backend returns it in fy.requested
+    const d = (fyBlock.requested && fyBlock.requested.fy_year == Number(_pfFyView)) ? fyBlock.requested : null;
+    if (!d) { el.textContent = '—'; el.className = 'pf-header-change'; return; }
+    pnl = d.fy_pnl; pct = d.fy_pnl_pct; label = d.fy_label;
+    if (d.incomplete_baseline) extra = ' · ' + (t('fy_incomplete') || 'incomplete');
+  }
+  const s = pnl >= 0 ? '+' : '';
+  el.textContent = `${s}${fmt(Math.abs(pnl))} (${s}${Math.abs(pct).toFixed(2)}%) ${label}${extra}`;
+  el.className = 'pf-header-change ' + (pnl >= 0 ? 'pos' : 'neg');
+}
+
+function setPfFyView(value) {
+  _pfFyView = value;
+  // Past years require a round trip to compute the backend `requested` block.
+  // Current and all_time are already in the portfolio response — re-render locally.
+  if (value !== 'current' && value !== 'all_time') {
+    loadPortfolio(value);
+  } else {
+    renderPfChangeLine();
+  }
+}
+// ──────────────────────────────────────────────────────────────
+
 function renderPortfolioSwitcher() {
   const sw = document.getElementById('pf-switcher');
   if (!sw) return;
-  const firstNonLive = portfolioList.find(p => !p.is_live)?.id;
   const items = portfolioList.map(p => {
     const isLive = !!p.is_live;
     const active = p.id === currentPortfolioId;
-    const isMain = p.id === firstNonLive;
     const name = isLive ? t('real_account') : (p.name || t('my_portfolio'));
-    const menuBtn = (!isLive && !isMain && active)
+    // Show the ⋯ menu on every non-live active tab, including the main one.
+    // The "last portfolio" protection is enforced in openDeletePortfolioModal
+    // and on the backend — not via UI hiding.
+    const menuBtn = (!isLive && active)
       ? `<span class="tab-menu" onclick="event.stopPropagation();showPfContextMenu(event,'${p.id}')" style="margin-left:4.5px;opacity:0.5;cursor:pointer;padding:0 3px">⋯</span>`
       : '';
-    return `<button class="pf-pill ${active ? 'active' : ''}" onclick="switchPortfolio('${p.id}')" oncontextmenu="if(!${isMain||isLive}){showPfContextMenu(event,'${p.id}');return false}">
+    return `<button class="pf-pill ${active ? 'active' : ''}" onclick="switchPortfolio('${p.id}')" oncontextmenu="if(!${isLive}){showPfContextMenu(event,'${p.id}');return false}">
       ${escHtml(name)}${isLive ? '<span class="live-tag">LIVE</span>' : ''}${menuBtn}
     </button>`;
   }).join('');
   sw.innerHTML = items + `<button class="pf-add" onclick="openAddPortfolioModal()" title="New portfolio">+</button>`;
 }
+
+// Tiny floating menu anchored to the ⋯ button. Two entries: Rename, Delete.
+// Each opens its own dedicated modal.
 function showPfContextMenu(e, pid) {
   e.preventDefault(); e.stopPropagation();
-  const action = prompt('Action? (rename / delete)', 'rename');
-  if (!action) return;
+  // Remove any existing menu
+  document.querySelectorAll('.pf-ctx-menu').forEach(el => el.remove());
+  const menu = document.createElement('div');
+  menu.className = 'pf-ctx-menu';
+  const btnStyle = 'display:block;width:100%;padding:6px 12px;background:transparent;border:none;color:var(--text);text-align:left;cursor:pointer;font-size:9px';
+  menu.style.cssText = `position:fixed;z-index:9999;background:var(--surface2);border:0.75px solid var(--border);border-radius:4.5px;padding:3px 0;min-width:90px;box-shadow:0 4px 12px rgba(0,0,0,0.4)`;
+  menu.innerHTML = `
+    <button style="${btnStyle}" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'" onclick="document.querySelectorAll('.pf-ctx-menu').forEach(e=>e.remove());openRenamePortfolioModal('${pid}')">${t('rename_portfolio') || 'Rename'}</button>
+    <button style="${btnStyle};color:var(--down)" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'" onclick="document.querySelectorAll('.pf-ctx-menu').forEach(e=>e.remove());openDeletePortfolioModal('${pid}')">${t('delete_portfolio') || 'Delete'}</button>
+  `;
+  document.body.appendChild(menu);
+  // Position next to the click
+  const r = menu.getBoundingClientRect();
+  const x = Math.min(e.clientX, window.innerWidth - r.width - 6);
+  const y = Math.min(e.clientY, window.innerHeight - r.height - 6);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  // Close on outside click
+  setTimeout(() => {
+    const close = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('mousedown', close, true); } };
+    document.addEventListener('mousedown', close, true);
+  }, 0);
+}
+
+function openRenamePortfolioModal(pid) {
   const p = portfolioList.find(x => x.id === pid);
-  if (action === 'rename') {
-    const newName = prompt(t('portfolio_name_prompt'), p?.name || '');
-    if (!newName || !newName.trim()) return;
-    apiFetch('/api/portfolios/' + pid, {
+  if (!p) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">${t('pf_rename_title') || 'Rename Portfolio'}</div>
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-field"><label>${t('pf_rename_label') || 'Portfolio name'}</label>
+        <input type="text" id="pf-rename-input" value="${escHtml(p.name || '')}" placeholder="${escHtml(t('portfolio_name_prompt') || 'Portfolio name:')}"/>
+      </div>
+      <div class="modal-msg" id="pf-rename-msg"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">${t('alert_cancel') || 'Cancel'}</button>
+        <button class="btn primary" onclick="submitPortfolioRename('${pid}')">${t('pf_save_btn') || 'Save'}</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const input = document.getElementById('pf-rename-input');
+  input.focus(); input.select();
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') submitPortfolioRename(pid); });
+}
+
+async function submitPortfolioRename(pid) {
+  const input = document.getElementById('pf-rename-input');
+  const msg = document.getElementById('pf-rename-msg');
+  const name = (input.value || '').trim();
+  if (!name) { msg.textContent = t('pf_rename_label') || 'Portfolio name'; msg.className = 'modal-msg err'; return; }
+  try {
+    const r = await apiFetch('/api/portfolios/' + pid, {
       method: 'PUT', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({name: newName.trim()})
-    }).then(async () => { toast('Renamed', 'ok'); await loadPortfolios(); loadPortfolio(); });
-  } else if (action === 'delete') {
-    if (!confirm('Delete this portfolio? All its holdings will be removed.')) return;
-    apiFetch('/api/portfolios/' + pid, { method: 'DELETE' }).then(async () => {
-      toast('Deleted', 'ok');
-      if (currentPortfolioId === pid) currentPortfolioId = portfolioList.find(p => p.id !== pid)?.id || 'main';
-      await loadPortfolios();
-      loadPortfolio();
-    }).catch(() => toast(t('err_delete_failed') || 'Failed to delete', 'err'));
+      body: JSON.stringify({ name })
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      msg.textContent = e.error || (t('alert_save_failed') || 'Save failed');
+      msg.className = 'modal-msg err';
+      return;
+    }
+    document.querySelector('.modal-overlay')?.remove();
+    toast(t('pf_renamed') || 'Portfolio renamed', 'ok');
+    await loadPortfolios();
+    loadPortfolio();
+  } catch(e) {
+    msg.textContent = t('alert_save_failed') || 'Save failed';
+    msg.className = 'modal-msg err';
+  }
+}
+
+function openDeletePortfolioModal(pid) {
+  const p = portfolioList.find(x => x.id === pid);
+  if (!p) return;
+  // Guard: refuse to show the destructive modal at all if this is the last
+  // non-live portfolio — the backend would reject anyway, but surface it early.
+  const nonLive = portfolioList.filter(x => !x.is_live);
+  if (nonLive.length <= 1) {
+    toast(t('pf_last_guard') || "Can't delete your last portfolio", 'err');
+    return;
+  }
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">${t('pf_delete_title') || 'Delete Portfolio'}</div>
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:9px;color:var(--text);margin-bottom:6px"><strong>${escHtml(p.name || t('my_portfolio'))}</strong></div>
+      <div style="font-size:9px;color:var(--text2);margin-bottom:9px">${escHtml(t('pf_delete_confirm') || 'Delete this portfolio? All its holdings, transactions, and cash balance will be permanently removed.')}</div>
+      <div class="modal-msg" id="pf-delete-msg"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">${t('alert_cancel') || 'Cancel'}</button>
+        <button class="btn danger" onclick="submitPortfolioDelete('${pid}')">${t('pf_delete_btn') || 'Delete'}</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function submitPortfolioDelete(pid) {
+  const msg = document.getElementById('pf-delete-msg');
+  // Disable the Delete button so a double-click doesn't fire two requests.
+  const btn = document.querySelector('.modal-overlay .btn.danger');
+  if (btn && btn.disabled) return; // already submitted
+  if (btn) btn.disabled = true;
+  try {
+    const r = await apiFetch('/api/portfolios/' + pid, { method: 'DELETE' });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      msg.textContent = e.error || (t('err_delete_failed') || 'Failed to delete');
+      msg.className = 'modal-msg err';
+      if (btn) btn.disabled = false;
+      return;
+    }
+    document.querySelector('.modal-overlay')?.remove();
+    toast(t('pf_deleted') || 'Portfolio deleted', 'ok');
+    // Refresh the portfolio list FIRST, then re-point currentPortfolioId to a
+    // still-existing id. Doing it in the other order risks pointing at a
+    // portfolio that was also deleted by a concurrent request.
+    await loadPortfolios();
+    if (!portfolioList.find(p => p.id === currentPortfolioId)) {
+      currentPortfolioId = portfolioList[0]?.id || 'main';
+      localStorage.setItem('genrri_last_portfolio', currentPortfolioId);
+    }
+    // Reset the FY dropdown for the new portfolio
+    _pfFyYearsLoaded = false;
+    _pfFyView = 'current';
+    loadPortfolio();
+  } catch(e) {
+    msg.textContent = t('err_delete_failed') || 'Failed to delete';
+    msg.className = 'modal-msg err';
+    if (btn) btn.disabled = false;
   }
 }
 function switchPortfolio(pid) {
   currentPortfolioId = pid;
   localStorage.setItem('genrri_last_portfolio', pid);
+  // Different portfolio = different fiscal-year history; force dropdown refresh
+  _pfFyYearsLoaded = false;
+  _pfFyView = 'current';
   renderPortfolioSwitcher();
   loadPortfolio();
 }
-async function loadPortfolio() {
+async function loadPortfolio(fyYear) {
   if (!portfolioList.length) await loadPortfolios();
   try {
-    const r = await apiFetch('/api/portfolio?portfolio_id=' + encodeURIComponent(currentPortfolioId));
+    let url = '/api/portfolio?portfolio_id=' + encodeURIComponent(currentPortfolioId);
+    if (fyYear && fyYear !== 'current' && fyYear !== 'all_time') {
+      url += '&fy_year=' + encodeURIComponent(fyYear);
+    }
+    const r = await apiFetch(url);
+    if (!r.ok) {
+      // If the portfolio id is invalid (e.g., was just deleted in another tab),
+      // fall back to the first available one rather than trying to render
+      // an error payload as a portfolio object.
+      console.warn('[portfolio] load returned', r.status, '— falling back');
+      if (portfolioList.length) {
+        currentPortfolioId = portfolioList[0].id;
+        localStorage.setItem('genrri_last_portfolio', currentPortfolioId);
+      }
+      return;
+    }
     portfolio = await r.json();
     renderPortfolio();
     loadPerfChart();
@@ -3056,6 +3424,109 @@ function startPortfolioLivePoll() {
 function stopPortfolioLivePoll() {
   if (_pfLivePollTimer) { clearInterval(_pfLivePollTimer); _pfLivePollTimer = null; }
 }
+// Portfolio allocation doughnut chart — restored from the legacy app.
+// Renders one slice per holding plus a "Cash" slice, with a side legend and
+// the portfolio total floating in the center of the doughnut.
+//
+// Palette is warm/muted to match the dark-gold theme — leads with the brand
+// gold, then earthy/dusty supporting tones so nothing clashes with the UI.
+const ALLOC_COLORS = [
+  '#d4af37',  // gold (brand)
+  '#7fb99c',  // muted teal
+  '#c4825e',  // terracotta
+  '#9b7ebd',  // dusty purple
+  '#e09f52',  // warm amber
+  '#6e9cad',  // muted sky blue
+  '#c55b7a',  // dusty rose
+  '#85a563',  // sage
+  '#b37a45',  // ochre
+  '#7a6ca8',  // dusty violet
+  '#5ba197',  // deep seafoam
+  '#d8a05a',  // sand
+];
+let _allocChart = null;
+
+function renderAllocChart(cashJpy, holdings) {
+  const canvas = document.getElementById('alloc-chart');
+  const legend = document.getElementById('alloc-legend');
+  const wrap = document.getElementById('alloc-wrap');
+  const center = document.getElementById('alloc-center');
+  if (!canvas || !legend || !wrap) return;
+  if (!holdings || !holdings.length) {
+    // No holdings — tear down any existing chart to free the canvas.
+    if (_allocChart) { try { _allocChart.destroy(); } catch(e) {} _allocChart = null; }
+    wrap.style.display = 'none';
+    return;
+  }
+
+  // Compute slice values
+  const values = holdings.map(h => {
+    const q = stockPrices[h.symbol] || {};
+    const price = h.current_price || q.price || h.avg_cost || 0;
+    return h.value != null ? h.value : (h.shares * price);
+  });
+  const totalVal = cashJpy + values.reduce((a, b) => a + b, 0);
+  if (totalVal <= 0) {
+    if (_allocChart) { try { _allocChart.destroy(); } catch(e) {} _allocChart = null; }
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+
+  const tickerShort = (sym) => sym ? (sym.endsWith('.T') ? sym.slice(0, -2) : sym) : '';
+  const labels = [t('alloc_cash') || 'Cash', ...holdings.map(h => tickerShort(h.symbol))];
+  const vals   = [cashJpy, ...values];
+  const colors = labels.map((_, i) => ALLOC_COLORS[i % ALLOC_COLORS.length]);
+  const surface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#1a1a1a';
+
+  // If the chart already exists AND the symbol set is the same, update its
+  // data in place instead of destroying + recreating. This prevents the
+  // entry-animation flicker that fires every Kabu live-price poll (~1s when
+  // connected). When the shape changes (different number of holdings), we
+  // rebuild from scratch because slice count/labels are baked at create time.
+  const shapeChanged = !_allocChart
+    || _allocChart.data.labels.length !== labels.length
+    || _allocChart.data.labels.some((l, i) => l !== labels[i]);
+
+  if (!shapeChanged) {
+    _allocChart.data.datasets[0].data = vals;
+    _allocChart.options.plugins.tooltip.callbacks.label =
+      ctx => `${ctx.label}: ${fmt(ctx.raw)} (${(ctx.raw / totalVal * 100).toFixed(1)}%)`;
+    _allocChart.update('none');  // 'none' = skip the re-entry animation
+  } else {
+    if (_allocChart) { try { _allocChart.destroy(); } catch(e) {} _allocChart = null; }
+    _allocChart = new Chart(canvas, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: vals, backgroundColor: colors,
+        borderColor: surface, borderWidth: 2, hoverBorderWidth: 0 }] },
+      options: {
+        cutout: '72%', responsive: true, maintainAspectRatio: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: ctx => `${ctx.label}: ${fmt(ctx.raw)} (${(ctx.raw / totalVal * 100).toFixed(1)}%)`
+          } }
+        }
+      }
+    });
+  }
+
+  // Total value floating in the center of the doughnut
+  if (center) {
+    center.innerHTML = `
+      <div class="alloc-center-val">${escHtml(fmt(totalVal))}</div>
+      <div class="alloc-center-sub">${escHtml(t('total_portfolio') || 'Total')}</div>
+    `;
+  }
+
+  legend.innerHTML = labels.map((l, i) => `
+    <div class="alloc-row">
+      <div class="alloc-dot" style="background:${colors[i]}"></div>
+      <span class="alloc-lbl">${escHtml(l)}</span>
+      <span class="alloc-pct">${(vals[i] / totalVal * 100).toFixed(1)}%</span>
+    </div>`).join('');
+}
+
 function renderPortfolio() {
   if (!portfolio) return;
   const holdings = portfolio.holdings || [];
@@ -3080,11 +3551,16 @@ function renderPortfolio() {
   const allTimePct = portfolio.all_time_pct != null ? portfolio.all_time_pct : (allTimeBase ? (allTimePnl / allTimeBase * 100) : 0);
 
   document.getElementById('pf-total').textContent = fmt(totalValue);
-  const chgEl = document.getElementById('pf-change');
-  const cls = allTimePnl >= 0 ? 'pos' : 'neg';
-  const s = allTimePnl >= 0 ? '+' : '';
-  chgEl.textContent = `${s}${fmt(Math.abs(allTimePnl))} (${s}${Math.abs(allTimePct).toFixed(2)}%) ${t('all_time')}`;
-  chgEl.className = 'pf-header-change ' + cls;
+
+  // Stash the numbers so the dropdown handler can re-render the single-line
+  // P&L without needing to re-fetch the portfolio.
+  _pfPnlNumbers = { allTimePnl, allTimePct, fmt };
+
+  // Populate the FY dropdown once per portfolio load.
+  _initFyDropdown(portfolio.fy);
+
+  // Render whichever view the dropdown is currently on.
+  renderPfChangeLine();
 
   document.getElementById('pf-cash').textContent = fmt(cash);
   document.getElementById('pf-cash-sub').textContent = cashUsd > 0 ? '$' + cashUsd.toFixed(2) : '';
@@ -3096,6 +3572,9 @@ function renderPortfolio() {
   const realizedEl = document.getElementById('pf-realized');
   realizedEl.textContent = (realized >= 0 ? '+' : '') + fmt(Math.abs(realized));
   realizedEl.className = 'pf-stat-value ' + (realized >= 0 ? 'pos' : 'neg');
+
+  // Portfolio allocation doughnut chart (restored from legacy app)
+  renderAllocChart(cashJpyEquiv, holdings);
 
   // Holdings table
   const list = document.getElementById('holdings-list');
@@ -4398,10 +4877,14 @@ async function loadAlerts() {
 }
 
 let _alertCurrentPrice = null;
+let _alertAvgCost = null;        // avg cost for the typed symbol in the active portfolio (or null)
+let _alertRefType = 'current';   // 'current' | 'cost' — which reference is used for % mode
 
 function openAlertModal(prefillSymbol) {
   const sym = prefillSymbol || currentSymbol || '';
   _alertCurrentPrice = null;
+  _alertAvgCost = null;
+  _alertRefType = 'current';
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `<div class="modal">
@@ -4417,6 +4900,12 @@ function openAlertModal(prefillSymbol) {
         <div style="display:flex;gap:4.5px;margin-bottom:4.5px">
           <button type="button" class="btn ct-btn active" id="al-mode-price" onclick="setAlertMode('price')">${t('alert_mode_price') || 'Absolute price'}</button>
           <button type="button" class="btn ct-btn" id="al-mode-pct" onclick="setAlertMode('pct')">${t('alert_mode_pct') || '% change'}</button>
+        </div>
+      </div>
+      <div class="modal-field" id="al-field-ref" style="display:none"><label>${t('alert_reference') || 'Reference'}</label>
+        <div style="display:flex;gap:4.5px">
+          <button type="button" class="btn ct-btn" id="al-ref-cost" onclick="setAlertReference('cost')" disabled title="${escHtml(t('alert_no_holding') || "You don't own this stock \u2014 add a transaction first.")}">${t('alert_ref_cost') || 'Avg cost'}</button>
+          <button type="button" class="btn ct-btn active" id="al-ref-current" onclick="setAlertReference('current')">${t('alert_ref_current') || 'Current price'}</button>
         </div>
       </div>
       <div class="modal-field"><label>${t('col_condition') || 'Condition'}</label>
@@ -4444,9 +4933,10 @@ function openAlertModal(prefillSymbol) {
   </div>`;
   document.body.appendChild(overlay);
   const symInput = document.getElementById('al-sym');
-  symInput.addEventListener('change', fetchAlertCurrentPrice);
-  symInput.addEventListener('blur', fetchAlertCurrentPrice);
-  fetchAlertCurrentPrice();
+  const onSymChange = () => { fetchAlertCurrentPrice(); lookupAlertAvgCost(); };
+  symInput.addEventListener('change', onSymChange);
+  symInput.addEventListener('blur', onSymChange);
+  onSymChange();
 }
 
 async function fetchAlertCurrentPrice() {
@@ -4464,23 +4954,68 @@ async function fetchAlertCurrentPrice() {
   updateAlertPreview();
 }
 
+// Look up avg cost from the currently-loaded portfolio (active tab). If the
+// symbol isn't held, clear the avg cost and disable the "Avg cost" reference
+// button with a tooltip explaining why.
+function lookupAlertAvgCost() {
+  const symEl = document.getElementById('al-sym');
+  if (!symEl) return;
+  const symbol = (symEl.value || '').trim().toUpperCase();
+  let cost = null;
+  try {
+    const holdings = (portfolio && portfolio.holdings) || [];
+    const h = holdings.find(x => (x.symbol || '').toUpperCase() === symbol);
+    if (h && h.avg_cost > 0) cost = Number(h.avg_cost);
+  } catch(e) {}
+  _alertAvgCost = cost;
+  const costBtn = document.getElementById('al-ref-cost');
+  if (costBtn) {
+    if (cost != null) {
+      costBtn.disabled = false;
+      costBtn.removeAttribute('title');
+      // Prefer Avg cost as the default whenever it's available — our primary
+      // use-case is alerting based on the user's cost basis. The user can
+      // still click "Current price" to override.
+      if (_alertRefType !== 'cost') setAlertReference('cost');
+    } else {
+      costBtn.disabled = true;
+      costBtn.setAttribute('title', t('alert_no_holding') || "You don't own this stock — add a transaction first.");
+      // If cost was previously selected but is no longer available, fall back
+      if (_alertRefType === 'cost') setAlertReference('current');
+    }
+  }
+  updateAlertPreview();
+}
+
 function setAlertMode(mode) {
   const priceBtn = document.getElementById('al-mode-price');
   const pctBtn = document.getElementById('al-mode-pct');
   const priceField = document.getElementById('al-field-price');
   const pctField = document.getElementById('al-field-pct');
+  const refField = document.getElementById('al-field-ref');
   if (!priceBtn || !pctBtn) return;
   const isPct = mode === 'pct';
   priceBtn.classList.toggle('active', !isPct);
   pctBtn.classList.toggle('active', isPct);
   priceField.style.display = isPct ? 'none' : '';
   pctField.style.display = isPct ? '' : 'none';
+  if (refField) refField.style.display = isPct ? '' : 'none';
   const condSel = document.getElementById('al-cond');
   if (condSel) {
     Array.from(condSel.options).forEach(opt => {
       opt.textContent = isPct ? opt.dataset.pct : opt.dataset.price;
     });
   }
+  updateAlertPreview();
+}
+
+function setAlertReference(type) {
+  if (type === 'cost' && _alertAvgCost == null) return;  // guarded by disabled attr, but be safe
+  _alertRefType = type;
+  const curBtn = document.getElementById('al-ref-current');
+  const costBtn = document.getElementById('al-ref-cost');
+  if (curBtn) curBtn.classList.toggle('active', type === 'current');
+  if (costBtn) costBtn.classList.toggle('active', type === 'cost');
   updateAlertPreview();
 }
 
@@ -4494,31 +5029,40 @@ function updateAlertPreview() {
   if (!preview) return;
   const mode = getAlertMode();
   const cur = _alertCurrentPrice;
+  const cost = _alertAvgCost;
   const curLabel = t('alert_current_price') || 'Current price';
+  const costLabel = t('alert_avg_cost') || 'Avg cost';
   const trigLabel = t('alert_trigger_price') || 'Trigger price';
   if (mode === 'price') {
     if (cur != null) {
       preview.style.display = '';
-      preview.textContent = `${curLabel}: ${fmtPrice(cur)}`;
+      const parts = [`${curLabel}: ${fmtPrice(cur)}`];
+      if (cost != null) parts.push(`${costLabel}: ${fmtPrice(cost)}`);
+      preview.textContent = parts.join('  ·  ');
     } else {
       preview.style.display = 'none';
     }
     return;
   }
+  // % mode
   preview.style.display = '';
-  if (cur == null) {
+  const ref = _alertRefType === 'cost' ? cost : cur;
+  if (ref == null) {
     preview.textContent = t('alert_price_unavailable') || 'Current price unavailable';
     return;
   }
+  const headerParts = [];
+  if (cur != null) headerParts.push(`${curLabel}: ${fmtPrice(cur)}`);
+  if (cost != null) headerParts.push(`${costLabel}: ${fmtPrice(cost)}`);
   const pctInput = document.getElementById('al-pct');
   const cond = document.getElementById('al-cond').value;
   const pct = parseFloat(pctInput && pctInput.value);
   if (!pct || isNaN(pct) || pct <= 0) {
-    preview.textContent = `${curLabel}: ${fmtPrice(cur)}`;
+    preview.textContent = headerParts.join('  ·  ');
     return;
   }
-  const trig = cond === 'above' ? cur * (1 + pct / 100) : cur * (1 - pct / 100);
-  preview.textContent = `${curLabel}: ${fmtPrice(cur)}  ·  ${trigLabel}: ${fmtPrice(trig)}`;
+  const trig = cond === 'above' ? ref * (1 + pct / 100) : ref * (1 - pct / 100);
+  preview.textContent = `${headerParts.join('  ·  ')}  ·  ${trigLabel}: ${fmtPrice(trig)}`;
 }
 
 async function saveAlert() {
@@ -4530,10 +5074,12 @@ async function saveAlert() {
   if (!symbol) {
     msg.textContent = t('alert_required_msg') || 'Symbol and value required'; msg.className = 'modal-msg err'; return;
   }
-  if (_alertCurrentPrice == null || _alertCurrentPrice <= 0) {
+  // Pick the reference: avg cost if user chose it (and it's available); else current price.
+  const useCost = (mode === 'pct') && _alertRefType === 'cost' && _alertAvgCost != null && _alertAvgCost > 0;
+  const ref = useCost ? _alertAvgCost : _alertCurrentPrice;
+  if (ref == null || ref <= 0) {
     msg.textContent = t('alert_price_unavailable') || 'Current price unavailable'; msg.className = 'modal-msg err'; return;
   }
-  const ref = _alertCurrentPrice;
   let up_pct = null, down_pct = null;
   if (mode === 'pct') {
     const pct = parseFloat(document.getElementById('al-pct').value);
@@ -4580,17 +5126,22 @@ async function loadSettingsPage() {
   // Username
   const u = document.getElementById('settings-username');
   if (u && authUser) u.textContent = authUser;
-  // Commission — from localStorage (cached) or /api/settings
+  // Commission + Fiscal Year start — both from /api/settings. Read once, populate both.
   const cpct = document.getElementById('settings-commission');
-  if (cpct) {
-    const cached = localStorage.getItem('genrri_commission_pct');
-    cpct.value = cached != null ? cached : '0.1';
-    try {
-      const r = await apiFetch('/api/settings');
-      const s = await r.json();
-      if (s.commission_pct != null) { cpct.value = s.commission_pct; localStorage.setItem('genrri_commission_pct', s.commission_pct); }
-    } catch(e) {}
-  }
+  const fyMo = document.getElementById('settings-fy-month');
+  const fyDy = document.getElementById('settings-fy-day');
+  if (cpct) cpct.value = localStorage.getItem('genrri_commission_pct') ?? '0.1';
+  if (fyMo) fyMo.value = '7';
+  if (fyDy) fyDy.value = '1';
+  try {
+    const r = await apiFetch('/api/settings');
+    const s = await r.json();
+    if (cpct && s.commission_pct != null) {
+      cpct.value = s.commission_pct; localStorage.setItem('genrri_commission_pct', s.commission_pct);
+    }
+    if (fyMo && s.fy_start_month != null) fyMo.value = s.fy_start_month;
+    if (fyDy && s.fy_start_day != null) fyDy.value = s.fy_start_day;
+  } catch(e) {}
   // Color mode
   const cm = document.getElementById('settings-colormode');
   if (cm) cm.value = localStorage.getItem('genrri_colormode') || 'us';
@@ -4608,6 +5159,17 @@ async function saveCommissionPct() {
   await apiFetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ commission_pct: v }) });
   flashSavedToast('settings-commission-saved');
+}
+async function saveFyStart() {
+  const m = parseInt(document.getElementById('settings-fy-month').value, 10);
+  const d = parseInt(document.getElementById('settings-fy-day').value, 10);
+  if (isNaN(m) || m < 1 || m > 12) return;
+  if (isNaN(d) || d < 1 || d > 31) return;
+  await apiFetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ fy_start_month: m, fy_start_day: d }) });
+  flashSavedToast('settings-fy-saved');
+  // Refresh portfolio view so the dropdown reflects the new boundaries
+  if (currentRoute === 'portfolio') loadPortfolio();
 }
 async function saveColorMode() {
   const v = document.getElementById('settings-colormode').value;
