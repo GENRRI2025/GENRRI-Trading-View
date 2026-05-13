@@ -1252,7 +1252,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
       <div class="mh-title" id="page-title" data-i18n="nav_market">Markets</div>
       <div class="mh-search">
         <svg class="mh-search-icon" width="10.5" height="10.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="global-search" data-i18n-ph="search_placeholder" placeholder="Search stocks..." oninput="onSearchInput()" onblur="setTimeout(closeSearch, 200)" onfocus="if(document.getElementById('search-results').children.length) document.getElementById('search-results').style.display='block'" autocomplete="off"/>
+        <input type="search" id="global-search" name="stocksearch" data-i18n-ph="search_placeholder" placeholder="Search stocks..." readonly oninput="onSearchInput()" onblur="setTimeout(closeSearch, 200)" onfocus="this.removeAttribute('readonly');if(document.getElementById('search-results').children.length) document.getElementById('search-results').style.display='block'" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore/>
         <div class="search-results" id="search-results"></div>
       </div>
       <div class="mh-spacer"></div>
@@ -4553,8 +4553,8 @@ function openImportModal(initialTab) {
       <div class="modal-field">
         <label>${t('imp_stock_label') || 'Stock (code or name)'}</label>
         <div class="stock-autocomplete">
-          <input class="s-input" id="imp-search" placeholder="7203 / トヨタ / AAPL" autocomplete="off"
-            oninput="_impStockSearch()" onblur="setTimeout(()=>{const el=document.getElementById('imp-ac');if(el)el.style.display='none'},180)"/>
+          <input type="search" class="s-input" id="imp-search" name="impstocksearch" placeholder="7203 / トヨタ / AAPL" readonly autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore
+            onfocus="this.removeAttribute('readonly')" oninput="_impStockSearch()" onblur="setTimeout(()=>{const el=document.getElementById('imp-ac');if(el)el.style.display='none'},180)"/>
           <input type="hidden" id="imp-symbol"/>
           <div id="imp-ac" class="stock-autocomplete-list" style="display:none"></div>
         </div>
@@ -4600,8 +4600,8 @@ function openImportModal(initialTab) {
       <div class="modal-field">
         <label>${t('imp_stock_label') || 'Stock (code or name)'}</label>
         <div class="stock-autocomplete">
-          <input class="s-input" id="imp-search2" placeholder="7203 / トヨタ / AAPL" autocomplete="off"
-            oninput="_impStockSearch('2')" onblur="setTimeout(()=>{const el=document.getElementById('imp-ac2');if(el)el.style.display='none'},180)"/>
+          <input type="search" class="s-input" id="imp-search2" name="impstocksearch2" placeholder="7203 / トヨタ / AAPL" readonly autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore
+            onfocus="this.removeAttribute('readonly')" oninput="_impStockSearch('2')" onblur="setTimeout(()=>{const el=document.getElementById('imp-ac2');if(el)el.style.display='none'},180)"/>
           <input type="hidden" id="imp-symbol2"/>
           <div id="imp-ac2" class="stock-autocomplete-list" style="display:none"></div>
         </div>
