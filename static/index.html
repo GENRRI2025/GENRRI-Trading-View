@@ -1395,7 +1395,8 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
         </div>
         <div class="pf-stats">
           <div class="pf-stat"><div class="pf-stat-label" data-i18n="avail_cash">Available Cash</div><div class="pf-stat-value" id="pf-cash">¥0</div><div class="pf-stat-sub" id="pf-cash-sub"></div></div>
-          <div class="pf-stat"><div class="pf-stat-label" data-i18n="invested">Invested</div><div class="pf-stat-value" id="pf-invested">¥0</div></div>
+          <div class="pf-stat"><div class="pf-stat-label" data-i18n="cost">Cost</div><div class="pf-stat-value" id="pf-cost">¥0</div></div>
+          <div class="pf-stat"><div class="pf-stat-label" data-i18n="invested">Market Value</div><div class="pf-stat-value" id="pf-invested">¥0</div></div>
           <div class="pf-stat"><div class="pf-stat-label" data-i18n="unrealized_pnl">Unrealized P&amp;L</div><div class="pf-stat-value" id="pf-unrealized">¥0</div></div>
           <div class="pf-stat"><div class="pf-stat-label" data-i18n="realized_pnl">Realized P&amp;L</div><div class="pf-stat-value" id="pf-realized">¥0</div></div>
         </div>
@@ -1789,7 +1790,7 @@ body:not(.i18n-ready) [data-i18n] { visibility: hidden; }
 const LANG_DATA = {
   en: {
     nav_portfolio:'Portfolio', nav_market:'Markets', nav_history:'Transactions', nav_settings:'Settings', nav_cash:'Cash',
-    total_portfolio:'Total Portfolio Value', avail_cash:'Available Cash', invested:'Invested',
+    total_portfolio:'Total Portfolio Value', avail_cash:'Available Cash', cost:'Cost', invested:'Market Value',
     unrealized_pnl:'Unrealized P&L', realized_pnl:'Realized P&L',
     holdings:'Holdings', no_holdings:'No holdings yet', no_holdings_sub:'Head to the Market tab to start trading',
     reset_portfolio:'Reset Portfolio', all_time:'All Time',
@@ -1918,7 +1919,7 @@ const LANG_DATA = {
     mk_sector_heatmap:'Sector Heat Map', mk_sector_subtitle:'Avg change by sector',
     mk_src_live:'Live · Kabu', mk_src_cached:'Delayed · Yahoo', mk_updated:'updated',
     mk_status_morning:'OPEN · morning session (closes 11:30 JST)',
-    mk_status_afternoon:'OPEN · afternoon session (closes 15:00 JST)',
+    mk_status_afternoon:'OPEN · afternoon session (closes 15:30 JST)',
     mk_status_lunch:'Lunch break · resumes 12:30 JST',
     mk_status_pre:'Closed · opens 09:00 JST',
     mk_status_post:'Closed · opens 09:00 JST next trading day',
@@ -1984,7 +1985,7 @@ const LANG_DATA = {
   },
   ja: {
     nav_portfolio:'資産', nav_market:'銘柄', nav_history:'取引履歴', nav_settings:'設定', nav_cash:'残高',
-    total_portfolio:'総資産評価額', avail_cash:'利用可能現金', invested:'投資額',
+    total_portfolio:'総資産評価額', avail_cash:'利用可能現金', cost:'取得金額', invested:'時価',
     unrealized_pnl:'含み損益', realized_pnl:'実現損益',
     holdings:'保有銘柄', no_holdings:'保有銘柄なし', no_holdings_sub:'銘柄ページで取引を始めましょう',
     reset_portfolio:'リセット', all_time:'累計',
@@ -2067,7 +2068,7 @@ const LANG_DATA = {
     mk_sector_heatmap:'セクター別ヒートマップ', mk_sector_subtitle:'セクター別平均変動率',
     mk_src_live:'リアルタイム · Kabu', mk_src_cached:'遅延 · Yahoo', mk_updated:'更新',
     mk_status_morning:'前場 · 11:30 JSTで終了',
-    mk_status_afternoon:'後場 · 15:00 JSTで終了',
+    mk_status_afternoon:'後場 · 15:30 JSTで終了',
     mk_status_lunch:'昼休み · 12:30 JSTに再開',
     mk_status_pre:'取引時間外 · 09:00 JSTに開始',
     mk_status_post:'取引終了 · 翌取引日 09:00 JSTに開始',
@@ -2157,7 +2158,7 @@ const LANG_DATA = {
   },
   zh: {
     nav_portfolio:'持仓', nav_market:'市场', nav_history:'交易记录', nav_settings:'设置', nav_cash:'现金',
-    total_portfolio:'总资产', avail_cash:'可用现金', invested:'已投资',
+    total_portfolio:'总资产', avail_cash:'可用现金', cost:'成本', invested:'市值',
     unrealized_pnl:'未实现盈亏', realized_pnl:'已实现盈亏',
     holdings:'持仓', no_holdings:'暂无持仓', no_holdings_sub:'前往市场页面开始交易',
     reset_portfolio:'重置', all_time:'累计',
@@ -2240,7 +2241,7 @@ const LANG_DATA = {
     mk_sector_heatmap:'板块热力图', mk_sector_subtitle:'板块平均涨跌幅',
     mk_src_live:'实时 · Kabu', mk_src_cached:'延迟 · Yahoo', mk_updated:'更新于',
     mk_status_morning:'开盘 · 上午盘（11:30 JST 收盘）',
-    mk_status_afternoon:'开盘 · 下午盘（15:00 JST 收盘）',
+    mk_status_afternoon:'开盘 · 下午盘（15:30 JST 收盘）',
     mk_status_lunch:'午休 · 12:30 JST 恢复',
     mk_status_pre:'闭市 · 09:00 JST 开盘',
     mk_status_post:'闭市 · 下一个交易日 09:00 JST 开盘',
@@ -2942,7 +2943,8 @@ function _marketStatus() {
   if (mins < 9*60)                         return { cls: 'closed', key: 'mk_status_pre',     defaultText: 'Closed · opens 09:00 JST' };
   if (mins < 11*60 + 30)                   return { cls: 'open',   key: 'mk_status_morning', defaultText: 'OPEN · morning session' };
   if (mins < 12*60 + 30)                   return { cls: 'lunch',  key: 'mk_status_lunch',   defaultText: 'Lunch break · resumes 12:30 JST' };
-  if (mins < 15*60)                        return { cls: 'open',   key: 'mk_status_afternoon', defaultText: 'OPEN · afternoon session' };
+  // TSE extended afternoon session to 15:30 JST effective 2024-11-05.
+  if (mins < 15*60 + 30)                   return { cls: 'open',   key: 'mk_status_afternoon', defaultText: 'OPEN · afternoon session' };
   return { cls: 'closed', key: 'mk_status_post', defaultText: 'Closed · opens 09:00 JST next trading day' };
 }
 function renderMarketStatus() {
@@ -3530,7 +3532,7 @@ function renderAllocChart(cashJpy, holdings) {
 function renderPortfolio() {
   if (!portfolio) return;
   const holdings = portfolio.holdings || [];
-  let invested = 0, unrealized = 0;
+  let invested = 0, unrealized = 0, totalCost = 0;
   // Fetch quotes for holdings to compute values (uses cached stockPrices where possible)
   holdings.forEach(h => {
     const q = stockPrices[h.symbol] || {};
@@ -3540,6 +3542,7 @@ function renderPortfolio() {
     const pnl = h.pnl != null ? h.pnl : (value - cost);
     invested += value;
     unrealized += pnl;
+    totalCost += cost;
   });
   const cash = portfolio.cash || 0;
   const cashUsd = portfolio.cash_usd || 0;
@@ -3564,6 +3567,7 @@ function renderPortfolio() {
 
   document.getElementById('pf-cash').textContent = fmt(cash);
   document.getElementById('pf-cash-sub').textContent = cashUsd > 0 ? '$' + cashUsd.toFixed(2) : '';
+  document.getElementById('pf-cost').textContent = fmt(totalCost);
   document.getElementById('pf-invested').textContent = fmt(invested);
   const unrealizedEl = document.getElementById('pf-unrealized');
   unrealizedEl.textContent = (unrealized >= 0 ? '+' : '') + fmt(Math.abs(unrealized));
@@ -3599,7 +3603,7 @@ function renderPortfolio() {
     const pnl = h.pnl != null ? h.pnl : (value - cost);
     const pnlPct = cost ? (pnl / cost) * 100 : 0;
     const alloc = invested ? (value / invested * 100) : 0;
-    return { h, price, value, pnl, pnlPct, alloc };
+    return { h, price, value, cost, pnl, pnlPct, alloc };
   });
 
   if (symsMatch) {
@@ -3626,14 +3630,14 @@ function renderPortfolio() {
       _maybeFlashRow(row, price > 0 ? price : null);
     });
   } else {
-    list.innerHTML = rowData.map(({ h, price, value, pnl, pnlPct, alloc }) => {
+    list.innerHTML = rowData.map(({ h, price, value, cost, pnl, pnlPct, alloc }) => {
       const cls = pnl >= 0 ? 'pos' : 'neg';
       const s = pnl >= 0 ? '+' : '';
       const dataPrice = price > 0 ? ` data-last-price="${price}"` : '';
       return `<div class="holding-row" data-symbol="${escHtml(h.symbol)}"${dataPrice} onclick="selectStock('${h.symbol}')">
         <div>
           <div class="holding-name">${escHtml(h.name || h.symbol)}</div>
-          <div class="holding-sub">${h.shares} × ${fmtPrice(h.avg_cost)}</div>
+          <div class="holding-sub">${h.shares} × ${fmtPrice(h.avg_cost)} = ${fmt(cost)}</div>
         </div>
         <div class="holding-value">${fmt(value)}</div>
         <div class="holding-pnl ${cls}">${s}${fmtPrice(Math.abs(pnl))} (${s}${Math.abs(pnlPct).toFixed(1)}%)</div>
