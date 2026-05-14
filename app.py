@@ -1348,6 +1348,17 @@ def _build_stock_info(symbol):
         'numAnalysts': safe('numberOfAnalystOpinions'),
         'recommendationKey': safe('recommendationKey', ''),
     }
+    # JP stocks: enrich with the JPX-sourced Japanese name so the frontend
+    # can show 助川電気工業 instead of "Sukegawa Electric Co., Ltd." in JP locale.
+    if symbol.endswith('.T'):
+        try:
+            conn = get_db()
+            row = conn.execute('SELECT name_jp FROM stocks WHERE symbol = ?', (symbol,)).fetchone()
+            conn.close()
+            if row and row['name_jp']:
+                result['nameJp'] = row['name_jp']
+        except Exception:
+            pass
     STOCK_INFO_CACHE[symbol] = {'data': result, 'ts': now}
     # Persist to disk in background so it survives restarts
     threading.Thread(target=_save_stock_info_cache, daemon=True).start()
@@ -3372,6 +3383,18 @@ def get_portfolio():
 
         # ── Standard path: DB holdings (simulation accounts or Kabu offline) ──
         holdings = [dict(r) for r in conn.execute('SELECT * FROM holdings WHERE user_id = ? AND portfolio_id = ?', (uid, pid)).fetchall()]
+
+        # Enrich JP holdings with name_jp from the stocks table so the frontend
+        # can show Japanese names in JP locale even if the stored holdings.name
+        # is in another script.
+        jp_syms = [h['symbol'] for h in holdings if h.get('symbol', '').endswith('.T')]
+        if jp_syms:
+            placeholders = ','.join('?' * len(jp_syms))
+            rows = conn.execute(f'SELECT symbol, name_jp FROM stocks WHERE symbol IN ({placeholders})', jp_syms).fetchall()
+            name_jp_map = {r['symbol']: r['name_jp'] for r in rows if r['name_jp']}
+            for h in holdings:
+                if h['symbol'] in name_jp_map:
+                    h['name_jp'] = name_jp_map[h['symbol']]
 
         # For live accounts when Kabu is offline, enrich holdings with cached/Yahoo prices
         source = 'local'

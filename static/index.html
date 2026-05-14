@@ -2447,6 +2447,14 @@ function tVal(s) {
   if (!row) return s;
   return row[currentLang] || s;
 }
+// Prefer the JPX-sourced Japanese name when locale is JP. Used for holdings,
+// stock detail panel, etc. Falls back to whatever name we already have.
+function stockName(obj, fallback) {
+  if (!obj) return fallback || '';
+  if (currentLang === 'ja' && obj.name_jp) return obj.name_jp;
+  if (currentLang === 'ja' && obj.nameJp)  return obj.nameJp;
+  return obj.name || obj.longName || fallback || '';
+}
 function applyTranslations() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const k = el.getAttribute('data-i18n');
@@ -3081,7 +3089,7 @@ function renderPfChangeLine() {
     pnl = d.fy_pnl; pct = d.fy_pnl_pct; label = d.fy_label;
     if (d.incomplete_baseline) extra = ' · ' + (t('fy_incomplete') || 'incomplete');
   }
-  const s = pnl >= 0 ? '+' : '';
+  const s = pnl >= 0 ? '+' : '−';
   el.textContent = `${s}${fmt(Math.abs(pnl))} (${s}${Math.abs(pct).toFixed(2)}%) ${label}${extra}`;
   el.className = 'pf-header-change ' + (pnl >= 0 ? 'pos' : 'neg');
 }
@@ -3570,11 +3578,11 @@ function renderPortfolio() {
   document.getElementById('pf-cost').textContent = fmt(totalCost);
   document.getElementById('pf-invested').textContent = fmt(invested);
   const unrealizedEl = document.getElementById('pf-unrealized');
-  unrealizedEl.textContent = (unrealized >= 0 ? '+' : '') + fmt(Math.abs(unrealized));
+  unrealizedEl.textContent = (unrealized >= 0 ? '+' : '−') + fmt(Math.abs(unrealized));
   unrealizedEl.className = 'pf-stat-value ' + (unrealized >= 0 ? 'pos' : 'neg');
   const realized = portfolio.realized_pnl || 0;
   const realizedEl = document.getElementById('pf-realized');
-  realizedEl.textContent = (realized >= 0 ? '+' : '') + fmt(Math.abs(realized));
+  realizedEl.textContent = (realized >= 0 ? '+' : '−') + fmt(Math.abs(realized));
   realizedEl.className = 'pf-stat-value ' + (realized >= 0 ? 'pos' : 'neg');
 
   // Portfolio allocation doughnut chart (restored from legacy app)
@@ -3616,7 +3624,7 @@ function renderPortfolio() {
       if (valEl) valEl.textContent = fmt(value);
       if (pnlEl) {
         const cls = pnl >= 0 ? 'pos' : 'neg';
-        const s = pnl >= 0 ? '+' : '';
+        const s = pnl >= 0 ? '+' : '−';
         pnlEl.className = 'holding-pnl ' + cls;
         pnlEl.textContent = `${s}${fmtPrice(Math.abs(pnl))} (${s}${Math.abs(pnlPct).toFixed(1)}%)`;
       }
@@ -3632,11 +3640,12 @@ function renderPortfolio() {
   } else {
     list.innerHTML = rowData.map(({ h, price, value, cost, pnl, pnlPct, alloc }) => {
       const cls = pnl >= 0 ? 'pos' : 'neg';
-      const s = pnl >= 0 ? '+' : '';
+      const s = pnl >= 0 ? '+' : '−';
       const dataPrice = price > 0 ? ` data-last-price="${price}"` : '';
+      const displayName = stockName(h, h.symbol);
       return `<div class="holding-row" data-symbol="${escHtml(h.symbol)}"${dataPrice} onclick="selectStock('${h.symbol}')">
         <div>
-          <div class="holding-name">${escHtml(h.name || h.symbol)}</div>
+          <div class="holding-name">${escHtml(displayName)}</div>
           <div class="holding-sub">${h.shares} × ${fmtPrice(h.avg_cost)} = ${fmt(cost)}</div>
         </div>
         <div class="holding-value">${fmt(value)}</div>
@@ -3755,7 +3764,7 @@ async function selectStock(symbol) {
     const r = await apiFetch('/api/stock-info/' + encodeURIComponent(symbol));
     const info = await r.json();
     if (info && !info.error) {
-      document.getElementById('dp-name').textContent = info.longName || info.name || clean;
+      document.getElementById('dp-name').textContent = stockName(info, info.longName || info.name || clean);
 
       // Collect candidates for each stat from the three sources
       const q = quote || {};
@@ -4187,7 +4196,8 @@ async function runSearch(q) {
     if (!items.length) { results.innerHTML = `<div style="padding:9px;color:var(--text2);font-size:9px;text-align:center">No matches</div>`; results.style.display = 'block'; return; }
     results.innerHTML = items.map(s => {
       const sym = s.symbol || s.code;
-      const name = s.name || s.longName || '';
+      // nameJP / name_jp come from the JPX stocks table; prefer those in JP locale.
+      const name = stockName({ name: s.name || s.longName || '', name_jp: s.nameJP || s.name_jp }, sym);
       const region = sym && sym.endsWith('.T') ? 'JP' : 'US';
       return `<div class="sr-item" onclick="selectFromSearch('${escHtml(sym)}')">
         <span class="sr-sym">${escHtml(sym)}</span>
@@ -6208,7 +6218,7 @@ async function renderWatchlistRows(items) {
           if (valEl) valEl.textContent = fmt(newValue);
           if (pnlEl) {
             const cls = newPnl >= 0 ? 'pos' : 'neg';
-            const s = newPnl >= 0 ? '+' : '';
+            const s = newPnl >= 0 ? '+' : '−';
             pnlEl.className = 'holding-pnl ' + cls;
             pnlEl.textContent = `${s}${fmtPrice(Math.abs(newPnl))} (${s}${Math.abs(newPct).toFixed(1)}%)`;
           }
@@ -6587,7 +6597,7 @@ function _syncSymbolEverywhere(symbol, price, change, changePct, fromTick) {
       if (valEl) valEl.textContent = fmt(newValue);
       if (pnlEl) {
         const cls = newPnl >= 0 ? 'pos' : 'neg';
-        const s = newPnl >= 0 ? '+' : '';
+        const s = newPnl >= 0 ? '+' : '−';
         pnlEl.className = 'holding-pnl ' + cls;
         pnlEl.textContent = `${s}${fmtPrice(Math.abs(newPnl))} (${s}${Math.abs(newPct).toFixed(1)}%)`;
       }
